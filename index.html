@@ -144,6 +144,7 @@
   button:disabled{background:#9ca3af;cursor:not-allowed;}
   button.secondary{background:#fff;color:var(--accent);border:1px solid var(--accent);}
   button.secondary:hover{background:#eff6ff;}
+  button.secondary:disabled{background:#f1f5f9;color:#9ca3af;border-color:#d1d5db;cursor:not-allowed;}
 
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px;}
 
@@ -376,7 +377,10 @@
       <div id="cropStage">
         <canvas id="cropCanvas"></canvas>
       </div>
+      <p class="desc" id="zoomHint" style="display:none;margin-top:8px;">拡大表示中です。この中でさらに数字だけを囲んでから読み取ってください。</p>
       <div class="row">
+        <button type="button" class="secondary" id="zoomInBtn">🔍 選択範囲を拡大</button>
+        <button type="button" class="secondary" id="zoomOutBtn" style="display:none;">全体表示に戻す</button>
         <button type="button" class="secondary" id="rotateLeftBtn">↺ 90°回転</button>
         <button type="button" class="secondary" id="rotateRightBtn">↻ 90°回転</button>
         <button type="button" class="secondary" id="resetCropBtn">範囲をリセット</button>
@@ -565,6 +569,9 @@
   const rotateLeftBtn = document.getElementById('rotateLeftBtn');
   const rotateRightBtn = document.getElementById('rotateRightBtn');
   const resetCropBtn = document.getElementById('resetCropBtn');
+  const zoomInBtn = document.getElementById('zoomInBtn');
+  const zoomOutBtn = document.getElementById('zoomOutBtn');
+  const zoomHint = document.getElementById('zoomHint');
   const ocrBtn = document.getElementById('ocrBtn');
   const wizardStartBtn = document.getElementById('wizardStartBtn');
   const clearImgBtn = document.getElementById('clearImgBtn');
@@ -578,6 +585,7 @@
   let sourceCanvas = document.createElement('canvas'); // 回転適用後のフル解像度画像
   let displayScale = 1;       // sourceCanvas 1px あたりの cropCanvas px 数の逆数（source / display）
   let rect = {x:0, y:0, w:0, h:0}; // 切り抜き範囲（cropCanvas 座標系）
+  let zoomStack = []; // 拡大前の sourceCanvas を積んでおき、「全体表示に戻す」で復元する
 
   dropzone.addEventListener('click', () => fileInput.click());
   dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
@@ -598,10 +606,12 @@
     img.onload = () => {
       originalImage = img;
       rotationDeg = 0;
+      zoomStack = [];
       URL.revokeObjectURL(url);
       cropWrap.style.display = 'block';
       buildSourceCanvas();
       initCropUI();
+      updateZoomControls();
       ocrBtn.disabled = false;
       wizardStartBtn.disabled = false;
       clearImgBtn.disabled = false;
@@ -613,6 +623,7 @@
   clearImgBtn.addEventListener('click', () => {
     originalImage = null;
     fileInput.value = '';
+    zoomStack = [];
     cropWrap.style.display = 'none';
     ocrBtn.disabled = true;
     wizardStartBtn.disabled = true;
@@ -762,6 +773,53 @@
     setDefaultRect();
     drawCropStage();
   });
+
+  // 選択範囲を拡大表示する。画像が粗くて狙う数字の位置が分かりにくい場合、
+  // まずおおまかに範囲を囲んで拡大し、拡大後の画面であらためて正確に囲み直せるようにする
+  function updateZoomControls(){
+    const zoomed = zoomStack.length > 0;
+    zoomOutBtn.style.display = zoomed ? 'inline-block' : 'none';
+    zoomHint.style.display = zoomed ? 'block' : 'none';
+    rotateLeftBtn.disabled = zoomed;
+    rotateRightBtn.disabled = zoomed;
+  }
+
+  function zoomIntoSelection(){
+    const sx = rect.x * displayScale;
+    const sy = rect.y * displayScale;
+    const sw = Math.max(1, rect.w * displayScale);
+    const sh = Math.max(1, rect.h * displayScale);
+    if (sw < 15 || sh < 15) {
+      alert('拡大する範囲が小さすぎます。もう少し広めに囲んでから拡大してください。');
+      return;
+    }
+    zoomStack.push(sourceCanvas);
+
+    const targetWidth = Math.min(Math.max(sw * 3, 800), 2400);
+    const scale = targetWidth / sw;
+    const zoomed = document.createElement('canvas');
+    zoomed.width = Math.max(1, Math.round(sw * scale));
+    zoomed.height = Math.max(1, Math.round(sh * scale));
+    const zctx = zoomed.getContext('2d');
+    zctx.imageSmoothingEnabled = true;
+    zctx.imageSmoothingQuality = 'high';
+    zctx.drawImage(sourceCanvas, sx, sy, sw, sh, 0, 0, zoomed.width, zoomed.height);
+
+    sourceCanvas = zoomed;
+    initCropUI();
+    updateZoomControls();
+  }
+
+  function resetZoomFully(){
+    if (zoomStack.length === 0) return;
+    sourceCanvas = zoomStack[0];
+    zoomStack = [];
+    initCropUI();
+    updateZoomControls();
+  }
+
+  zoomInBtn.addEventListener('click', zoomIntoSelection);
+  zoomOutBtn.addEventListener('click', resetZoomFully);
 
   /* ---------- crop + preprocess (grayscale / contrast stretch / upscale) ---------- */
   function extractProcessedCanvas(){
@@ -926,6 +984,7 @@
     wizardInstruction.textContent = f.instruction;
     wizardConfirm.style.display = 'none';
     wizardActionRow.style.display = 'flex';
+    resetZoomFully(); // 新しい項目では、次にどこにあるか分からないため全体表示から始める
     setDefaultRect();
     drawCropStage();
   }
