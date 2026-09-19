@@ -1339,7 +1339,15 @@
         `脚の筋肉量の左右差（${d.legAsym.diffPct.toFixed(1)}%）により、片側の足首に負担が偏っている可能性があります。`);
     }
 
-    if (area === '肘' || area === '手首・手') {
+    if (area === '肘') {
+      addIf(d.armAsym && d.armAsym.diffPct >= 1,
+        `腕の筋肉量の左右差（${d.armAsym.diffPct.toFixed(1)}%）があり、利き手側などへの負担偏在が考えられます。`);
+    }
+
+    if (area === '手首・手') {
+      addIf(d.bmi !== null && d.bmi >= 25, '体重増加により手首・手にかかる負荷が大きくなっている可能性があります。');
+      addIf(d.smm !== null && d.weight !== null && (d.smm / d.weight * 100) < (d.gender === 'male' ? 33 : 25),
+        '体重に対して腕を支える筋肉量が少なめで、手首・手への負担が増えやすい状態です。');
       addIf(d.armAsym && d.armAsym.diffPct >= 1,
         `腕の筋肉量の左右差（${d.armAsym.diffPct.toFixed(1)}%）があり、利き手側などへの負担偏在が考えられます。`);
     }
