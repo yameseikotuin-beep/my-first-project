@@ -1332,6 +1332,9 @@
     }
 
     if (area === '足首・足') {
+      addIf(d.bmi !== null && d.bmi >= 25, '体重増加により足首・足部にかかる負荷が大きくなっている可能性があります。');
+      addIf(d.smm !== null && d.weight !== null && (d.smm / d.weight * 100) < (d.gender === 'male' ? 33 : 25),
+        '体重に対して脚を支える筋肉量が少なめで、足首・足部への負担が増えやすい状態です。');
       addIf(d.legAsym && d.legAsym.diffPct >= 1,
         `脚の筋肉量の左右差（${d.legAsym.diffPct.toFixed(1)}%）により、片側の足首に負担が偏っている可能性があります。`);
     }
