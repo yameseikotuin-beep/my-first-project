@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#2563eb">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="InBody診断">
 <title>InBody × 痛み因果診断アプリ</title>
 <style>
   :root{
@@ -24,6 +29,7 @@
     --radius:10px;
   }
   *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;}
   body{
     margin:0;
     background:var(--bg);
@@ -31,6 +37,8 @@
     font-family:"Hiragino Sans","Yu Gothic",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     line-height:1.6;
     padding-bottom:60px;
+    overflow-x:hidden;
+    -webkit-tap-highlight-color:transparent;
   }
   header{
     background:linear-gradient(135deg,#1d4ed8,#2563eb);
@@ -44,6 +52,7 @@
     max-width:880px;
     margin:20px auto;
     padding:0 16px;
+    width:100%;
     display:flex;
     flex-direction:column;
     gap:20px;
@@ -92,14 +101,18 @@
 
   button{
     font:inherit;
+    font-size:16px;
     cursor:pointer;
     border:none;
     border-radius:8px;
-    padding:10px 18px;
+    padding:12px 18px;
+    min-height:44px;
     background:var(--accent);
     color:#fff;
     font-weight:600;
     transition:.15s;
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
   }
   button:hover{background:var(--accent-dark);}
   button:disabled{background:#9ca3af;cursor:not-allowed;}
@@ -131,11 +144,12 @@
     min-height:110px;
     margin-top:8px;
     font-family:ui-monospace,monospace;
-    font-size:.75rem;
+    font-size:16px;
     padding:8px;
     border-radius:8px;
     border:1px solid var(--border);
     resize:vertical;
+    box-sizing:border-box;
   }
 
   .grid{
@@ -152,10 +166,12 @@
   }
   .field input, .field select{
     width:100%;
-    padding:8px 10px;
+    padding:10px 10px;
+    min-height:42px;
     border-radius:7px;
     border:1px solid var(--border);
     font:inherit;
+    font-size:16px;
     background:#fff;
   }
   .field input:focus, .field select:focus{outline:2px solid var(--accent);outline-offset:1px;}
@@ -169,8 +185,10 @@
   }
   .chip input{position:absolute;opacity:0;width:0;height:0;}
   .chip span{
-    display:inline-block;
-    padding:8px 14px;
+    display:inline-flex;
+    align-items:center;
+    min-height:40px;
+    padding:9px 16px;
     border-radius:999px;
     border:1px solid var(--border);
     background:#fff;
@@ -178,6 +196,8 @@
     cursor:pointer;
     user-select:none;
     transition:.15s;
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
   }
   .chip input:checked + span{
     background:var(--accent);
@@ -185,10 +205,11 @@
     color:#fff;
   }
 
-  .side-select{display:flex;gap:16px;margin-top:10px;font-size:.85rem;}
-  .side-select label{display:flex;align-items:center;gap:6px;cursor:pointer;}
+  .side-select{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:.85rem;}
+  .side-select label{display:flex;align-items:center;gap:6px;min-height:32px;cursor:pointer;}
+  .side-select input{width:18px;height:18px;flex:none;}
 
-  input[type=range]{width:100%;}
+  input[type=range]{width:100%;height:32px;touch-action:manipulation;}
   #intensityLabel{font-weight:700;color:var(--accent);}
 
   #diagnoseBtn{width:100%;padding:14px;font-size:1rem;margin-top:6px;}
@@ -209,12 +230,15 @@
   .risk-warning{background:var(--warning-bg);color:var(--warning);}
   .risk-danger{background:var(--danger-bg);color:var(--danger);}
 
-  table#metricsTable{width:100%;border-collapse:collapse;margin-top:14px;font-size:.85rem;}
+  .table-scroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:14px;}
+  table#metricsTable{width:100%;min-width:480px;border-collapse:collapse;font-size:.85rem;}
   table#metricsTable th, table#metricsTable td{
     text-align:left;
     padding:8px 10px;
     border-bottom:1px solid var(--border);
+    white-space:nowrap;
   }
+  table#metricsTable td:last-child, table#metricsTable th:last-child{white-space:normal;min-width:200px;}
   table#metricsTable th{color:var(--muted);font-weight:600;font-size:.75rem;text-transform:uppercase;}
   .tag{
     display:inline-block;
@@ -230,7 +254,7 @@
   .tag.na{background:#f1f5f9;color:var(--muted);}
 
   .balance-row{margin:14px 0;}
-  .balance-label{display:flex;justify-content:space-between;font-size:.78rem;color:var(--muted);margin-bottom:4px;}
+  .balance-label{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 10px;font-size:.78rem;color:var(--muted);margin-bottom:4px;}
   .balance-bar{
     display:flex;
     height:14px;
@@ -275,8 +299,21 @@
     margin-top:30px;
   }
 
-  @media (max-width:480px){
-    header h1{font-size:1.2rem;}
+  @media (max-width:600px){
+    main{padding:0 12px;margin:14px auto;gap:14px;}
+    section.panel{padding:16px;}
+    header{padding:22px 16px 20px;}
+    .grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;}
+    #dropzone{padding:18px 12px;}
+    #previewImg{max-height:220px;}
+    .row{gap:8px;}
+    .row button{flex:1 1 auto;}
+  }
+  @media (max-width:420px){
+    header h1{font-size:1.15rem;}
+    header p{font-size:.8rem;}
+    .grid{grid-template-columns:1fr 1fr;}
+    .chip span{padding:8px 12px;font-size:.8rem;}
   }
 </style>
 </head>
@@ -429,10 +466,12 @@
     <div id="riskBadgeWrap"></div>
 
     <h3 style="margin-top:20px;font-size:.95rem;">計測値の評価</h3>
-    <table id="metricsTable">
-      <thead><tr><th>項目</th><th>値</th><th>評価</th><th>コメント</th></tr></thead>
-      <tbody id="metricsTbody"></tbody>
-    </table>
+    <div class="table-scroll">
+      <table id="metricsTable">
+        <thead><tr><th>項目</th><th>値</th><th>評価</th><th>コメント</th></tr></thead>
+        <tbody id="metricsTbody"></tbody>
+      </table>
+    </div>
 
     <div id="balanceWrap"></div>
 
