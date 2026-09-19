@@ -959,18 +959,29 @@
       '(?<!標準)(?<!目標)(?<!適正)体\\s*重(?!調節)(?!コントロール)'
     ], { range: [20, 300] });
 
-    // BMI・体脂肪率は「ラベル→グラフの目盛り→実測値」の帳票が多く、単純な近接一致だと
-    // 目盛りの数値を誤って拾ってしまうため、目盛りの並びを検出した上で読み取る
-    const bmiFromScale = lastNumberAfterScale(text, 'BMI', ['体脂肪率', 'Percent\\s*Body\\s*Fat'], 250, [10, 60]);
-    out.bmi = bmiFromScale !== undefined ? bmiFromScale
-      : bestNumberAfter(text, ['Body\\s*Mass\\s*Index', 'BMI'], { gap: 60, range: [10, 60] });
-
-    const pbfFromScale = lastNumberAfterScale(text, '体脂肪率|Percent\\s*Body\\s*Fat', ['内臓脂肪', 'Visceral'], 250, [3, 70]);
-    out.pbf = pbfFromScale !== undefined ? pbfFromScale
-      : bestNumberAfter(text, ['Percent\\s*Body\\s*Fat', '体脂肪率', 'PBF'], { gap: 60, range: [3, 70] });
-
     out.fatmass = bestNumberAfter(text, ['体脂肪量', 'Body\\s*Fat\\s*Mass'], { range: [1, 150] });
     out.smm     = bestNumberAfter(text, ['骨格筋量', 'SMM', 'Skeletal\\s*Muscle'], { range: [5, 80] });
+
+    // BMI・体脂肪率は「ラベル→グラフの目盛り→実測値」の帳票が多く、単純な近接一致だと
+    // 目盛りの数値を誤って拾ってしまう。身長・体重・体脂肪量は独立して安定して読み取れているため、
+    // それらが揃っている場合は数式（BMI=体重÷身長²、体脂肪率=体脂肪量÷体重×100）で直接算出し、
+    // OCRでBMI・体脂肪率の文字自体を読み違えるリスクを避ける。算出できない場合のみ帳票から読み取る。
+    if (out.height !== null && out.weight !== null && out.height > 0) {
+      const heightM = out.height / 100;
+      out.bmi = Math.round((out.weight / (heightM * heightM)) * 10) / 10;
+    } else {
+      const bmiFromScale = lastNumberAfterScale(text, 'BMI', ['体脂肪率', 'Percent\\s*Body\\s*Fat'], 250, [10, 60]);
+      out.bmi = bmiFromScale !== undefined ? bmiFromScale
+        : bestNumberAfter(text, ['Body\\s*Mass\\s*Index', 'BMI'], { gap: 60, range: [10, 60] });
+    }
+
+    if (out.fatmass !== null && out.weight !== null && out.weight > 0) {
+      out.pbf = Math.round((out.fatmass / out.weight * 100) * 10) / 10;
+    } else {
+      const pbfFromScale = lastNumberAfterScale(text, '体脂肪率|Percent\\s*Body\\s*Fat', ['内臓脂肪', 'Visceral'], 250, [3, 70]);
+      out.pbf = pbfFromScale !== undefined ? pbfFromScale
+        : bestNumberAfter(text, ['Percent\\s*Body\\s*Fat', '体脂肪率', 'PBF'], { gap: 60, range: [3, 70] });
+    }
 
     // 内臓脂肪レベルは、ラベル直後の数値よりも「低 10 高」ゲージ直後の数値の方が信頼できる
     const gaugeMatch = text.match(/低\s*10\s*高[\s\S]{0,100}?(\d{1,2})(?!\d)/);
