@@ -99,6 +99,18 @@
 
   /* crop / rotate stage */
   #cropWrap{display:none;margin-top:14px;}
+  .wizard-progress{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    margin-top:10px;
+    padding:10px 12px;
+    background:#eff6ff;
+    border:1px solid #bfdbfe;
+    border-radius:8px;
+  }
+  .wizard-progress span{font-size:.78rem;color:var(--muted);}
+  .wizard-progress strong{font-size:1rem;color:var(--accent-dark);}
   #cropStage{
     width:100%;
     border-radius:8px;
@@ -351,7 +363,16 @@
     </div>
 
     <div id="cropWrap">
-      <p class="desc" style="margin-top:14px;">読み取りたい範囲（数値が書かれた部分）をドラッグして選択してください。角をドラッグでサイズ変更、枠の内側をドラッグで移動できます。傾いている場合は回転も使えます。</p>
+      <p class="desc" id="cropInstructionNormal" style="margin-top:14px;">読み取りたい範囲（数値が書かれた部分）をドラッグして選択してください。角をドラッグでサイズ変更、枠の内側をドラッグで移動できます。傾いている場合は回転も使えます。</p>
+
+      <div id="wizardBar" style="display:none;">
+        <div class="wizard-progress">
+          <span id="wizardStepLabel">1 / 11</span>
+          <strong id="wizardFieldName">身長</strong>
+        </div>
+        <p class="desc" id="wizardInstruction" style="margin-top:6px;">身長の数字だけを囲んでください</p>
+      </div>
+
       <div id="cropStage">
         <canvas id="cropCanvas"></canvas>
       </div>
@@ -362,9 +383,27 @@
       </div>
     </div>
 
-    <div class="row">
+    <div class="row" id="normalOcrRow">
       <button id="ocrBtn" disabled>選択範囲から数値を読み取る（OCR実行）</button>
+      <button class="secondary" id="wizardStartBtn" disabled>1項目ずつ確実に読み取る</button>
       <button class="secondary" id="clearImgBtn" disabled>画像をクリア</button>
+    </div>
+
+    <div class="row" id="wizardActionRow" style="display:none;">
+      <button id="wizardReadBtn">この範囲を読み取る</button>
+      <button class="secondary" id="wizardSkipBtn">この項目をスキップ</button>
+      <button class="secondary" id="wizardExitBtn">ウィザードを終了</button>
+    </div>
+
+    <div id="wizardConfirm" style="display:none;">
+      <div class="field">
+        <label for="wizardValueInput">読み取り結果（必要なら修正してください）</label>
+        <input type="number" id="wizardValueInput" step="0.01">
+      </div>
+      <div class="row">
+        <button id="wizardConfirmBtn">この値で確定して次へ</button>
+        <button class="secondary" id="wizardBackBtn">範囲を選び直す</button>
+      </div>
     </div>
 
     <div id="ocrProgress"><div></div></div>
@@ -527,6 +566,7 @@
   const rotateRightBtn = document.getElementById('rotateRightBtn');
   const resetCropBtn = document.getElementById('resetCropBtn');
   const ocrBtn = document.getElementById('ocrBtn');
+  const wizardStartBtn = document.getElementById('wizardStartBtn');
   const clearImgBtn = document.getElementById('clearImgBtn');
   const ocrProgress = document.getElementById('ocrProgress');
   const ocrProgressBar = ocrProgress.querySelector('div');
@@ -563,6 +603,7 @@
       buildSourceCanvas();
       initCropUI();
       ocrBtn.disabled = false;
+      wizardStartBtn.disabled = false;
       clearImgBtn.disabled = false;
     };
     img.onerror = () => { alert('画像の読み込みに失敗しました。別の画像でお試しください。'); };
@@ -574,8 +615,10 @@
     fileInput.value = '';
     cropWrap.style.display = 'none';
     ocrBtn.disabled = true;
+    wizardStartBtn.disabled = true;
     clearImgBtn.disabled = true;
     rawText.value = '';
+    exitWizardMode();
   });
 
   function buildSourceCanvas(){
@@ -801,7 +844,10 @@
       // 選択範囲が画像全体に近い（狭く絞り込んでいない）場合はレイアウト自動解析、
       // 数値の並び1〜2行程度までしっかり絞り込んでいる場合は単一ブロックとして読む
       const cropRatio = (rect.w * rect.h) / (cropCanvas.width * cropCanvas.height);
-      await worker.setParameters({ tessedit_pageseg_mode: cropRatio < 0.35 ? '6' : '3' });
+      await worker.setParameters({
+        tessedit_pageseg_mode: cropRatio < 0.35 ? '6' : '3',
+        tessedit_char_whitelist: '' // ガイド付き入力（数字限定モード）の制限が残っていないようにリセット
+      });
 
       const { data: { text } } = await worker.recognize(processedCanvas);
       rawText.value = text || '';
@@ -817,6 +863,148 @@
     } finally {
       currentLogger = null;
       ocrBtn.disabled = false;
+      setTimeout(() => { ocrProgress.style.display = 'none'; }, 800);
+    }
+  });
+
+  /* ---------- ガイド付き入力（1項目ずつ確実に読み取る） ---------- */
+  const WIZARD_FIELDS = [
+    { formId:'f_height',  label:'身長',           instruction:'身長の数字だけを囲んでください（cmは含めなくてOK）', range:[100,230] },
+    { formId:'f_weight',  label:'体重',           instruction:'体重の数字だけを囲んでください', range:[20,300] },
+    { formId:'f_fatmass', label:'体脂肪量',        instruction:'体脂肪量の数字だけを囲んでください（横の基準範囲のカッコは含めなくてOK）', range:[1,150] },
+    { formId:'f_smm',     label:'骨格筋量',        instruction:'骨格筋量の数字だけを囲んでください', range:[5,80] },
+    { formId:'f_visceral',label:'内臓脂肪レベル',   instruction:'内臓脂肪レベルの数字だけを囲んでください', range:[1,30] },
+    { formId:'f_muscle',  label:'筋肉量',          instruction:'筋肉量（Soft Lean Mass）の数字だけを囲んでください', range:[15,55] },
+    { formId:'f_trunk',   label:'体幹の筋肉量',     instruction:'部位別筋肉量の図で、体幹（体の中心部）の数字だけを囲んでください', range:[3,40] },
+    { formId:'f_rarm',    label:'右腕の筋肉量',     instruction:'部位別筋肉量の図で、右腕の数字だけを囲んでください', range:[0.3,10] },
+    { formId:'f_larm',    label:'左腕の筋肉量',     instruction:'部位別筋肉量の図で、左腕の数字だけを囲んでください', range:[0.3,10] },
+    { formId:'f_rleg',    label:'右脚の筋肉量',     instruction:'部位別筋肉量の図で、右脚の数字だけを囲んでください', range:[2,25] },
+    { formId:'f_lleg',    label:'左脚の筋肉量',     instruction:'部位別筋肉量の図で、左脚の数字だけを囲んでください', range:[2,25] }
+  ];
+
+  const wizardBar = document.getElementById('wizardBar');
+  const cropInstructionNormal = document.getElementById('cropInstructionNormal');
+  const normalOcrRow = document.getElementById('normalOcrRow');
+  const wizardActionRow = document.getElementById('wizardActionRow');
+  const wizardConfirm = document.getElementById('wizardConfirm');
+  const wizardStepLabel = document.getElementById('wizardStepLabel');
+  const wizardFieldName = document.getElementById('wizardFieldName');
+  const wizardInstruction = document.getElementById('wizardInstruction');
+  const wizardValueInput = document.getElementById('wizardValueInput');
+  const wizardReadBtn = document.getElementById('wizardReadBtn');
+  const wizardSkipBtn = document.getElementById('wizardSkipBtn');
+  const wizardExitBtn = document.getElementById('wizardExitBtn');
+  const wizardConfirmBtn = document.getElementById('wizardConfirmBtn');
+  const wizardBackBtn = document.getElementById('wizardBackBtn');
+
+  let wizardActive = false;
+  let wizardIndex = 0;
+
+  function enterWizardMode(){
+    if (!originalImage) return;
+    wizardActive = true;
+    wizardIndex = 0;
+    cropInstructionNormal.style.display = 'none';
+    wizardBar.style.display = 'block';
+    normalOcrRow.style.display = 'none';
+    showWizardStep();
+  }
+
+  function exitWizardMode(){
+    wizardActive = false;
+    cropInstructionNormal.style.display = 'block';
+    wizardBar.style.display = 'none';
+    normalOcrRow.style.display = 'flex';
+    wizardActionRow.style.display = 'none';
+    wizardConfirm.style.display = 'none';
+  }
+
+  function showWizardStep(){
+    const f = WIZARD_FIELDS[wizardIndex];
+    wizardStepLabel.textContent = (wizardIndex + 1) + ' / ' + WIZARD_FIELDS.length;
+    wizardFieldName.textContent = f.label;
+    wizardInstruction.textContent = f.instruction;
+    wizardConfirm.style.display = 'none';
+    wizardActionRow.style.display = 'flex';
+    setDefaultRect();
+    drawCropStage();
+  }
+
+  function advanceWizard(){
+    if (wizardIndex < WIZARD_FIELDS.length - 1) {
+      wizardIndex++;
+      showWizardStep();
+    } else {
+      exitWizardMode();
+      ocrStatus.style.display = 'block';
+      ocrStatus.textContent = 'ガイド付き入力が完了しました。フォームの内容をご確認ください。';
+    }
+  }
+
+  wizardStartBtn.addEventListener('click', enterWizardMode);
+  wizardExitBtn.addEventListener('click', exitWizardMode);
+  wizardSkipBtn.addEventListener('click', advanceWizard);
+  wizardBackBtn.addEventListener('click', () => {
+    wizardConfirm.style.display = 'none';
+    wizardActionRow.style.display = 'flex';
+  });
+
+  wizardConfirmBtn.addEventListener('click', () => {
+    const f = WIZARD_FIELDS[wizardIndex];
+    if (wizardValueInput.value !== '') {
+      document.getElementById(f.formId).value = wizardValueInput.value;
+    }
+    advanceWizard();
+  });
+
+  wizardReadBtn.addEventListener('click', async () => {
+    if (!originalImage) return;
+    if (typeof Tesseract === 'undefined') {
+      alert('OCRライブラリの読み込みに失敗しました。インターネット接続を確認して再読み込みしてください。');
+      return;
+    }
+    const f = WIZARD_FIELDS[wizardIndex];
+    wizardReadBtn.disabled = true;
+    ocrProgress.style.display = 'block';
+    ocrStatus.style.display = 'block';
+    ocrProgressBar.style.width = '0%';
+    ocrStatus.textContent = '準備中…';
+    currentLogger = m => {
+      if (m.status) ocrStatus.textContent = translateStatus(m.status);
+      if (typeof m.progress === 'number') ocrProgressBar.style.width = Math.round(m.progress * 100) + '%';
+    };
+
+    try {
+      const processedCanvas = extractProcessedCanvas();
+      const worker = await getWorker();
+      // 数字とピリオドしか認識しないよう制限し、狭く切り抜いた1項目の読み取り精度を上げる
+      await worker.setParameters({
+        tessedit_char_whitelist: '0123456789.',
+        tessedit_pageseg_mode: '7' // 1行のテキストとして扱う
+      });
+      const { data: { text } } = await worker.recognize(processedCanvas);
+      const cleaned = (text || '').replace(/[^\d.]/g, ' ');
+      const m = cleaned.match(/\d{1,3}(?:\.\d{1,3})?/);
+      const value = m ? parseFloat(m[0]) : null;
+
+      wizardValueInput.value = value !== null ? value : '';
+      wizardConfirm.style.display = 'block';
+      wizardActionRow.style.display = 'none';
+
+      if (value === null) {
+        ocrStatus.textContent = '数字を読み取れませんでした。範囲を調整するか、手動で入力してください。';
+      } else if (value < f.range[0] || value > f.range[1]) {
+        ocrStatus.textContent = `読み取り結果（${value}）が想定範囲から外れています。誤読の可能性があるため、内容を確認してください。`;
+      } else {
+        ocrStatus.textContent = '読み取り結果を確認し、問題なければ「この値で確定して次へ」を押してください。';
+      }
+    } catch (err) {
+      console.error(err);
+      ocrStatus.textContent = '読み取りに失敗しました。範囲を選び直すか、手動で入力してください。';
+      workerPromise = null;
+    } finally {
+      currentLogger = null;
+      wizardReadBtn.disabled = false;
       setTimeout(() => { ocrProgress.style.display = 'none'; }, 800);
     }
   });
