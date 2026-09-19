@@ -422,8 +422,8 @@
         <input type="number" id="f_visceral" step="1" placeholder="例: 8">
       </div>
       <div class="field">
-        <label for="f_ecwtbw">ECW/TBW（むくみ指標）</label>
-        <input type="number" id="f_ecwtbw" step="0.001" placeholder="例: 0.380">
+        <label for="f_muscle">筋肉量 (kg)</label>
+        <input type="number" id="f_muscle" step="0.1" placeholder="例: 34.7">
       </div>
     </div>
 
@@ -874,6 +874,30 @@
     return null;
   }
 
+  // ラベル直後に紛らわしい数字（ゴミ文字由来の断片など）が挟まり、bestNumberAfterの
+  // 「直後の1つだけを見る」方式では範囲外として弾かれ続けてしまう帳票向け。
+  // ラベル出現位置から一定の文字数以内にある数値をすべて走査し、範囲内で最初に見つかったものを採用する。
+  // （windowの境界で数字が途中で切れて誤った値にならないよう、全文に対する位置で判定する）
+  function firstValidNumberInWindow(text, labelPattern, windowSize, range){
+    const re = new RegExp(labelPattern, 'gi');
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      const start = m.index + m[0].length;
+      const end = start + windowSize;
+      const numRe = /\d{1,3}(?:\.\d{1,3})?/g;
+      numRe.lastIndex = start;
+      let nm;
+      while ((nm = numRe.exec(text)) !== null) {
+        if (nm.index >= end) break;
+        if (nm.index + nm[0].length > end) break; // windowの境界で途中で切れる数字は無視
+        const v = parseFloat(nm[0]);
+        if (!range || (v >= range[0] && v <= range[1])) return v;
+      }
+      if (re.lastIndex === m.index) re.lastIndex++;
+    }
+    return null;
+  }
+
   // BMI・体脂肪率のように「ラベル→グラフの目盛り→実測値」の順で並ぶ帳票向け。
   // ラベルは帳票内に複数回登場しうる（チェック欄・目盛り・実測値など）ため、後ろの出現から順に試す。
   // 目盛り（5個以上の昇順の数値）を検出できた場合のみ、その直後の数値を実測値として信頼する。
@@ -991,7 +1015,9 @@
       out.visceral = bestNumberAfter(text, ['内臓脂肪レベル', 'Visceral\\s*Fat\\s*Level'], { range: [1, 30] });
     }
 
-    out.ecwtbw = bestNumberAfter(text, ['ECW\\s*/?\\s*TBW', 'ECW/TBW\\s*Ratio'], { range: [0.3, 0.45] });
+    // 筋肉量（Soft Lean Mass、骨格筋量とは別の総筋肉量）。グラフの目盛りは通常70%以上から
+    // 始まるため、体重より十分小さい範囲に絞ることで目盛りと混同しにくくしている
+    out.muscle = firstValidNumberInWindow(text, '(?<!部位別)筋\\s*肉\\s*量(?!が)', 60, [15, 55]);
 
     // 部位別筋肉量（右腕・左腕・体幹・右脚・左脚）は、多くのInBody帳票で
     // 体のシルエット図に数値だけが配置されテキストラベルが存在しない。
@@ -1005,7 +1031,7 @@
   function applyParsedMetrics(m){
     const map = {
       height:'f_height', weight:'f_weight', bmi:'f_bmi', pbf:'f_pbf', fatmass:'f_fatmass',
-      smm:'f_smm', visceral:'f_visceral', ecwtbw:'f_ecwtbw',
+      smm:'f_smm', visceral:'f_visceral', muscle:'f_muscle',
       rarm:'f_rarm', larm:'f_larm', trunk:'f_trunk', rleg:'f_rleg', lleg:'f_lleg'
     };
     let found = 0;
@@ -1072,12 +1098,10 @@
     return {level:'danger', text:'高値 — 生活習慣病リスクの上昇が懸念される水準'};
   }
 
-  function evalEcwTbw(r){
-    if (r === null) return null;
-    if (r < 0.360) return {level:'safe', text:'低め（正常範囲内）'};
-    if (r <= 0.390) return {level:'safe', text:'正常範囲'};
-    if (r <= 0.400) return {level:'caution', text:'やや高め — むくみの可能性'};
-    return {level:'warning', text:'高め — むくみ・炎症の可能性あり'};
+  function evalMuscle(muscle, smm){
+    if (muscle === null) return null;
+    const note = (smm !== null) ? '（骨格筋量とは別の、水分・タンパク質等を含む総筋肉量です）' : '（骨格筋量とは別の総筋肉量です）';
+    return {level:'safe', text:'参考値' + note};
   }
 
   function evalSMM(smm, weight, gender){
@@ -1108,7 +1132,7 @@
     const fatmass = num('f_fatmass');
     const smm = num('f_smm');
     const visceral = num('f_visceral');
-    const ecwtbw = num('f_ecwtbw');
+    const muscle = num('f_muscle');
     const rarm = num('f_rarm'), larm = num('f_larm');
     const trunk = num('f_trunk');
     const rleg = num('f_rleg'), lleg = num('f_lleg');
@@ -1123,8 +1147,8 @@
       {key:'BMI', value: bmi, unit:'', result: evalBMI(bmi)},
       {key:'体脂肪率', value: pbf, unit:'%', result: evalPBF(pbf, gender)},
       {key:'内臓脂肪レベル', value: visceral, unit:'', result: evalVisceral(visceral)},
-      {key:'ECW/TBW（むくみ指標）', value: ecwtbw, unit:'', result: evalEcwTbw(ecwtbw)},
-      {key:'筋肉量バランス（対体重）', value: smm, unit:'kg', result: evalSMM(smm, weight, gender)}
+      {key:'筋肉量バランス（対体重）', value: smm, unit:'kg', result: evalSMM(smm, weight, gender)},
+      {key:'筋肉量', value: muscle, unit:'kg', result: evalMuscle(muscle, smm)}
     ];
 
     // ---- overall risk ----
@@ -1178,7 +1202,7 @@
     } else {
       painAreas.forEach(area => {
         causeWrap.appendChild(renderCauseCard(area, {
-          bmi, pbf, visceral, ecwtbw, smm, weight, gender, trunk,
+          bmi, pbf, visceral, smm, weight, gender, trunk,
           armAsym, legAsym, side, duration, intensity
         }));
       });
@@ -1187,7 +1211,7 @@
     // ---- recommendations ----
     const recList = document.getElementById('recList');
     recList.innerHTML = '';
-    buildRecommendations({worst, visceral, ecwtbw, bmi, smm, weight, gender, intensity, duration, armAsym, legAsym})
+    buildRecommendations({worst, visceral, bmi, smm, weight, gender, intensity, duration, armAsym, legAsym})
       .forEach(r => {
         const li = document.createElement('li');
         li.textContent = r;
@@ -1243,7 +1267,6 @@
       addIf(d.legAsym && d.legAsym.diffPct >= 1,
         `左右の脚の筋肉量差（${d.legAsym.diffPct.toFixed(1)}%）があり、弱い側の膝に負担が集中している可能性があります。`);
       addIf(d.bmi !== null && d.bmi >= 25, '体重増加により膝関節にかかる負荷が大きくなっている可能性があります。');
-      addIf(d.ecwtbw !== null && d.ecwtbw > 0.390, 'むくみ指標（ECW/TBW）が高く、関節周囲の炎症・水分貯留が痛みに関与している可能性があります。');
     }
 
     if (area === '股関節') {
@@ -1271,7 +1294,6 @@
     }
 
     if (area === '足首・足') {
-      addIf(d.ecwtbw !== null && d.ecwtbw > 0.390, 'むくみ指標（ECW/TBW）が高く、足部のむくみが痛み・だるさに関与している可能性があります。');
       addIf(d.legAsym && d.legAsym.diffPct >= 1,
         `脚の筋肉量の左右差（${d.legAsym.diffPct.toFixed(1)}%）により、片側の足首に負担が偏っている可能性があります。`);
     }
@@ -1301,9 +1323,6 @@
     }
     if (d.visceral !== null && d.visceral >= 10) {
       recs.push('内臓脂肪レベルを下げるため、有酸素運動と食事内容の見直しを検討しましょう。');
-    }
-    if (d.ecwtbw !== null && d.ecwtbw > 0.390) {
-      recs.push('むくみの指標が高めです。塩分摂取量の見直し、下肢の挙上、水分バランスの確認を行いましょう。');
     }
     if (d.bmi !== null && d.bmi >= 25) {
       recs.push('関節への負担軽減のため、無理のない範囲での体重管理を検討しましょう。');
