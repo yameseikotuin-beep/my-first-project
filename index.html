@@ -857,19 +857,56 @@
     return null;
   }
 
+  function extractHeightFromCm(text){
+    // ラベルが見つからない帳票向けに、「155cm」のような単位直付きの数値をフォールバックとして探す
+    const m = text.match(/(\d{2,3}(?:\.\d{1,2})?)\s*.{0,3}?cm\b/i);
+    return m ? parseFloat(m[1]) : null;
+  }
+
+  function extractGender(text){
+    if (/女性|Female/i.test(text)) return 'female';
+    if (/男性|Male/i.test(text)) return 'male';
+    return null;
+  }
+
+  function extractAge(text){
+    // まず「年齢」「Age」のラベルが明記されている帳票を試す
+    const labeled = firstNumberAfter(text, ['年齢', 'Age']);
+    if (labeled !== null && labeled >= 1 && labeled <= 120) return labeled;
+    // 「身長 年齢 性別 検査日」のようにラベルなしで並ぶヘッダー行向けに、
+    // 性別の単語（男性/女性）の直前にある単独の整数を年齢とみなす
+    const m = text.match(/(\d{1,3})\s*(?:歳|才)?\s*[^\d一-龥]{0,10}(男性|女性|Male|Female)/i);
+    if (m) {
+      const age = parseInt(m[1], 10);
+      if (age >= 1 && age <= 120) return age;
+    }
+    return null;
+  }
+
   function parseInBodyText(rawTextValue){
     const text = normalize(rawTextValue);
     const out = {};
 
+    out.gender = extractGender(text);
+    out.age    = extractAge(text);
+
     // BMI・体脂肪率・体重は、日本語ラベルの直後にグラフの目盛り数値が続く帳票が多いため、
     // 目盛りに惑わされない英語ラベル（Body Mass Index / Percent Body Fat / Weight）を先に試す
-    out.height   = firstNumberAfter(text, ['身\\s*長', 'Height']);
+    out.height   = firstNumberAfter(text, ['身\\s*長', 'Height']) ?? extractHeightFromCm(text);
     out.weight   = firstNumberAfter(text, ['(?<!Target )(?<!Standard )Weight', '(?<!標準)(?<!目標)体\\s*重(?!調節)(?!コントロール)']);
     out.bmi      = firstNumberAfter(text, ['Body\\s*Mass\\s*Index', 'BMI']);
     out.pbf      = firstNumberAfter(text, ['Percent\\s*Body\\s*Fat', '体脂肪率', 'PBF']);
     out.fatmass  = firstNumberAfter(text, ['体脂肪量', 'Body\\s*Fat\\s*Mass']);
     out.smm      = firstNumberAfter(text, ['骨格筋量', 'SMM', 'Skeletal\\s*Muscle']);
     out.visceral = firstNumberAfter(text, ['内臓脂肪レベル', 'Visceral\\s*Fat\\s*Level']);
+    if (out.visceral === null) {
+      // 「低 10 高」というゲージの目盛りを手がかりに、その後に出てくる数値を拾うフォールバック
+      const vm = text.match(/低\s*10\s*高[\s\S]{0,100}?(\d{1,2})(?!\d)/);
+      if (vm) {
+        const v = parseInt(vm[1], 10);
+        if (v >= 1 && v <= 30) out.visceral = v;
+      }
+    }
     out.ecwtbw   = firstNumberAfter(text, ['ECW\\s*/?\\s*TBW', 'ECW/TBW\\s*Ratio']);
 
     out.rarm  = firstNumberAfter(text, ['右\\s*腕', 'Right\\s*Arm']);
@@ -894,6 +931,14 @@
         el.value = m[key];
         found++;
       }
+    }
+    if (m.gender === 'male' || m.gender === 'female') {
+      document.getElementById('f_gender').value = m.gender;
+      found++;
+    }
+    if (m.age !== null && m.age !== undefined && !isNaN(m.age)) {
+      document.getElementById('f_age').value = m.age;
+      found++;
     }
     return found;
   }
