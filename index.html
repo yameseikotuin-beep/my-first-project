@@ -1167,7 +1167,7 @@
     } else {
       painAreas.forEach(area => {
         causeWrap.appendChild(renderCauseCard(area, {
-          bmi, pbf, visceral, ecwtbw, smm, weight, gender,
+          bmi, pbf, visceral, ecwtbw, smm, weight, gender, trunk,
           armAsym, legAsym, side, duration, intensity
         }));
       });
@@ -1221,6 +1221,8 @@
     if (area === '腰' || area === '背中') {
       addIf(d.smm !== null && d.weight !== null && (d.smm / d.weight * 100) < (d.gender === 'male' ? 33 : 25),
         '体重に対して筋肉量（特に体幹を支える筋力）が少なめで、腰部への負担が増えやすい状態です。');
+      addIf(d.trunk !== null && d.weight !== null && (d.trunk / d.weight * 100) < (d.gender === 'male' ? 16 : 12),
+        `体幹（体を支える中心部）の筋肉量が体重に対して少なめ（目安）で、腰・背中を支える力が不足しやすい状態です。`);
       addIf(d.legAsym && d.legAsym.diffPct >= 10,
         `脚の筋肉量に左右差（${d.legAsym.diffPct.toFixed(1)}%）があり、姿勢の傾きが腰への負担を生んでいる可能性があります。`);
       addIf(d.duration === 'chronic', '症状が慢性化しており、筋力低下や姿勢の崩れが積み重なっている可能性があります。');
@@ -1236,6 +1238,8 @@
     if (area === '股関節') {
       addIf(d.legAsym && d.legAsym.diffPct >= 10,
         `脚の筋肉バランスの左右差（${d.legAsym.diffPct.toFixed(1)}%）が骨盤の傾きや股関節への偏った負荷につながっている可能性があります。`);
+      addIf(d.trunk !== null && d.weight !== null && (d.trunk / d.weight * 100) < (d.gender === 'male' ? 16 : 12),
+        `体幹の筋肉量が体重に対して少なめ（目安）で、骨盤・股関節まわりの安定性が低下しやすい状態です。`);
     }
 
     if (area === '肩' || area === '首') {
