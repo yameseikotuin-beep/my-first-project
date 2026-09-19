@@ -911,14 +911,15 @@
       if (bestRunLen < 5) continue;              // 目盛りらしき並びが見つからない＝この出現は対象外
       sawScale = true;
       if (bestRunEnd >= nums.length - 1) continue; // 目盛りの後に実測値が続いていない
-      return nums[nums.length - 1];
+      return nums[bestRunEnd + 1]; // 目盛りの直後にある値（配列の最後ではない）を採用
     }
     return sawScale ? null : undefined;
   }
 
   function extractHeightFromCm(text){
-    // ラベルが見つからない帳票向けに、「155cm」のような単位直付きの数値をフォールバックとして探す
-    const m = text.match(/(\d{2,3}(?:\.\d{1,2})?)\s*.{0,3}?cm\b/i);
+    // 「155cm」のような単位直付きの数値を探す。数値と単位の間に他の数字（IDなど）を
+    // 挟んで誤マッチしないよう、間に入れる文字は数字以外に限定する
+    const m = text.match(/(\d{2,3}(?:\.\d{1,2})?)[^\d]{0,2}cm\b/i);
     return m ? parseFloat(m[1]) : null;
   }
 
@@ -948,11 +949,14 @@
 
     out.gender = extractGender(text);
     out.age    = extractAge(text);
-    out.height = bestNumberAfter(text, ['身\\s*長', 'Height'], { range: [100, 230] }) ?? extractHeightFromCm(text);
+    // 「155cm」のような単位直付き表記の方が、ラベル近接検索よりも誤検出が少ないため優先する
+    // （ヘッダー行でOCRの読み取り順序が乱れ、ラベルの近くにID番号などの無関係な数字が
+    // 来てしまうことがあるため）
+    out.height = extractHeightFromCm(text) ?? bestNumberAfter(text, ['身\\s*長', 'Height'], { range: [100, 230] });
 
     out.weight = bestNumberAfter(text, [
       '(?<!Target )(?<!Standard )Weight',
-      '(?<!標準)(?<!目標)体\\s*重(?!調節)(?!コントロール)'
+      '(?<!標準)(?<!目標)(?<!適正)体\\s*重(?!調節)(?!コントロール)'
     ], { range: [20, 300] });
 
     // BMI・体脂肪率は「ラベル→グラフの目盛り→実測値」の帳票が多く、単純な近接一致だと
