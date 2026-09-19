@@ -96,8 +96,22 @@
   #dropzone.drag{border-color:var(--accent);background:#eff6ff;}
   #dropzone p{margin:6px 0;color:var(--muted);font-size:.85rem;}
   #fileInput{display:none;}
-  #previewWrap{display:none;margin-top:14px;text-align:center;}
-  #previewImg{max-width:100%;max-height:320px;border-radius:8px;border:1px solid var(--border);}
+
+  /* crop / rotate stage */
+  #cropWrap{display:none;margin-top:14px;}
+  #cropStage{
+    width:100%;
+    border-radius:8px;
+    overflow:hidden;
+    background:#111827;
+  }
+  #cropCanvas{
+    display:block;
+    width:100%;
+    height:auto;
+    touch-action:none;
+    -webkit-tap-highlight-color:transparent;
+  }
 
   button{
     font:inherit;
@@ -305,7 +319,6 @@
     header{padding:22px 16px 20px;}
     .grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;}
     #dropzone{padding:18px 12px;}
-    #previewImg{max-height:220px;}
     .row{gap:8px;}
     .row button{flex:1 1 auto;}
   }
@@ -329,20 +342,28 @@
   <!-- STEP 1: 画像アップロード -->
   <section class="panel">
     <h2><span class="step">1</span>InBody結果画像の読み込み</h2>
-    <p class="desc">InBody計測結果シートの写真またはスクリーンショットをアップロードしてください。画像内の文字を自動で読み取り、下のフォームに反映します（読み取り精度には限界があるため、必ず内容を確認・修正してください）。</p>
+    <p class="desc">InBody計測結果シートの写真またはスクリーンショットをアップロードしてください。数値が書かれた範囲を選んで拡大・補正してから読み取ることで、精度が上がります（読み取り精度には限界があるため、必ず内容を確認・修正してください）。</p>
 
     <div id="dropzone">
       <p><strong>クリックして画像を選択</strong>、またはドラッグ＆ドロップ</p>
-      <p>JPEG / PNG など</p>
+      <p>JPEG / PNG など（スマホでは撮影も可能）</p>
       <input type="file" id="fileInput" accept="image/*">
     </div>
 
-    <div id="previewWrap">
-      <img id="previewImg" alt="アップロードされたInBody結果画像のプレビュー">
+    <div id="cropWrap">
+      <p class="desc" style="margin-top:14px;">読み取りたい範囲（数値が書かれた部分）をドラッグして選択してください。角をドラッグでサイズ変更、枠の内側をドラッグで移動できます。傾いている場合は回転も使えます。</p>
+      <div id="cropStage">
+        <canvas id="cropCanvas"></canvas>
+      </div>
+      <div class="row">
+        <button type="button" class="secondary" id="rotateLeftBtn">↺ 90°回転</button>
+        <button type="button" class="secondary" id="rotateRightBtn">↻ 90°回転</button>
+        <button type="button" class="secondary" id="resetCropBtn">範囲をリセット</button>
+      </div>
     </div>
 
     <div class="row">
-      <button id="ocrBtn" disabled>画像から数値を読み取る（OCR実行）</button>
+      <button id="ocrBtn" disabled>選択範囲から数値を読み取る（OCR実行）</button>
       <button class="secondary" id="clearImgBtn" disabled>画像をクリア</button>
     </div>
 
@@ -495,11 +516,16 @@
 (function(){
   "use strict";
 
-  /* ---------- Step 1: image + OCR ---------- */
+  /* ---------- Step 1: image + crop/rotate + OCR ---------- */
   const dropzone = document.getElementById('dropzone');
   const fileInput = document.getElementById('fileInput');
-  const previewWrap = document.getElementById('previewWrap');
-  const previewImg = document.getElementById('previewImg');
+  const cropWrap = document.getElementById('cropWrap');
+  const cropStage = document.getElementById('cropStage');
+  const cropCanvas = document.getElementById('cropCanvas');
+  const cropCtx = cropCanvas.getContext('2d');
+  const rotateLeftBtn = document.getElementById('rotateLeftBtn');
+  const rotateRightBtn = document.getElementById('rotateRightBtn');
+  const resetCropBtn = document.getElementById('resetCropBtn');
   const ocrBtn = document.getElementById('ocrBtn');
   const clearImgBtn = document.getElementById('clearImgBtn');
   const ocrProgress = document.getElementById('ocrProgress');
@@ -507,7 +533,11 @@
   const ocrStatus = document.getElementById('ocrStatus');
   const rawText = document.getElementById('rawText');
 
-  let currentFile = null;
+  let originalImage = null;   // 読み込んだ元画像（Image要素）
+  let rotationDeg = 0;        // 0 / 90 / 180 / 270
+  let sourceCanvas = document.createElement('canvas'); // 回転適用後のフル解像度画像
+  let displayScale = 1;       // sourceCanvas 1px あたりの cropCanvas px 数の逆数（source / display）
+  let rect = {x:0, y:0, w:0, h:0}; // 切り抜き範囲（cropCanvas 座標系）
 
   dropzone.addEventListener('click', () => fileInput.click());
   dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
@@ -523,26 +553,234 @@
 
   function handleFile(file){
     if (!file.type.startsWith('image/')) { alert('画像ファイルを選択してください。'); return; }
-    currentFile = file;
     const url = URL.createObjectURL(file);
-    previewImg.src = url;
-    previewWrap.style.display = 'block';
-    ocrBtn.disabled = false;
-    clearImgBtn.disabled = false;
+    const img = new Image();
+    img.onload = () => {
+      originalImage = img;
+      rotationDeg = 0;
+      URL.revokeObjectURL(url);
+      cropWrap.style.display = 'block';
+      buildSourceCanvas();
+      initCropUI();
+      ocrBtn.disabled = false;
+      clearImgBtn.disabled = false;
+    };
+    img.onerror = () => { alert('画像の読み込みに失敗しました。別の画像でお試しください。'); };
+    img.src = url;
   }
 
   clearImgBtn.addEventListener('click', () => {
-    currentFile = null;
+    originalImage = null;
     fileInput.value = '';
-    previewImg.src = '';
-    previewWrap.style.display = 'none';
+    cropWrap.style.display = 'none';
     ocrBtn.disabled = true;
     clearImgBtn.disabled = true;
     rawText.value = '';
   });
 
+  function buildSourceCanvas(){
+    const iw = originalImage.naturalWidth, ih = originalImage.naturalHeight;
+    const swap = rotationDeg % 180 !== 0;
+    sourceCanvas.width = swap ? ih : iw;
+    sourceCanvas.height = swap ? iw : ih;
+    const sctx = sourceCanvas.getContext('2d');
+    sctx.save();
+    sctx.translate(sourceCanvas.width / 2, sourceCanvas.height / 2);
+    sctx.rotate(rotationDeg * Math.PI / 180);
+    sctx.drawImage(originalImage, -iw / 2, -ih / 2);
+    sctx.restore();
+  }
+
+  function initCropUI(){
+    const containerWidth = cropStage.clientWidth || 320;
+    const displayW = Math.min(sourceCanvas.width, containerWidth, 640);
+    const displayH = Math.round(displayW * (sourceCanvas.height / sourceCanvas.width));
+    cropCanvas.width = Math.round(displayW);
+    cropCanvas.height = displayH;
+    displayScale = sourceCanvas.width / cropCanvas.width;
+    setDefaultRect();
+    drawCropStage();
+  }
+
+  function setDefaultRect(){
+    const mx = cropCanvas.width * 0.06;
+    const my = cropCanvas.height * 0.06;
+    rect = { x: mx, y: my, w: cropCanvas.width - mx * 2, h: cropCanvas.height - my * 2 };
+  }
+
+  function drawCropStage(){
+    cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+    cropCtx.drawImage(sourceCanvas, 0, 0, cropCanvas.width, cropCanvas.height);
+
+    cropCtx.fillStyle = 'rgba(0,0,0,0.5)';
+    cropCtx.fillRect(0, 0, cropCanvas.width, rect.y);
+    cropCtx.fillRect(0, rect.y + rect.h, cropCanvas.width, cropCanvas.height - (rect.y + rect.h));
+    cropCtx.fillRect(0, rect.y, rect.x, rect.h);
+    cropCtx.fillRect(rect.x + rect.w, rect.y, cropCanvas.width - (rect.x + rect.w), rect.h);
+
+    cropCtx.strokeStyle = '#2563eb';
+    cropCtx.lineWidth = 2;
+    cropCtx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+
+    const hs = 18;
+    cropCtx.fillStyle = '#2563eb';
+    [[rect.x, rect.y], [rect.x + rect.w, rect.y], [rect.x, rect.y + rect.h], [rect.x + rect.w, rect.y + rect.h]]
+      .forEach(([cx, cy]) => cropCtx.fillRect(cx - hs / 2, cy - hs / 2, hs, hs));
+  }
+
+  function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
+
+  function getPos(e){
+    const bcr = cropCanvas.getBoundingClientRect();
+    const scaleX = cropCanvas.width / bcr.width;
+    const scaleY = cropCanvas.height / bcr.height;
+    return { x: (e.clientX - bcr.left) * scaleX, y: (e.clientY - bcr.top) * scaleY };
+  }
+
+  function hitTestCorner(pos){
+    const hs = 24;
+    const corners = [
+      { i: 'tl', x: rect.x, y: rect.y },
+      { i: 'tr', x: rect.x + rect.w, y: rect.y },
+      { i: 'bl', x: rect.x, y: rect.y + rect.h },
+      { i: 'br', x: rect.x + rect.w, y: rect.y + rect.h }
+    ];
+    for (const c of corners) {
+      if (Math.abs(pos.x - c.x) <= hs && Math.abs(pos.y - c.y) <= hs) return c.i;
+    }
+    return null;
+  }
+
+  let dragMode = null, dragCorner = null, dragStart = {x:0,y:0}, rectStart = {x:0,y:0,w:0,h:0};
+  const MIN_RECT = 24;
+
+  cropCanvas.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    cropCanvas.setPointerCapture(e.pointerId);
+    const pos = getPos(e);
+    const corner = hitTestCorner(pos);
+    if (corner) {
+      dragMode = 'resize'; dragCorner = corner;
+    } else if (pos.x >= rect.x && pos.x <= rect.x + rect.w && pos.y >= rect.y && pos.y <= rect.y + rect.h) {
+      dragMode = 'move';
+    } else {
+      dragMode = 'new';
+      rect = { x: pos.x, y: pos.y, w: 0, h: 0 };
+    }
+    dragStart = pos;
+    rectStart = { ...rect };
+  });
+
+  cropCanvas.addEventListener('pointermove', e => {
+    if (!dragMode) return;
+    e.preventDefault();
+    const pos = getPos(e);
+    const dx = pos.x - dragStart.x, dy = pos.y - dragStart.y;
+
+    if (dragMode === 'move') {
+      rect.x = clamp(rectStart.x + dx, 0, cropCanvas.width - rect.w);
+      rect.y = clamp(rectStart.y + dy, 0, cropCanvas.height - rect.h);
+    } else if (dragMode === 'resize') {
+      let { x, y, w, h } = rectStart;
+      if (dragCorner === 'tl') { x = rectStart.x + dx; y = rectStart.y + dy; w = rectStart.w - dx; h = rectStart.h - dy; }
+      if (dragCorner === 'tr') { y = rectStart.y + dy; w = rectStart.w + dx; h = rectStart.h - dy; }
+      if (dragCorner === 'bl') { x = rectStart.x + dx; w = rectStart.w - dx; h = rectStart.h + dy; }
+      if (dragCorner === 'br') { w = rectStart.w + dx; h = rectStart.h + dy; }
+      if (w < MIN_RECT) w = MIN_RECT;
+      if (h < MIN_RECT) h = MIN_RECT;
+      x = clamp(x, 0, cropCanvas.width - MIN_RECT);
+      y = clamp(y, 0, cropCanvas.height - MIN_RECT);
+      w = Math.min(w, cropCanvas.width - x);
+      h = Math.min(h, cropCanvas.height - y);
+      rect = { x, y, w, h };
+    } else if (dragMode === 'new') {
+      const x0 = clamp(Math.min(dragStart.x, pos.x), 0, cropCanvas.width);
+      const y0 = clamp(Math.min(dragStart.y, pos.y), 0, cropCanvas.height);
+      const w0 = Math.abs(pos.x - dragStart.x);
+      const h0 = Math.abs(pos.y - dragStart.y);
+      rect = { x: x0, y: y0, w: Math.min(w0, cropCanvas.width - x0), h: Math.min(h0, cropCanvas.height - y0) };
+    }
+    drawCropStage();
+  });
+
+  ['pointerup', 'pointercancel'].forEach(evt => cropCanvas.addEventListener(evt, () => { dragMode = null; }));
+
+  rotateLeftBtn.addEventListener('click', () => {
+    rotationDeg = (rotationDeg + 270) % 360;
+    buildSourceCanvas();
+    initCropUI();
+  });
+  rotateRightBtn.addEventListener('click', () => {
+    rotationDeg = (rotationDeg + 90) % 360;
+    buildSourceCanvas();
+    initCropUI();
+  });
+  resetCropBtn.addEventListener('click', () => {
+    setDefaultRect();
+    drawCropStage();
+  });
+
+  /* ---------- crop + preprocess (grayscale / contrast stretch / upscale) ---------- */
+  function extractProcessedCanvas(){
+    const sx = rect.x * displayScale;
+    const sy = rect.y * displayScale;
+    const sw = Math.max(1, rect.w * displayScale);
+    const sh = Math.max(1, rect.h * displayScale);
+
+    const targetMinWidth = 1400;
+    let scale = sw < targetMinWidth ? targetMinWidth / sw : 1;
+    scale = Math.min(scale, 3);
+    const outW = Math.max(1, Math.round(sw * scale));
+    const outH = Math.max(1, Math.round(sh * scale));
+
+    const out = document.createElement('canvas');
+    out.width = outW; out.height = outH;
+    const octx = out.getContext('2d');
+    octx.imageSmoothingEnabled = true;
+    octx.imageSmoothingQuality = 'high';
+    octx.drawImage(sourceCanvas, sx, sy, sw, sh, 0, 0, outW, outH);
+
+    const imgData = octx.getImageData(0, 0, outW, outH);
+    const d = imgData.data;
+    const lum = new Float32Array(outW * outH);
+    let min = 255, max = 0;
+    for (let i = 0, p = 0; i < d.length; i += 4, p++) {
+      const l = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      lum[p] = l;
+      if (l < min) min = l;
+      if (l > max) max = l;
+    }
+    const range = Math.max(1, max - min);
+    for (let i = 0, p = 0; i < d.length; i += 4, p++) {
+      const v = clamp((lum[p] - min) * 255 / range, 0, 255);
+      d[i] = d[i + 1] = d[i + 2] = v;
+    }
+    octx.putImageData(imgData, 0, 0);
+    return out;
+  }
+
+  /* ---------- Tesseract worker (reused across runs) ---------- */
+  let workerPromise = null;
+  let currentLogger = null;
+
+  function getWorker(){
+    if (!workerPromise) {
+      workerPromise = Tesseract.createWorker('jpn+eng', 1, {
+        logger: m => { if (currentLogger) currentLogger(m); }
+      }).then(async w => {
+        await w.setParameters({
+          tessedit_pageseg_mode: '6',
+          preserve_interword_spaces: '1',
+          user_defined_dpi: '300'
+        });
+        return w;
+      });
+    }
+    return workerPromise;
+  }
+
   ocrBtn.addEventListener('click', async () => {
-    if (!currentFile) return;
+    if (!originalImage) return;
     if (typeof Tesseract === 'undefined') {
       alert('OCRライブラリの読み込みに失敗しました。インターネット接続を確認して再読み込みしてください。');
       return;
@@ -552,27 +790,25 @@
     ocrStatus.style.display = 'block';
     ocrProgressBar.style.width = '0%';
     ocrStatus.textContent = '準備中…';
+    currentLogger = m => {
+      if (m.status) ocrStatus.textContent = translateStatus(m.status);
+      if (typeof m.progress === 'number') ocrProgressBar.style.width = Math.round(m.progress * 100) + '%';
+    };
 
     try {
-      const result = await Tesseract.recognize(currentFile, 'jpn+eng', {
-        logger: m => {
-          if (m.status) {
-            ocrStatus.textContent = translateStatus(m.status);
-          }
-          if (typeof m.progress === 'number') {
-            ocrProgressBar.style.width = Math.round(m.progress * 100) + '%';
-          }
-        }
-      });
-      const text = result.data.text || '';
-      rawText.value = text;
+      const processedCanvas = extractProcessedCanvas();
+      const worker = await getWorker();
+      const { data: { text } } = await worker.recognize(processedCanvas);
+      rawText.value = text || '';
       document.getElementById('rawTextWrap').open = true;
-      applyParsedMetrics(parseInBodyText(text));
+      applyParsedMetrics(parseInBodyText(text || ''));
       ocrStatus.textContent = '読み取り完了。数値をフォームで確認してください。';
     } catch (err) {
       console.error(err);
-      ocrStatus.textContent = '読み取りに失敗しました。もう一度お試しいただくか、手動で数値を入力してください。';
+      ocrStatus.textContent = '読み取りに失敗しました。範囲を選び直すか、手動で数値を入力してください。';
+      workerPromise = null; // 失敗時はワーカーを作り直せるようにする
     } finally {
+      currentLogger = null;
       ocrBtn.disabled = false;
       setTimeout(() => { ocrProgress.style.display = 'none'; }, 800);
     }
@@ -592,16 +828,22 @@
   /* ---------- parsing OCR text into InBody metrics ---------- */
   function normalize(text){
     // full-width digits/period -> half-width, strip commas/spaces around numbers
-    return text
+    let t = text
       .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
       .replace(/．/g, '.')
       .replace(/，/g, ',')
       .replace(/\r/g, '');
+    // 数字・小数点に挟まれた紛らわしい文字はOCRの誤認識とみなして補正する（O→0, l/I→1）
+    t = t.replace(/(?<=[\d.])[oOｏＯ](?=[\d.])/g, '0');
+    t = t.replace(/(?<=[\d.])[lI｜](?=[\d.])/g, '1');
+    // "12 . 3" のように空白が入った小数点を詰める
+    t = t.replace(/(\d)\s+\.\s*(\d)/g, '$1.$2');
+    return t;
   }
 
   function firstNumberAfter(text, patterns){
     for (const p of patterns) {
-      const re = new RegExp(p + '[^\\d\\-]{0,12}(\\d{1,3}(?:\\.\\d{1,3})?)', 'i');
+      const re = new RegExp(p + '[^\\d\\-]{0,20}(\\d{1,3}(?:\\.\\d{1,3})?)', 'i');
       const m = text.match(re);
       if (m) return parseFloat(m[1]);
     }
