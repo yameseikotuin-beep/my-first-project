@@ -1197,7 +1197,7 @@
     const total = rightVal + leftVal;
     const rPct = total ? (rightVal / total * 100) : 50;
     const lPct = 100 - rPct;
-    const flagText = asym.diffPct >= 10
+    const flagText = asym.diffPct >= 1
       ? `左右差 ${asym.diffPct.toFixed(1)}%（${asym.weaker === 'right' ? '右' : '左'}が弱い傾向）`
       : `左右差 ${asym.diffPct.toFixed(1)}%（ほぼ均衡）`;
     div.innerHTML = `
@@ -1223,27 +1223,27 @@
         '体重に対して筋肉量（特に体幹を支える筋力）が少なめで、腰部への負担が増えやすい状態です。');
       addIf(d.trunk !== null && d.weight !== null && (d.trunk / d.weight * 100) < (d.gender === 'male' ? 16 : 12),
         `体幹（体を支える中心部）の筋肉量が体重に対して少なめ（目安）で、腰・背中を支える力が不足しやすい状態です。`);
-      addIf(d.legAsym && d.legAsym.diffPct >= 10,
+      addIf(d.legAsym && d.legAsym.diffPct >= 1,
         `脚の筋肉量に左右差（${d.legAsym.diffPct.toFixed(1)}%）があり、姿勢の傾きが腰への負担を生んでいる可能性があります。`);
       addIf(d.duration === 'chronic', '症状が慢性化しており、筋力低下や姿勢の崩れが積み重なっている可能性があります。');
     }
 
     if (area === '膝') {
-      addIf(d.legAsym && d.legAsym.diffPct >= 10,
+      addIf(d.legAsym && d.legAsym.diffPct >= 1,
         `左右の脚の筋肉量差（${d.legAsym.diffPct.toFixed(1)}%）があり、弱い側の膝に負担が集中している可能性があります。`);
       addIf(d.bmi !== null && d.bmi >= 25, '体重増加により膝関節にかかる負荷が大きくなっている可能性があります。');
       addIf(d.ecwtbw !== null && d.ecwtbw > 0.390, 'むくみ指標（ECW/TBW）が高く、関節周囲の炎症・水分貯留が痛みに関与している可能性があります。');
     }
 
     if (area === '股関節') {
-      addIf(d.legAsym && d.legAsym.diffPct >= 10,
+      addIf(d.legAsym && d.legAsym.diffPct >= 1,
         `脚の筋肉バランスの左右差（${d.legAsym.diffPct.toFixed(1)}%）が骨盤の傾きや股関節への偏った負荷につながっている可能性があります。`);
       addIf(d.trunk !== null && d.weight !== null && (d.trunk / d.weight * 100) < (d.gender === 'male' ? 16 : 12),
         `体幹の筋肉量が体重に対して少なめ（目安）で、骨盤・股関節まわりの安定性が低下しやすい状態です。`);
     }
 
     if (area === '肩' || area === '首') {
-      addIf(d.armAsym && d.armAsym.diffPct >= 10,
+      addIf(d.armAsym && d.armAsym.diffPct >= 1,
         `腕の筋肉量に左右差（${d.armAsym.diffPct.toFixed(1)}%）があり、姿勢の左右非対称性や肩こりの一因となっている可能性があります。`);
       addIf(d.smm !== null && d.weight !== null && (d.smm / d.weight * 100) < (d.gender === 'male' ? 33 : 25),
         '上半身を支える筋肉量が少なめで、長時間の姿勢保持による肩・首への負担が生じやすい状態です。');
@@ -1251,12 +1251,12 @@
 
     if (area === '足首・足') {
       addIf(d.ecwtbw !== null && d.ecwtbw > 0.390, 'むくみ指標（ECW/TBW）が高く、足部のむくみが痛み・だるさに関与している可能性があります。');
-      addIf(d.legAsym && d.legAsym.diffPct >= 10,
+      addIf(d.legAsym && d.legAsym.diffPct >= 1,
         `脚の筋肉量の左右差（${d.legAsym.diffPct.toFixed(1)}%）により、片側の足首に負担が偏っている可能性があります。`);
     }
 
     if (area === '肘' || area === '手首・手') {
-      addIf(d.armAsym && d.armAsym.diffPct >= 10,
+      addIf(d.armAsym && d.armAsym.diffPct >= 1,
         `腕の筋肉量の左右差（${d.armAsym.diffPct.toFixed(1)}%）があり、利き手側などへの負担偏在が考えられます。`);
     }
 
@@ -1287,7 +1287,7 @@
     if (d.bmi !== null && d.bmi >= 25) {
       recs.push('関節への負担軽減のため、無理のない範囲での体重管理を検討しましょう。');
     }
-    if ((d.armAsym && d.armAsym.diffPct >= 10) || (d.legAsym && d.legAsym.diffPct >= 10)) {
+    if ((d.armAsym && d.armAsym.diffPct >= 1) || (d.legAsym && d.legAsym.diffPct >= 1)) {
       recs.push('左右の筋肉バランスに差があります。弱い側を中心としたバランストレーニングやストレッチが有効な場合があります。');
     }
     if (d.smm !== null && d.weight !== null && (d.smm / d.weight * 100) < (d.gender === 'male' ? 33 : 25)) {
