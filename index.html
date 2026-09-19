@@ -185,6 +185,17 @@
     gap:12px;
     margin-top:10px;
   }
+  .limb-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    margin-top:10px;
+  }
+  .limb-grid .trunk-field{
+    grid-column:1 / -1;
+    max-width:calc(50% - 6px);
+    margin:0 auto;
+  }
   .field label{
     display:block;
     font-size:.75rem;
@@ -469,12 +480,12 @@
 
     <fieldset>
       <legend>部位別筋肉量（kg）— 左右バランス分析に使用</legend>
-      <div class="grid">
-        <div class="field"><label for="f_rarm">右腕</label><input type="number" id="f_rarm" step="0.1"></div>
+      <div class="limb-grid">
         <div class="field"><label for="f_larm">左腕</label><input type="number" id="f_larm" step="0.1"></div>
-        <div class="field"><label for="f_trunk">体幹</label><input type="number" id="f_trunk" step="0.1"></div>
-        <div class="field"><label for="f_rleg">右脚</label><input type="number" id="f_rleg" step="0.1"></div>
+        <div class="field"><label for="f_rarm">右腕</label><input type="number" id="f_rarm" step="0.1"></div>
+        <div class="field trunk-field"><label for="f_trunk">体幹</label><input type="number" id="f_trunk" step="0.1"></div>
         <div class="field"><label for="f_lleg">左脚</label><input type="number" id="f_lleg" step="0.1"></div>
+        <div class="field"><label for="f_rleg">右脚</label><input type="number" id="f_rleg" step="0.1"></div>
       </div>
     </fieldset>
   </section>
