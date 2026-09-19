@@ -364,7 +364,7 @@
     </div>
 
     <div id="cropWrap">
-      <p class="desc" id="cropInstructionNormal" style="margin-top:14px;">読み取りたい範囲（数値が書かれた部分）をドラッグして選択してください。角をドラッグでサイズ変更、枠の内側をドラッグで移動できます。傾いている場合は回転も使えます。</p>
+      <p class="desc" id="cropInstructionNormal" style="margin-top:14px;">画像は指2本でピンチして拡大・縮小、1本指でドラッグして移動できます。数字が見える大きさまで拡大してから、枠を数字だけに合わせてください（角をドラッグでサイズ変更、枠の内側をドラッグで移動）。傾いている場合は回転も使えます。</p>
 
       <div id="wizardBar" style="display:none;">
         <div class="wizard-progress">
@@ -377,13 +377,10 @@
       <div id="cropStage">
         <canvas id="cropCanvas"></canvas>
       </div>
-      <p class="desc" id="zoomHint" style="display:none;margin-top:8px;">拡大表示中です。この中でさらに数字だけを囲んでから読み取ってください。</p>
       <div class="row">
-        <button type="button" class="secondary" id="zoomInBtn">🔍 選択範囲を拡大</button>
-        <button type="button" class="secondary" id="zoomOutBtn" style="display:none;">全体表示に戻す</button>
         <button type="button" class="secondary" id="rotateLeftBtn">↺ 90°回転</button>
         <button type="button" class="secondary" id="rotateRightBtn">↻ 90°回転</button>
-        <button type="button" class="secondary" id="resetCropBtn">範囲をリセット</button>
+        <button type="button" class="secondary" id="resetCropBtn">全体表示に戻す</button>
       </div>
     </div>
 
@@ -569,9 +566,6 @@
   const rotateLeftBtn = document.getElementById('rotateLeftBtn');
   const rotateRightBtn = document.getElementById('rotateRightBtn');
   const resetCropBtn = document.getElementById('resetCropBtn');
-  const zoomInBtn = document.getElementById('zoomInBtn');
-  const zoomOutBtn = document.getElementById('zoomOutBtn');
-  const zoomHint = document.getElementById('zoomHint');
   const ocrBtn = document.getElementById('ocrBtn');
   const wizardStartBtn = document.getElementById('wizardStartBtn');
   const clearImgBtn = document.getElementById('clearImgBtn');
@@ -582,10 +576,16 @@
 
   let originalImage = null;   // 読み込んだ元画像（Image要素）
   let rotationDeg = 0;        // 0 / 90 / 180 / 270
-  let sourceCanvas = document.createElement('canvas'); // 回転適用後のフル解像度画像
-  let displayScale = 1;       // sourceCanvas 1px あたりの cropCanvas px 数の逆数（source / display）
+  let sourceCanvas = document.createElement('canvas'); // 回転適用後のフル解像度画像（常に画像全体を保持する）
   let rect = {x:0, y:0, w:0, h:0}; // 切り抜き範囲（cropCanvas 座標系）
-  let zoomStack = []; // 拡大前の sourceCanvas を積んでおき、「全体表示に戻す」で復元する
+
+  // ピンチズーム・パン用の表示状態。cropCanvas には sourceCanvas の一部を
+  // renderScale 倍（cropCanvas 1px あたり sourceCanvas 何px か）して描画する
+  let baseRenderScale = 1; // 全体表示（フィット）時の renderScale
+  let renderScale = 1;
+  let viewOffsetX = 0; // 現在表示中の範囲の左上（sourceCanvas 座標系）
+  let viewOffsetY = 0;
+  const MAX_ZOOM_MULT = 8; // baseRenderScale の何倍までピンチで拡大できるか
 
   dropzone.addEventListener('click', () => fileInput.click());
   dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
@@ -606,12 +606,10 @@
     img.onload = () => {
       originalImage = img;
       rotationDeg = 0;
-      zoomStack = [];
       URL.revokeObjectURL(url);
       cropWrap.style.display = 'block';
       buildSourceCanvas();
       initCropUI();
-      updateZoomControls();
       ocrBtn.disabled = false;
       wizardStartBtn.disabled = false;
       clearImgBtn.disabled = false;
@@ -623,7 +621,6 @@
   clearImgBtn.addEventListener('click', () => {
     originalImage = null;
     fileInput.value = '';
-    zoomStack = [];
     cropWrap.style.display = 'none';
     ocrBtn.disabled = true;
     wizardStartBtn.disabled = true;
@@ -651,9 +648,17 @@
     const displayH = Math.round(displayW * (sourceCanvas.height / sourceCanvas.width));
     cropCanvas.width = Math.round(displayW);
     cropCanvas.height = displayH;
-    displayScale = sourceCanvas.width / cropCanvas.width;
+    resetView();
     setDefaultRect();
     drawCropStage();
+  }
+
+  // 表示（ピンチズーム・パン）を全体表示にリセットする。sourceCanvas 自体は変更しない
+  function resetView(){
+    baseRenderScale = cropCanvas.width / sourceCanvas.width;
+    renderScale = baseRenderScale;
+    viewOffsetX = 0;
+    viewOffsetY = 0;
   }
 
   function setDefaultRect(){
@@ -664,7 +669,9 @@
 
   function drawCropStage(){
     cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
-    cropCtx.drawImage(sourceCanvas, 0, 0, cropCanvas.width, cropCanvas.height);
+    const viewW = cropCanvas.width / renderScale;
+    const viewH = cropCanvas.height / renderScale;
+    cropCtx.drawImage(sourceCanvas, viewOffsetX, viewOffsetY, viewW, viewH, 0, 0, cropCanvas.width, cropCanvas.height);
 
     cropCtx.fillStyle = 'rgba(0,0,0,0.5)';
     cropCtx.fillRect(0, 0, cropCanvas.width, rect.y);
@@ -708,10 +715,35 @@
   let dragMode = null, dragCorner = null, dragStart = {x:0,y:0}, rectStart = {x:0,y:0,w:0,h:0};
   const MIN_RECT = 24;
 
+  // 指2本でのピンチズーム・パン用の状態
+  const activePointers = new Map(); // pointerId -> {x,y}（cropCanvas座標系）
+  let pinchState = null;
+
+  function pinchMetrics(){
+    const pts = Array.from(activePointers.values());
+    const dx = pts[0].x - pts[1].x, dy = pts[0].y - pts[1].y;
+    return { dist: Math.hypot(dx, dy), midX: (pts[0].x + pts[1].x) / 2, midY: (pts[0].y + pts[1].y) / 2 };
+  }
+
   cropCanvas.addEventListener('pointerdown', e => {
     e.preventDefault();
-    cropCanvas.setPointerCapture(e.pointerId);
+    try { cropCanvas.setPointerCapture(e.pointerId); } catch (err) { /* 一部の環境では失敗しうるが致命的ではない */ }
     const pos = getPos(e);
+    activePointers.set(e.pointerId, pos);
+
+    if (activePointers.size >= 2) {
+      // 2本目の指が触れたらピンチ操作に切り替え、進行中の枠編集はキャンセルする
+      dragMode = null;
+      const m = pinchMetrics();
+      pinchState = {
+        startDist: Math.max(1, m.dist),
+        startMidX: m.midX, startMidY: m.midY,
+        startRenderScale: renderScale,
+        startOffsetX: viewOffsetX, startOffsetY: viewOffsetY
+      };
+      return;
+    }
+
     const corner = hitTestCorner(pos);
     if (corner) {
       dragMode = 'resize'; dragCorner = corner;
@@ -726,9 +758,35 @@
   });
 
   cropCanvas.addEventListener('pointermove', e => {
-    if (!dragMode) return;
+    if (!activePointers.has(e.pointerId)) return;
     e.preventDefault();
     const pos = getPos(e);
+    activePointers.set(e.pointerId, pos);
+
+    if (activePointers.size >= 2 && pinchState) {
+      const m = pinchMetrics();
+      const scaleFactor = m.dist / pinchState.startDist;
+      const newRenderScale = clamp(pinchState.startRenderScale * scaleFactor, baseRenderScale, baseRenderScale * MAX_ZOOM_MULT);
+
+      // ピンチの中心にある画像上の点が、ズーム後も同じ画面位置に留まるようにする
+      const srcX = pinchState.startOffsetX + pinchState.startMidX / pinchState.startRenderScale;
+      const srcY = pinchState.startOffsetY + pinchState.startMidY / pinchState.startRenderScale;
+      let newOffsetX = srcX - m.midX / newRenderScale;
+      let newOffsetY = srcY - m.midY / newRenderScale;
+
+      const viewW = cropCanvas.width / newRenderScale;
+      const viewH = cropCanvas.height / newRenderScale;
+      newOffsetX = clamp(newOffsetX, 0, Math.max(0, sourceCanvas.width - viewW));
+      newOffsetY = clamp(newOffsetY, 0, Math.max(0, sourceCanvas.height - viewH));
+
+      renderScale = newRenderScale;
+      viewOffsetX = newOffsetX;
+      viewOffsetY = newOffsetY;
+      drawCropStage();
+      return;
+    }
+
+    if (!dragMode) return;
     const dx = pos.x - dragStart.x, dy = pos.y - dragStart.y;
 
     if (dragMode === 'move') {
@@ -757,7 +815,19 @@
     drawCropStage();
   });
 
-  ['pointerup', 'pointercancel'].forEach(evt => cropCanvas.addEventListener(evt, () => { dragMode = null; }));
+  ['pointerup', 'pointercancel'].forEach(evt => cropCanvas.addEventListener(evt, e => {
+    const wasPinching = !!pinchState;
+    activePointers.delete(e.pointerId);
+    if (activePointers.size < 2) pinchState = null;
+    if (activePointers.size === 0) {
+      dragMode = null;
+      if (wasPinching) {
+        // ピンチ操作の直後は枠が無関係な場所を指しているため、表示範囲に合わせて引き直す
+        setDefaultRect();
+        drawCropStage();
+      }
+    }
+  }));
 
   rotateLeftBtn.addEventListener('click', () => {
     rotationDeg = (rotationDeg + 270) % 360;
@@ -770,63 +840,18 @@
     initCropUI();
   });
   resetCropBtn.addEventListener('click', () => {
+    // 表示（ピンチズーム・パン）と選択枠の両方を初期状態に戻す
+    resetView();
     setDefaultRect();
     drawCropStage();
   });
 
-  // 選択範囲を拡大表示する。画像が粗くて狙う数字の位置が分かりにくい場合、
-  // まずおおまかに範囲を囲んで拡大し、拡大後の画面であらためて正確に囲み直せるようにする
-  function updateZoomControls(){
-    const zoomed = zoomStack.length > 0;
-    zoomOutBtn.style.display = zoomed ? 'inline-block' : 'none';
-    zoomHint.style.display = zoomed ? 'block' : 'none';
-    rotateLeftBtn.disabled = zoomed;
-    rotateRightBtn.disabled = zoomed;
-  }
-
-  function zoomIntoSelection(){
-    const sx = rect.x * displayScale;
-    const sy = rect.y * displayScale;
-    const sw = Math.max(1, rect.w * displayScale);
-    const sh = Math.max(1, rect.h * displayScale);
-    if (sw < 15 || sh < 15) {
-      alert('拡大する範囲が小さすぎます。もう少し広めに囲んでから拡大してください。');
-      return;
-    }
-    zoomStack.push(sourceCanvas);
-
-    const targetWidth = Math.min(Math.max(sw * 3, 800), 2400);
-    const scale = targetWidth / sw;
-    const zoomed = document.createElement('canvas');
-    zoomed.width = Math.max(1, Math.round(sw * scale));
-    zoomed.height = Math.max(1, Math.round(sh * scale));
-    const zctx = zoomed.getContext('2d');
-    zctx.imageSmoothingEnabled = true;
-    zctx.imageSmoothingQuality = 'high';
-    zctx.drawImage(sourceCanvas, sx, sy, sw, sh, 0, 0, zoomed.width, zoomed.height);
-
-    sourceCanvas = zoomed;
-    initCropUI();
-    updateZoomControls();
-  }
-
-  function resetZoomFully(){
-    if (zoomStack.length === 0) return;
-    sourceCanvas = zoomStack[0];
-    zoomStack = [];
-    initCropUI();
-    updateZoomControls();
-  }
-
-  zoomInBtn.addEventListener('click', zoomIntoSelection);
-  zoomOutBtn.addEventListener('click', resetZoomFully);
-
   /* ---------- crop + preprocess (grayscale / contrast stretch / upscale) ---------- */
   function extractProcessedCanvas(){
-    const sx = rect.x * displayScale;
-    const sy = rect.y * displayScale;
-    const sw = Math.max(1, rect.w * displayScale);
-    const sh = Math.max(1, rect.h * displayScale);
+    const sx = viewOffsetX + rect.x / renderScale;
+    const sy = viewOffsetY + rect.y / renderScale;
+    const sw = Math.max(1, rect.w / renderScale);
+    const sh = Math.max(1, rect.h / renderScale);
 
     const targetMinWidth = 1400;
     let scale = sw < targetMinWidth ? targetMinWidth / sw : 1;
@@ -984,7 +1009,7 @@
     wizardInstruction.textContent = f.instruction;
     wizardConfirm.style.display = 'none';
     wizardActionRow.style.display = 'flex';
-    resetZoomFully(); // 新しい項目では、次にどこにあるか分からないため全体表示から始める
+    resetView(); // 新しい項目では、次にどこにあるか分からないため全体表示から始める
     setDefaultRect();
     drawCropStage();
   }
