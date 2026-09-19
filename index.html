@@ -852,6 +852,17 @@
     return t;
   }
 
+  // 日付（26.08.28等）の断片らしき数値を判定する。この帳票の実測値は常に小数点以下1桁までしか
+  // 印字されない（例: 34.7）のに対し、日付の月・日は常に2桁（例: .08 / .28）になるため、
+  // 小数点以下が2桁以上の場合は日付とみなす。また、桁数の関係で整数部だけが数値として切り出され、
+  // その直後に別の「.数字」が続く場合（3分割の日付の1つ目のセグメントなど）も日付とみなす。
+  function isDateFragment(raw, text, endIndex){
+    const dotIdx = raw.indexOf('.');
+    if (dotIdx !== -1 && raw.length - dotIdx - 1 >= 2) return true;
+    if (text[endIndex] === '.' && /\d/.test(text[endIndex + 1] || '')) return true;
+    return false;
+  }
+
   // 指定パターンの「すべての」出現箇所を調べ、range内かつ小数点付きの値を優先して返す。
   // 範囲外や不適合な一致はスキップし、次の候補（同じパターンの別出現・次のパターン）を試す。
   function bestNumberAfter(text, patterns, opts){
@@ -864,11 +875,14 @@
       let bestInt = null, bestDec = null;
       while ((m = re.exec(text)) !== null) {
         const raw = m[1];
-        const v = parseFloat(raw);
-        if (!range || (v >= range[0] && v <= range[1])) {
-          const hasDecimal = raw.indexOf('.') !== -1;
-          if (hasDecimal && bestDec === null) bestDec = v;
-          if (!hasDecimal && bestInt === null) bestInt = v;
+        const after = m.index + m[0].length;
+        if (!isDateFragment(raw, text, after)) {
+          const v = parseFloat(raw);
+          if (!range || (v >= range[0] && v <= range[1])) {
+            const hasDecimal = raw.indexOf('.') !== -1;
+            if (hasDecimal && bestDec === null) bestDec = v;
+            if (!hasDecimal && bestInt === null) bestInt = v;
+          }
         }
         if (re.lastIndex === m.index) re.lastIndex++;
       }
@@ -894,6 +908,8 @@
       while ((nm = numRe.exec(text)) !== null) {
         if (nm.index >= end) break;
         if (nm.index + nm[0].length > end) break; // windowの境界で途中で切れる数字は無視
+        const after = nm.index + nm[0].length;
+        if (isDateFragment(nm[0], text, after)) continue;
         const v = parseFloat(nm[0]);
         if (!range || (v >= range[0] && v <= range[1])) return v;
       }
@@ -927,7 +943,15 @@
         const sm = text.slice(start, end).match(stopRe);
         if (sm) end = Math.min(end, start + sm.index);
       }
-      const allNums = (text.slice(start, end).match(/\d{1,3}(?:\.\d{1,3})?/g) || []).map(parseFloat);
+      const windowText = text.slice(start, end);
+      const allNums = [];
+      const numRe = /\d{1,3}(?:\.\d{1,3})?/g;
+      let nm;
+      while ((nm = numRe.exec(windowText)) !== null) {
+        const after = nm.index + nm[0].length;
+        if (!isDateFragment(nm[0], windowText, after)) allNums.push(parseFloat(nm[0]));
+        if (numRe.lastIndex === nm.index) numRe.lastIndex++;
+      }
       const nums = allNums.filter(v => !range || (v >= range[0] && v <= range[1]));
 
       let runEnd = -1, runLen = 0, bestRunEnd = -1, bestRunLen = 0;
