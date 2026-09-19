@@ -843,14 +843,14 @@
     // 数字・小数点に挟まれた紛らわしい文字はOCRの誤認識とみなして補正する（O→0, l/I→1）
     t = t.replace(/(?<=[\d.])[oOｏＯ](?=[\d.])/g, '0');
     t = t.replace(/(?<=[\d.])[lI｜](?=[\d.])/g, '1');
-    // "12 . 3" のように空白が入った小数点を詰める
-    t = t.replace(/(\d)\s+\.\s*(\d)/g, '$1.$2');
+    // "12 . 3" や "12. 3" のように空白が入った小数点を詰める
+    t = t.replace(/(\d)\s*\.\s*(\d)/g, '$1.$2');
     return t;
   }
 
   function firstNumberAfter(text, patterns){
     for (const p of patterns) {
-      const re = new RegExp(p + '[^\\d\\-]{0,20}(\\d{1,3}(?:\\.\\d{1,3})?)', 'i');
+      const re = new RegExp(p + '[^\\d\\-]{0,40}(\\d{1,3}(?:\\.\\d{1,3})?)', 'i');
       const m = text.match(re);
       if (m) return parseFloat(m[1]);
     }
@@ -861,10 +861,12 @@
     const text = normalize(rawTextValue);
     const out = {};
 
+    // BMI・体脂肪率・体重は、日本語ラベルの直後にグラフの目盛り数値が続く帳票が多いため、
+    // 目盛りに惑わされない英語ラベル（Body Mass Index / Percent Body Fat / Weight）を先に試す
     out.height   = firstNumberAfter(text, ['身\\s*長', 'Height']);
-    out.weight   = firstNumberAfter(text, ['(?<!標準)(?<!目標)体\\s*重(?!調節)(?!コントロール)', '(?<!Target )(?<!Standard )Weight']);
-    out.bmi      = firstNumberAfter(text, ['BMI']);
-    out.pbf      = firstNumberAfter(text, ['体脂肪率', 'PBF']);
+    out.weight   = firstNumberAfter(text, ['(?<!Target )(?<!Standard )Weight', '(?<!標準)(?<!目標)体\\s*重(?!調節)(?!コントロール)']);
+    out.bmi      = firstNumberAfter(text, ['Body\\s*Mass\\s*Index', 'BMI']);
+    out.pbf      = firstNumberAfter(text, ['Percent\\s*Body\\s*Fat', '体脂肪率', 'PBF']);
     out.fatmass  = firstNumberAfter(text, ['体脂肪量', 'Body\\s*Fat\\s*Mass']);
     out.smm      = firstNumberAfter(text, ['骨格筋量', 'SMM', 'Skeletal\\s*Muscle']);
     out.visceral = firstNumberAfter(text, ['内臓脂肪レベル', 'Visceral\\s*Fat\\s*Level']);
