@@ -769,7 +769,6 @@
         logger: m => { if (currentLogger) currentLogger(m); }
       }).then(async w => {
         await w.setParameters({
-          tessedit_pageseg_mode: '6',
           preserve_interword_spaces: '1',
           user_defined_dpi: '300'
         });
@@ -798,11 +797,19 @@
     try {
       const processedCanvas = extractProcessedCanvas();
       const worker = await getWorker();
+
+      // 選択範囲が画像全体に近い（狭く絞り込んでいない）場合はレイアウト自動解析、
+      // 数値の並び1〜2行程度までしっかり絞り込んでいる場合は単一ブロックとして読む
+      const cropRatio = (rect.w * rect.h) / (cropCanvas.width * cropCanvas.height);
+      await worker.setParameters({ tessedit_pageseg_mode: cropRatio < 0.35 ? '6' : '3' });
+
       const { data: { text } } = await worker.recognize(processedCanvas);
       rawText.value = text || '';
       document.getElementById('rawTextWrap').open = true;
-      applyParsedMetrics(parseInBodyText(text || ''));
-      ocrStatus.textContent = '読み取り完了。数値をフォームで確認してください。';
+      const found = applyParsedMetrics(parseInBodyText(text || ''));
+      ocrStatus.textContent = found > 0
+        ? '読み取り完了。数値をフォームで確認してください。'
+        : '数値を自動抽出できませんでした。「読み取った生テキストを確認する」を開いて、文字が読み取れているか確認してください。範囲を狭めて再実行するか、手動で入力してください。';
     } catch (err) {
       console.error(err);
       ocrStatus.textContent = '読み取りに失敗しました。範囲を選び直すか、手動で数値を入力してください。';
@@ -886,9 +893,7 @@
         found++;
       }
     }
-    if (found === 0) {
-      alert('画像から数値を自動抽出できませんでした。お手数ですが手動で入力してください。');
-    }
+    return found;
   }
 
   /* ---------- Step 3: pain intensity slider ---------- */
