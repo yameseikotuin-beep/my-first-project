@@ -855,7 +855,10 @@
 
     const targetMinWidth = 1400;
     let scale = sw < targetMinWidth ? targetMinWidth / sw : 1;
-    scale = Math.min(scale, 3);
+    // ガイド付き入力では数字1つだけを狭く囲むため、元画像上でも数十px程度しかない範囲になりやすい。
+    // 上限を3倍にしていると、その場合に拡大が全く足りず（例: 幅40px→120px）OCRが
+    // 文字を検出できず「数字を読み取れませんでした」になっていた。上限を引き上げて対応する。
+    scale = Math.min(scale, 10);
     const outW = Math.max(1, Math.round(sw * scale));
     const outH = Math.max(1, Math.round(sh * scale));
 
@@ -1061,14 +1064,25 @@
     try {
       const processedCanvas = extractProcessedCanvas();
       const worker = await getWorker();
-      // 数字とピリオドしか認識しないよう制限し、狭く切り抜いた1項目の読み取り精度を上げる
+      // 数字とピリオドしか認識しないよう制限し、狭く切り抜いた1項目の読み取り精度を上げる。
+      // PSM7（1行のテキスト）よりPSM8（単一の単語）の方が、余白の少ない孤立した
+      // 数字だけの切り抜きに対して安定して認識できることが多いため優先して試すが、
+      // 帳票のフォントや切り抜き方によっては逆にPSM7の方が読めることがあるため、
+      // PSM8で読み取れなかった場合はPSM7でも試してから諦める
       await worker.setParameters({
         tessedit_char_whitelist: '0123456789.',
-        tessedit_pageseg_mode: '7' // 1行のテキストとして扱う
+        tessedit_pageseg_mode: '8'
       });
-      const { data: { text } } = await worker.recognize(processedCanvas);
-      const cleaned = (text || '').replace(/[^\d.]/g, ' ');
-      const m = cleaned.match(/\d{1,3}(?:\.\d{1,3})?/);
+      let { data: { text } } = await worker.recognize(processedCanvas);
+      let cleaned = (text || '').replace(/[^\d.]/g, ' ');
+      let m = cleaned.match(/\d{1,3}(?:\.\d{1,3})?/);
+      if (!m) {
+        await worker.setParameters({ tessedit_pageseg_mode: '7' });
+        const retry = await worker.recognize(processedCanvas);
+        text = retry.data.text;
+        cleaned = (text || '').replace(/[^\d.]/g, ' ');
+        m = cleaned.match(/\d{1,3}(?:\.\d{1,3})?/);
+      }
       const value = m ? parseFloat(m[0]) : null;
 
       wizardValueInput.value = value !== null ? value : '';
