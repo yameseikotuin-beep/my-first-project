@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ダイエット食事管理</title>
+<style>
+  :root {
+    --bg: #f4f6f5;
+    --card: #ffffff;
+    --text: #1f2a24;
+    --muted: #6b7a72;
+    --border: #e1e6e3;
+    --primary: #2f9e6e;
+    --primary-dark: #227a54;
+    --accent: #ff8a5c;
+    --danger: #e5484d;
+    --over: #e5484d;
+    --under: #2f9e6e;
+    --radius: 14px;
+    --shadow: 0 2px 10px rgba(0,0,0,0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121714;
+      --card: #1a211c;
+      --text: #eef2ef;
+      --muted: #93a39a;
+      --border: #2a332c;
+      --primary: #3db97f;
+      --primary-dark: #2f9e6e;
+      --accent: #ff9a6b;
+      --shadow: 0 2px 10px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", system-ui, sans-serif;
+    padding-bottom: 40px;
+  }
+  header {
+    padding: 20px 16px 12px;
+    text-align: center;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 1.4rem;
+    letter-spacing: 0.02em;
+  }
+  header p {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 0 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px;
+  }
+  .card h2 {
+    margin: 0 0 12px;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .date-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .date-nav button {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: var(--text);
+    cursor: pointer;
+    font-size: 1rem;
+  }
+  .date-nav input[type="date"] {
+    flex: 1;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.95rem;
+    text-align: center;
+  }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    text-align: center;
+  }
+  .summary-grid div.stat {
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 10px 4px;
+  }
+  .summary-grid .label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-bottom: 2px;
+  }
+  .summary-grid .value {
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+  .progress-wrap {
+    margin-top: 14px;
+  }
+  .progress-bar-bg {
+    background: var(--bg);
+    border-radius: 999px;
+    height: 14px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+    transition: width 0.3s ease;
+  }
+  .progress-bar-fill.over {
+    background: linear-gradient(90deg, var(--danger), #c0392b);
+  }
+  .progress-caption {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  form.meal-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  form.meal-form .full { grid-column: 1 / -1; }
+  form.meal-form label {
+    font-size: 0.75rem;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 4px;
+  }
+  form.meal-form input, form.meal-form select {
+    width: 100%;
+    padding: 9px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.95rem;
+  }
+  form.meal-form button {
+    grid-column: 1 / -1;
+    padding: 11px;
+    border: none;
+    border-radius: 10px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+  form.meal-form button:hover { background: var(--primary-dark); }
+
+  .meal-group h3 {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 14px 0 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .meal-group:first-of-type h3 { margin-top: 0; }
+  .meal-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 6px;
+    background: var(--bg);
+  }
+  .meal-item .info { flex: 1; min-width: 0; }
+  .meal-item .name { font-weight: 600; font-size: 0.9rem; }
+  .meal-item .macro { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+  .meal-item .kcal { font-weight: 700; margin-left: 10px; white-space: nowrap; }
+  .meal-item .del {
+    margin-left: 10px;
+    background: none;
+    border: none;
+    color: var(--danger);
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 2px 6px;
+  }
+  .empty-msg {
+    color: var(--muted);
+    font-size: 0.85rem;
+    text-align: center;
+    padding: 16px 0;
+  }
+  .settings-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .settings-row label { font-size: 0.85rem; color: var(--muted); }
+  .settings-row input {
+    width: 110px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+  }
+  .settings-row button {
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--primary);
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  canvas {
+    width: 100%;
+    height: 160px;
+    display: block;
+  }
+  .weight-form {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .weight-form input {
+    flex: 1;
+    min-width: 90px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+  }
+  .weight-form button {
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: none;
+    background: var(--primary);
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .tabs button {
+    flex: 1;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 0.8rem;
+  }
+  .tabs button.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+  }
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.7rem;
+    margin-top: 20px;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>🥗 ダイエット食事管理</h1>
+  <p>毎日の食事とカロリーを記録して、目標に近づこう</p>
+</header>
+
+<main>
+  <section class="card">
+    <h2>⚙️ 目標設定</h2>
+    <div class="settings-row">
+      <label for="targetCalories">1日の目標カロリー</label>
+      <input type="number" id="targetCalories" min="0" step="10" placeholder="例: 1800">
+      <span>kcal</span>
+      <button id="saveTarget">保存</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="date-nav">
+      <button id="prevDay">‹</button>
+      <input type="date" id="datePicker">
+      <button id="nextDay">›</button>
+      <button id="todayBtn">今日</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>📊 本日のサマリー</h2>
+    <div class="summary-grid">
+      <div class="stat"><div class="label">目標</div><div class="value" id="sumTarget">0</div></div>
+      <div class="stat"><div class="label">摂取</div><div class="value" id="sumIntake">0</div></div>
+      <div class="stat"><div class="label">残り</div><div class="value" id="sumRemain">0</div></div>
+      <div class="stat"><div class="label">P/F/C</div><div class="value" id="sumPFC" style="font-size:0.8rem">0/0/0</div></div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar" style="width:0%"></div></div>
+      <div class="progress-caption"><span id="progressPct">0%</span><span id="progressNote"></span></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>➕ 食事を記録</h2>
+    <form class="meal-form" id="mealForm">
+      <div>
+        <label>食事タイプ</label>
+        <select id="mealType">
+          <option value="朝食">朝食</option>
+          <option value="昼食">昼食</option>
+          <option value="夕食">夕食</option>
+          <option value="間食">間食</option>
+        </select>
+      </div>
+      <div>
+        <label>カロリー (kcal)</label>
+        <input type="number" id="mealCalories" min="0" step="1" required placeholder="例: 450">
+      </div>
+      <div class="full">
+        <label>food名</label>
+        <input type="text" id="mealName" required placeholder="例: 鶏胸肉サラダ">
+      </div>
+      <div>
+        <label>たんぱく質 (g)</label>
+        <input type="number" id="mealProtein" min="0" step="0.1" placeholder="任意">
+      </div>
+      <div>
+        <label>脂質 (g)</label>
+        <input type="number" id="mealFat" min="0" step="0.1" placeholder="任意">
+      </div>
+      <div class="full">
+        <label>炭水化物 (g)</label>
+        <input type="number" id="mealCarbs" min="0" step="0.1" placeholder="任意">
+      </div>
+      <button type="submit">記録を追加</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>🍽️ 記録一覧</h2>
+    <div id="mealList"></div>
+  </section>
+
+  <section class="card">
+    <h2>📈 カロリー推移（直近14日）</h2>
+    <canvas id="calorieChart" width="600" height="160"></canvas>
+  </section>
+
+  <section class="card">
+    <h2>⚖️ 体重記録</h2>
+    <div class="weight-form">
+      <input type="date" id="weightDate">
+      <input type="number" id="weightValue" min="0" step="0.1" placeholder="体重 (kg)">
+      <button id="addWeight">追加</button>
+    </div>
+    <canvas id="weightChart" width="600" height="160"></canvas>
+  </section>
+</main>
+
+<footer>データはこのブラウザ内（localStorage）のみに保存されます</footer>
+
+<script>
+(function() {
+  "use strict";
+
+  var STORAGE_KEY = "dietTracker.v1";
+
+  function loadData() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return { targetCalories: 1800, meals: [], weights: [] };
+  }
+
+  function saveData() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {}
+  }
+
+  var state = loadData();
+
+  function todayStr() {
+    var d = new Date();
+    return formatDate(d);
+  }
+
+  function formatDate(d) {
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, "0");
+    var day = String(d.getDate()).padStart(2, "0");
+    return y + "-" + m + "-" + day;
+  }
+
+  function addDays(dateStr, delta) {
+    var d = new Date(dateStr + "T00:00:00");
+    d.setDate(d.getDate() + delta);
+    return formatDate(d);
+  }
+
+  var selectedDate = todayStr();
+
+  var el = {
+    targetCalories: document.getElementById("targetCalories"),
+    saveTarget: document.getElementById("saveTarget"),
+    datePicker: document.getElementById("datePicker"),
+    prevDay: document.getElementById("prevDay"),
+    nextDay: document.getElementById("nextDay"),
+    todayBtn: document.getElementById("todayBtn"),
+    sumTarget: document.getElementById("sumTarget"),
+    sumIntake: document.getElementById("sumIntake"),
+    sumRemain: document.getElementById("sumRemain"),
+    sumPFC: document.getElementById("sumPFC"),
+    progressBar: document.getElementById("progressBar"),
+    progressPct: document.getElementById("progressPct"),
+    progressNote: document.getElementById("progressNote"),
+    mealForm: document.getElementById("mealForm"),
+    mealType: document.getElementById("mealType"),
+    mealCalories: document.getElementById("mealCalories"),
+    mealName: document.getElementById("mealName"),
+    mealProtein: document.getElementById("mealProtein"),
+    mealFat: document.getElementById("mealFat"),
+    mealCarbs: document.getElementById("mealCarbs"),
+    mealList: document.getElementById("mealList"),
+    calorieChart: document.getElementById("calorieChart"),
+    weightDate: document.getElementById("weightDate"),
+    weightValue: document.getElementById("weightValue"),
+    addWeight: document.getElementById("addWeight"),
+    weightChart: document.getElementById("weightChart")
+  };
+
+  function init() {
+    el.targetCalories.value = state.targetCalories || "";
+    el.datePicker.value = selectedDate;
+    el.weightDate.value = todayStr();
+    render();
+  }
+
+  el.saveTarget.addEventListener("click", function() {
+    var v = parseFloat(el.targetCalories.value);
+    state.targetCalories = isNaN(v) ? 0 : v;
+    saveData();
+    render();
+  });
+
+  el.datePicker.addEventListener("change", function() {
+    selectedDate = el.datePicker.value || todayStr();
+    render();
+  });
+
+  el.prevDay.addEventListener("click", function() {
+    selectedDate = addDays(selectedDate, -1);
+    el.datePicker.value = selectedDate;
+    render();
+  });
+
+  el.nextDay.addEventListener("click", function() {
+    selectedDate = addDays(selectedDate, 1);
+    el.datePicker.value = selectedDate;
+    render();
+  });
+
+  el.todayBtn.addEventListener("click", function() {
+    selectedDate = todayStr();
+    el.datePicker.value = selectedDate;
+    render();
+  });
+
+  el.mealForm.addEventListener("submit", function(e) {
+    e.preventDefault();
+    var meal = {
+      id: Date.now() + "-" + Math.random().toString(36).slice(2, 8),
+      date: selectedDate,
+      type: el.mealType.value,
+      name: el.mealName.value.trim(),
+      calories: parseFloat(el.mealCalories.value) || 0,
+      protein: parseFloat(el.mealProtein.value) || 0,
+      fat: parseFloat(el.mealFat.value) || 0,
+      carbs: parseFloat(el.mealCarbs.value) || 0
+    };
+    if (!meal.name) return;
+    state.meals.push(meal);
+    saveData();
+    el.mealForm.reset();
+    render();
+  });
+
+  function deleteMeal(id) {
+    state.meals = state.meals.filter(function(m) { return m.id !== id; });
+    saveData();
+    render();
+  }
+
+  el.addWeight.addEventListener("click", function() {
+    var date = el.weightDate.value || todayStr();
+    var val = parseFloat(el.weightValue.value);
+    if (isNaN(val) || val <= 0) return;
+    state.weights = state.weights.filter(function(w) { return w.date !== date; });
+    state.weights.push({ date: date, weight: val });
+    state.weights.sort(function(a, b) { return a.date.localeCompare(b.date); });
+    saveData();
+    el.weightValue.value = "";
+    render();
+  });
+
+  var MEAL_ORDER = ["朝食", "昼食", "夕食", "間食"];
+
+  function render() {
+    renderSummary();
+    renderMealList();
+    renderCalorieChart();
+    renderWeightChart();
+  }
+
+  function mealsForDate(dateStr) {
+    return state.meals.filter(function(m) { return m.date === dateStr; });
+  }
+
+  function renderSummary() {
+    var meals = mealsForDate(selectedDate);
+    var intake = meals.reduce(function(s, m) { return s + m.calories; }, 0);
+    var target = state.targetCalories || 0;
+    var remain = target - intake;
+    var protein = meals.reduce(function(s, m) { return s + m.protein; }, 0);
+    var fat = meals.reduce(function(s, m) { return s + m.fat; }, 0);
+    var carbs = meals.reduce(function(s, m) { return s + m.carbs; }, 0);
+
+    el.sumTarget.textContent = target;
+    el.sumIntake.textContent = intake;
+    el.sumRemain.textContent = remain;
+    el.sumRemain.style.color = remain < 0 ? "var(--over)" : "var(--text)";
+    el.sumPFC.textContent = protein.toFixed(0) + "/" + fat.toFixed(0) + "/" + carbs.toFixed(0);
+
+    var pct = target > 0 ? Math.min(100, (intake / target) * 100) : 0;
+    el.progressBar.style.width = pct + "%";
+    el.progressBar.classList.toggle("over", intake > target && target > 0);
+    el.progressPct.textContent = Math.round(pct) + "%";
+    el.progressNote.textContent = target > 0
+      ? (remain >= 0 ? "あと " + remain + " kcal 摂取可能" : (-remain) + " kcal オーバー")
+      : "目標カロリーを設定してください";
+  }
+
+  function renderMealList() {
+    var meals = mealsForDate(selectedDate);
+    if (meals.length === 0) {
+      el.mealList.innerHTML = '<div class="empty-msg">この日の記録はまだありません</div>';
+      return;
+    }
+    var byType = {};
+    MEAL_ORDER.forEach(function(t) { byType[t] = []; });
+    meals.forEach(function(m) {
+      if (!byType[m.type]) byType[m.type] = [];
+      byType[m.type].push(m);
+    });
+
+    var html = "";
+    MEAL_ORDER.forEach(function(type) {
+      var list = byType[type];
+      if (!list || list.length === 0) return;
+      html += '<div class="meal-group"><h3>' + escapeHtml(type) + '</h3>';
+      list.forEach(function(m) {
+        var macro = [];
+        if (m.protein) macro.push("P " + m.protein + "g");
+        if (m.fat) macro.push("F " + m.fat + "g");
+        if (m.carbs) macro.push("C " + m.carbs + "g");
+        html += '<div class="meal-item">' +
+          '<div class="info"><div class="name">' + escapeHtml(m.name) + '</div>' +
+          (macro.length ? '<div class="macro">' + macro.join(" / ") + '</div>' : '') +
+          '</div>' +
+          '<div class="kcal">' + m.calories + ' kcal</div>' +
+          '<button class="del" data-id="' + m.id + '" title="削除">✕</button>' +
+          '</div>';
+      });
+      html += "</div>";
+    });
+    el.mealList.innerHTML = html;
+
+    el.mealList.querySelectorAll(".del").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        deleteMeal(btn.getAttribute("data-id"));
+      });
+    });
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, function(c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function lastNDays(n, endDateStr) {
+    var days = [];
+    for (var i = n - 1; i >= 0; i--) {
+      days.push(addDays(endDateStr, -i));
+    }
+    return days;
+  }
+
+  function renderCalorieChart() {
+    var canvas = el.calorieChart;
+    var ctx = canvas.getContext("2d");
+    var W = canvas.width, H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+
+    var days = lastNDays(14, selectedDate);
+    var target = state.targetCalories || 0;
+    var totals = days.map(function(d) {
+      return mealsForDate(d).reduce(function(s, m) { return s + m.calories; }, 0);
+    });
+
+    var maxVal = Math.max(target, Math.max.apply(null, totals.concat([1]))) * 1.15;
+    var padding = { top: 10, right: 10, bottom: 26, left: 10 };
+    var chartW = W - padding.left - padding.right;
+    var chartH = H - padding.top - padding.bottom;
+    var barGap = 6;
+    var barW = (chartW / days.length) - barGap;
+
+    var styles = getComputedStyle(document.documentElement);
+    var primary = styles.getPropertyValue("--primary").trim() || "#2f9e6e";
+    var over = styles.getPropertyValue("--over").trim() || "#e5484d";
+    var muted = styles.getPropertyValue("--muted").trim() || "#888";
+    var border = styles.getPropertyValue("--border").trim() || "#ddd";
+
+    if (target > 0) {
+      var ty = padding.top + chartH - (target / maxVal) * chartH;
+      ctx.strokeStyle = border;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(padding.left, ty);
+      ctx.lineTo(W - padding.right, ty);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    days.forEach(function(d, i) {
+      var val = totals[i];
+      var barH = maxVal > 0 ? (val / maxVal) * chartH : 0;
+      var x = padding.left + i * (barW + barGap);
+      var y = padding.top + chartH - barH;
+      ctx.fillStyle = (target > 0 && val > target) ? over : primary;
+      ctx.fillRect(x, y, barW, barH);
+
+      ctx.fillStyle = muted;
+      ctx.font = "9px sans-serif";
+      ctx.textAlign = "center";
+      var label = d.slice(5).replace("-", "/");
+      ctx.fillText(label, x + barW / 2, H - 10);
+    });
+  }
+
+  function renderWeightChart() {
+    var canvas = el.weightChart;
+    var ctx = canvas.getContext("2d");
+    var W = canvas.width, H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+
+    var weights = state.weights.slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+    if (weights.length === 0) {
+      var muted0 = getComputedStyle(document.documentElement).getPropertyValue("--muted").trim();
+      ctx.fillStyle = muted0 || "#888";
+      ctx.font = "13px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("体重データがまだありません", W / 2, H / 2);
+      return;
+    }
+    var recent = weights.slice(-30);
+    var vals = recent.map(function(w) { return w.weight; });
+    var minV = Math.min.apply(null, vals);
+    var maxV = Math.max.apply(null, vals);
+    if (minV === maxV) { minV -= 1; maxV += 1; }
+    var padV = (maxV - minV) * 0.15;
+    minV -= padV; maxV += padV;
+
+    var padding = { top: 14, right: 14, bottom: 26, left: 14 };
+    var chartW = W - padding.left - padding.right;
+    var chartH = H - padding.top - padding.bottom;
+
+    var styles = getComputedStyle(document.documentElement);
+    var primary = styles.getPropertyValue("--primary").trim() || "#2f9e6e";
+    var muted = styles.getPropertyValue("--muted").trim() || "#888";
+
+    ctx.strokeStyle = primary;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    recent.forEach(function(w, i) {
+      var x = padding.left + (recent.length === 1 ? chartW / 2 : (i / (recent.length - 1)) * chartW);
+      var y = padding.top + chartH - ((w.weight - minV) / (maxV - minV)) * chartH;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    ctx.fillStyle = primary;
+    recent.forEach(function(w, i) {
+      var x = padding.left + (recent.length === 1 ? chartW / 2 : (i / (recent.length - 1)) * chartW);
+      var y = padding.top + chartH - ((w.weight - minV) / (maxV - minV)) * chartH;
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    ctx.fillStyle = muted;
+    ctx.font = "9px sans-serif";
+    ctx.textAlign = "start";
+    ctx.fillText(recent[0].date.slice(5), padding.left, H - 10);
+    ctx.textAlign = "end";
+    ctx.fillText(recent[recent.length - 1].date.slice(5), W - padding.right, H - 10);
+
+    ctx.textAlign = "start";
+    ctx.fillText(maxV.toFixed(1) + "kg", padding.left, padding.top + 8);
+    ctx.fillText(minV.toFixed(1) + "kg", padding.left, padding.top + chartH - 2);
+  }
+
+  init();
+
+  window.addEventListener("resize", function() {
+    var dpr = 1;
+    render();
+  });
+})();
+</script>
+</body>
+</html>
