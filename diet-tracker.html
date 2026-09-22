@@ -298,6 +298,41 @@
     font-size: 0.7rem;
     margin-top: 20px;
   }
+  .profile-bar {
+    max-width: 720px;
+    margin: 12px auto 0;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .profile-bar .profile-label {
+    font-size: 0.78rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .profile-bar select {
+    flex: 1;
+    min-width: 120px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 0.9rem;
+  }
+  .profile-bar button {
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+  .profile-bar button:hover { background: var(--bg); }
   .primary-btn {
     width: 100%;
     padding: 11px;
@@ -350,6 +385,14 @@
   <h1>🥗 ダイエット食事管理</h1>
   <p>毎日の食事とカロリーを記録して、目標に近づこう</p>
 </header>
+
+<div class="profile-bar">
+  <span class="profile-label">👤 プロフィール</span>
+  <select id="profileSelect"></select>
+  <button id="addProfileBtn">+ 新規</button>
+  <button id="renameProfileBtn">名前変更</button>
+  <button id="deleteProfileBtn">削除</button>
+</div>
 
 <main>
   <section class="card">
@@ -528,7 +571,61 @@
 (function() {
   "use strict";
 
-  var STORAGE_KEY = "dietTracker.v1";
+  var LEGACY_STORAGE_KEY = "dietTracker.v1";
+  var PROFILES_KEY = "dietTracker.profiles";
+  var ACTIVE_PROFILE_KEY = "dietTracker.activeProfileId";
+
+  function genId() {
+    return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+  }
+
+  function dataKey(profileId) {
+    return "dietTracker.data." + profileId;
+  }
+
+  function saveProfiles(list) {
+    try {
+      localStorage.setItem(PROFILES_KEY, JSON.stringify(list));
+    } catch (e) {}
+  }
+
+  function migrateLegacyProfile() {
+    var legacy = null;
+    try {
+      var raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+      if (raw) legacy = JSON.parse(raw);
+    } catch (e) {}
+    var id = genId();
+    var list = [{ id: id, name: "マイプロフィール" }];
+    saveProfiles(list);
+    localStorage.setItem(ACTIVE_PROFILE_KEY, id);
+    if (legacy) {
+      try {
+        localStorage.setItem(dataKey(id), JSON.stringify(legacy));
+        localStorage.removeItem(LEGACY_STORAGE_KEY);
+      } catch (e) {}
+    }
+    return list;
+  }
+
+  function loadProfiles() {
+    var list = [];
+    try {
+      var raw = localStorage.getItem(PROFILES_KEY);
+      if (raw) list = JSON.parse(raw) || [];
+    } catch (e) {
+      list = [];
+    }
+    if (!list.length) list = migrateLegacyProfile();
+    return list;
+  }
+
+  var profiles = loadProfiles();
+  var activeProfileId = localStorage.getItem(ACTIVE_PROFILE_KEY);
+  if (!activeProfileId || !profiles.some(function(p) { return p.id === activeProfileId; })) {
+    activeProfileId = profiles[0].id;
+    localStorage.setItem(ACTIVE_PROFILE_KEY, activeProfileId);
+  }
 
   function defaultState() {
     return {
@@ -553,10 +650,10 @@
     };
   }
 
-  function loadData() {
+  function loadData(profileId) {
     var data = defaultState();
     try {
-      var raw = localStorage.getItem(STORAGE_KEY);
+      var raw = localStorage.getItem(dataKey(profileId));
       if (raw) {
         var parsed = JSON.parse(raw);
         data.targetCalories = parsed.targetCalories != null ? parsed.targetCalories : data.targetCalories;
@@ -573,11 +670,11 @@
 
   function saveData() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      localStorage.setItem(dataKey(activeProfileId), JSON.stringify(state));
     } catch (e) {}
   }
 
-  var state = loadData();
+  var state = loadData(activeProfileId);
   var lastCalc = null;
 
   function todayStr() {
@@ -601,6 +698,10 @@
   var selectedDate = todayStr();
 
   var el = {
+    profileSelect: document.getElementById("profileSelect"),
+    addProfileBtn: document.getElementById("addProfileBtn"),
+    renameProfileBtn: document.getElementById("renameProfileBtn"),
+    deleteProfileBtn: document.getElementById("deleteProfileBtn"),
     personalForm: document.getElementById("personalForm"),
     pGender: document.getElementById("pGender"),
     pAge: document.getElementById("pAge"),
@@ -652,7 +753,7 @@
     weightChart: document.getElementById("weightChart")
   };
 
-  function init() {
+  function fillFormsFromState() {
     var p = state.personal;
     el.pGender.value = p.gender;
     el.pAge.value = p.age;
@@ -670,6 +771,71 @@
     el.targetFat.value = state.targetFat || "";
     el.targetCarbs.value = state.targetCarbs || "";
 
+    lastCalc = null;
+    el.calcResult.style.display = "none";
+  }
+
+  function renderProfileSelect() {
+    el.profileSelect.innerHTML = profiles.map(function(p) {
+      return '<option value="' + p.id + '">' + escapeHtml(p.name) + '</option>';
+    }).join("");
+    el.profileSelect.value = activeProfileId;
+  }
+
+  function switchToProfile(id) {
+    activeProfileId = id;
+    localStorage.setItem(ACTIVE_PROFILE_KEY, activeProfileId);
+    state = loadData(activeProfileId);
+    fillFormsFromState();
+    render();
+  }
+
+  el.profileSelect.addEventListener("change", function() {
+    switchToProfile(el.profileSelect.value);
+  });
+
+  el.addProfileBtn.addEventListener("click", function() {
+    var name = prompt("新しいプロフィール名を入力してください", "");
+    if (!name) return;
+    name = name.trim();
+    if (!name) return;
+    var id = genId();
+    profiles.push({ id: id, name: name });
+    saveProfiles(profiles);
+    renderProfileSelect();
+    switchToProfile(id);
+  });
+
+  el.renameProfileBtn.addEventListener("click", function() {
+    var current = profiles.filter(function(p) { return p.id === activeProfileId; })[0];
+    if (!current) return;
+    var name = prompt("プロフィール名を変更", current.name);
+    if (!name) return;
+    name = name.trim();
+    if (!name) return;
+    current.name = name;
+    saveProfiles(profiles);
+    renderProfileSelect();
+  });
+
+  el.deleteProfileBtn.addEventListener("click", function() {
+    if (profiles.length <= 1) {
+      alert("最後の1つのプロフィールは削除できません");
+      return;
+    }
+    var current = profiles.filter(function(p) { return p.id === activeProfileId; })[0];
+    if (!current) return;
+    if (!confirm('プロフィール「' + current.name + '」とそのデータを削除しますか？この操作は取り消せません。')) return;
+    try { localStorage.removeItem(dataKey(activeProfileId)); } catch (e) {}
+    profiles = profiles.filter(function(p) { return p.id !== activeProfileId; });
+    saveProfiles(profiles);
+    renderProfileSelect();
+    switchToProfile(profiles[0].id);
+  });
+
+  function init() {
+    renderProfileSelect();
+    fillFormsFromState();
     el.datePicker.value = selectedDate;
     el.weightDate.value = todayStr();
     render();
