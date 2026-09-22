@@ -170,6 +170,38 @@
     margin: 4px 0 0;
     line-height: 1.4;
   }
+  .field-guide {
+    margin-top: 6px;
+  }
+  .field-guide summary {
+    font-size: 0.72rem;
+    color: var(--primary);
+    cursor: pointer;
+    font-weight: 600;
+    list-style: none;
+  }
+  .field-guide summary::-webkit-details-marker { display: none; }
+  .field-guide summary::before {
+    content: "▸ ";
+  }
+  .field-guide[open] summary::before {
+    content: "▾ ";
+  }
+  .field-guide table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 6px;
+    font-size: 0.68rem;
+  }
+  .field-guide th, .field-guide td {
+    text-align: left;
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .field-guide th {
+    color: var(--muted);
+    font-weight: 600;
+  }
   form.meal-form input, form.meal-form select {
     width: 100%;
     padding: 9px 10px;
@@ -506,11 +538,30 @@
         <label>たんぱく質 (g / 体重1kgあたり)</label>
         <input type="number" id="pProteinPerKg" min="0.5" max="4" step="0.1" value="1.8">
         <p class="field-hint">迷ったら1.8のままでOK（ダイエット向けの標準値。体重×この値=たんぱく質g）</p>
+        <details class="field-guide">
+          <summary>目安を見る</summary>
+          <table>
+            <tr><th>目的</th><th>係数</th></tr>
+            <tr><td>運動しない・健康維持</td><td>1.0〜1.2</td></tr>
+            <tr><td>軽い運動習慣</td><td>1.2〜1.6</td></tr>
+            <tr><td>ダイエット（筋肉を落とさず減量）</td><td>1.6〜2.2</td></tr>
+            <tr><td>筋トレ・増量</td><td>1.6〜2.2</td></tr>
+          </table>
+        </details>
       </div>
       <div>
         <label>脂質の割合（総カロリーの%）</label>
         <input type="number" id="pFatPct" min="10" max="50" step="1" value="25">
         <p class="field-hint">迷ったら25%のままでOK（標準的な配分。残りは自動で炭水化物になります）</p>
+        <details class="field-guide">
+          <summary>目安を見る</summary>
+          <table>
+            <tr><th>割合</th><th>特徴</th></tr>
+            <tr><td>20%</td><td>やや低め。炭水化物を多く確保したい人向け</td></tr>
+            <tr><td>25%（デフォルト）</td><td>標準的でバランスが良い</td></tr>
+            <tr><td>30〜35%</td><td>脂質多め・炭水化物控えめにしたい人向け</td></tr>
+          </table>
+        </details>
       </div>
       <button type="submit">自動計算する</button>
     </form>
