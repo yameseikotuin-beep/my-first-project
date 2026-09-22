@@ -857,12 +857,19 @@
     drawCropStage();
   });
 
+  // 現在の切り抜き枠（画面座標）を、回転後のsourceCanvas上の実ピクセル範囲に変換する
+  function getSourceCropRect(){
+    return {
+      sx: viewOffsetX + rect.x / renderScale,
+      sy: viewOffsetY + rect.y / renderScale,
+      sw: Math.max(1, rect.w / renderScale),
+      sh: Math.max(1, rect.h / renderScale)
+    };
+  }
+
   /* ---------- crop + preprocess (grayscale / contrast stretch / upscale) ---------- */
   function extractProcessedCanvas(){
-    const sx = viewOffsetX + rect.x / renderScale;
-    const sy = viewOffsetY + rect.y / renderScale;
-    const sw = Math.max(1, rect.w / renderScale);
-    const sh = Math.max(1, rect.h / renderScale);
+    const { sx, sy, sw, sh } = getSourceCropRect();
 
     const targetMinWidth = 1400;
     let scale = sw < targetMinWidth ? targetMinWidth / sw : 1;
@@ -979,6 +986,52 @@
     { formId:'f_lleg',    label:'左脚の筋肉量',     instruction:'部位別筋肉量の図で、左脚の数字だけを囲んでください', range:[2,25] }
   ];
 
+  // 各項目でユーザーが最後に確定した切り抜き位置を、画像全体に対する相対位置（0〜1）で
+  // ブラウザ内（localStorage）に記憶しておく。同じInBody帳票は毎回レイアウトが同じなので、
+  // 次回は前回とだいたい同じ場所に数字があることが多く、枠の初期位置として再利用できる。
+  // 外部には一切送信しない（この端末のブラウザ内に保存されるだけ）。
+  const FIELD_POS_STORAGE_KEY = 'inbodyWizardFieldPositions_v1';
+
+  function loadFieldPositions(){
+    try {
+      return JSON.parse(localStorage.getItem(FIELD_POS_STORAGE_KEY)) || {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function saveFieldPosition(formId){
+    const { sx, sy, sw, sh } = getSourceCropRect();
+    if (!sourceCanvas.width || !sourceCanvas.height) return;
+    const positions = loadFieldPositions();
+    positions[formId] = {
+      fx: sx / sourceCanvas.width,
+      fy: sy / sourceCanvas.height,
+      fw: sw / sourceCanvas.width,
+      fh: sh / sourceCanvas.height
+    };
+    try {
+      localStorage.setItem(FIELD_POS_STORAGE_KEY, JSON.stringify(positions));
+    } catch (e) {
+      // 保存できなくても致命的ではないため無視する（例: プライベートブラウジング等）
+    }
+  }
+
+  // 記憶しておいた相対位置を、現在の（全体表示にリセットされた）cropCanvas上の枠に変換して適用する。
+  // 全体表示時は cropCanvas のピクセル位置がそのまま画像全体に対する割合と一致するため、
+  // 割合 × cropCanvas幅/高さ でそのまま枠の座標になる
+  function applyFieldPosition(formId){
+    const positions = loadFieldPositions();
+    const p = positions[formId];
+    if (!p) return false;
+    const x = clamp(p.fx * cropCanvas.width, 0, cropCanvas.width - MIN_RECT);
+    const y = clamp(p.fy * cropCanvas.height, 0, cropCanvas.height - MIN_RECT);
+    const w = clamp(p.fw * cropCanvas.width, MIN_RECT, cropCanvas.width - x);
+    const h = clamp(p.fh * cropCanvas.height, MIN_RECT, cropCanvas.height - y);
+    rect = { x, y, w, h };
+    return true;
+  }
+
   const wizardBar = document.getElementById('wizardBar');
   const cropInstructionNormal = document.getElementById('cropInstructionNormal');
   const normalOcrRow = document.getElementById('normalOcrRow');
@@ -1020,11 +1073,14 @@
     const f = WIZARD_FIELDS[wizardIndex];
     wizardStepLabel.textContent = (wizardIndex + 1) + ' / ' + WIZARD_FIELDS.length;
     wizardFieldName.textContent = f.label;
-    wizardInstruction.textContent = f.instruction;
     wizardConfirm.style.display = 'none';
     wizardActionRow.style.display = 'flex';
-    resetView(); // 新しい項目では、次にどこにあるか分からないため全体表示から始める
-    setDefaultRect();
+    resetView(); // 一旦全体表示にしてから、記憶した位置（あれば）を反映する
+    const remembered = applyFieldPosition(f.formId);
+    if (!remembered) setDefaultRect();
+    wizardInstruction.textContent = remembered
+      ? f.instruction + '（前回と同じ場所を覚えています。ずれていれば枠を調整してください）'
+      : f.instruction;
     drawCropStage();
   }
 
@@ -1052,6 +1108,7 @@
     if (wizardValueInput.value !== '') {
       document.getElementById(f.formId).value = wizardValueInput.value;
     }
+    saveFieldPosition(f.formId); // 次回、この項目の枠の初期位置として再利用する
     advanceWizard();
   });
 
