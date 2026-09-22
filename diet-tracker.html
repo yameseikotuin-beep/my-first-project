@@ -298,6 +298,51 @@
     font-size: 0.7rem;
     margin-top: 20px;
   }
+  .primary-btn {
+    width: 100%;
+    padding: 11px;
+    border: none;
+    border-radius: 10px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+  .primary-btn:hover { background: var(--primary-dark); }
+  .calc-result {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--border);
+  }
+  .calc-result .summary-grid { grid-template-columns: repeat(3, 1fr); }
+  .pfc-target-line {
+    text-align: center;
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  .target-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+  }
+  .target-form .field label {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .target-form .field input {
+    width: 100px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+  }
 </style>
 </head>
 <body>
@@ -308,11 +353,90 @@
 
 <main>
   <section class="card">
-    <h2>⚙️ 目標設定</h2>
-    <div class="settings-row">
-      <label for="targetCalories">1日の目標カロリー</label>
-      <input type="number" id="targetCalories" min="0" step="10" placeholder="例: 1800">
-      <span>kcal</span>
+    <h2>🧍 パーソナルデータ・目標設定</h2>
+    <form class="meal-form" id="personalForm">
+      <div>
+        <label>性別</label>
+        <select id="pGender">
+          <option value="male">男性</option>
+          <option value="female">女性</option>
+        </select>
+      </div>
+      <div>
+        <label>年齢</label>
+        <input type="number" id="pAge" min="10" max="100" step="1" placeholder="例: 30">
+      </div>
+      <div>
+        <label>身長 (cm)</label>
+        <input type="number" id="pHeight" min="100" max="250" step="0.1" placeholder="例: 165">
+      </div>
+      <div>
+        <label>現在体重 (kg)</label>
+        <input type="number" id="pWeight" min="20" max="300" step="0.1" placeholder="例: 65">
+      </div>
+      <div>
+        <label>目標体重 (kg)</label>
+        <input type="number" id="pTargetWeight" min="20" max="300" step="0.1" placeholder="例: 60">
+      </div>
+      <div>
+        <label>活動レベル</label>
+        <select id="pActivity">
+          <option value="1.2">デスクワーク中心・運動なし</option>
+          <option value="1.375">軽い運動（週1〜3日）</option>
+          <option value="1.55" selected>中程度の運動（週3〜5日）</option>
+          <option value="1.725">激しい運動（週6〜7日）</option>
+          <option value="1.9">非常に激しい運動・肉体労働</option>
+        </select>
+      </div>
+      <div>
+        <label>目標</label>
+        <select id="pGoal">
+          <option value="lose">減量</option>
+          <option value="maintain">維持</option>
+          <option value="gain">増量</option>
+        </select>
+      </div>
+      <div>
+        <label>変化スピード（週あたり）</label>
+        <select id="pPace">
+          <option value="0.25">緩やか (0.25kg/週)</option>
+          <option value="0.5" selected>標準 (0.5kg/週)</option>
+          <option value="0.75">積極的 (0.75kg/週)</option>
+        </select>
+      </div>
+      <div>
+        <label>たんぱく質 (g / 体重1kgあたり)</label>
+        <input type="number" id="pProteinPerKg" min="0.5" max="4" step="0.1" value="1.8">
+      </div>
+      <div>
+        <label>脂質の割合（総カロリーの%）</label>
+        <input type="number" id="pFatPct" min="10" max="50" step="1" value="25">
+      </div>
+      <button type="submit">自動計算する</button>
+    </form>
+
+    <div class="calc-result" id="calcResult" style="display:none;">
+      <div class="summary-grid">
+        <div class="stat"><div class="label">基礎代謝(BMR)</div><div class="value" id="calcBMR">-</div></div>
+        <div class="stat"><div class="label">消費カロリー(TDEE)</div><div class="value" id="calcTDEE">-</div></div>
+        <div class="stat"><div class="label">目標カロリー</div><div class="value" id="calcTargetCal">-</div></div>
+      </div>
+      <div class="summary-grid" style="margin-top:10px;">
+        <div class="stat"><div class="label">たんぱく質</div><div class="value" id="calcProtein">-</div></div>
+        <div class="stat"><div class="label">脂質</div><div class="value" id="calcFat">-</div></div>
+        <div class="stat"><div class="label">炭水化物</div><div class="value" id="calcCarbs">-</div></div>
+      </div>
+      <button id="applyCalc" class="primary-btn">この設定を反映する</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>🎯 目標値（手動調整も可能）</h2>
+    <div class="target-form">
+      <div class="field"><label>カロリー (kcal)</label><input type="number" id="targetCalories" min="0" step="10"></div>
+      <div class="field"><label>たんぱく質 (g)</label><input type="number" id="targetProtein" min="0" step="1"></div>
+      <div class="field"><label>脂質 (g)</label><input type="number" id="targetFat" min="0" step="1"></div>
+      <div class="field"><label>炭水化物 (g)</label><input type="number" id="targetCarbs" min="0" step="1"></div>
       <button id="saveTarget">保存</button>
     </div>
   </section>
@@ -338,6 +462,7 @@
       <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar" style="width:0%"></div></div>
       <div class="progress-caption"><span id="progressPct">0%</span><span id="progressNote"></span></div>
     </div>
+    <div class="pfc-target-line" id="sumPFCTargetLine"></div>
   </section>
 
   <section class="card">
@@ -405,12 +530,45 @@
 
   var STORAGE_KEY = "dietTracker.v1";
 
+  function defaultState() {
+    return {
+      targetCalories: 1800,
+      targetProtein: 0,
+      targetFat: 0,
+      targetCarbs: 0,
+      personal: {
+        gender: "male",
+        age: "",
+        height: "",
+        weight: "",
+        targetWeight: "",
+        activity: "1.55",
+        goal: "maintain",
+        pace: "0.5",
+        proteinPerKg: 1.8,
+        fatPct: 25
+      },
+      meals: [],
+      weights: []
+    };
+  }
+
   function loadData() {
+    var data = defaultState();
     try {
       var raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        data.targetCalories = parsed.targetCalories != null ? parsed.targetCalories : data.targetCalories;
+        data.targetProtein = parsed.targetProtein != null ? parsed.targetProtein : data.targetProtein;
+        data.targetFat = parsed.targetFat != null ? parsed.targetFat : data.targetFat;
+        data.targetCarbs = parsed.targetCarbs != null ? parsed.targetCarbs : data.targetCarbs;
+        data.personal = Object.assign({}, data.personal, parsed.personal || {});
+        data.meals = parsed.meals || [];
+        data.weights = parsed.weights || [];
+      }
     } catch (e) {}
-    return { targetCalories: 1800, meals: [], weights: [] };
+    return data;
   }
 
   function saveData() {
@@ -420,6 +578,7 @@
   }
 
   var state = loadData();
+  var lastCalc = null;
 
   function todayStr() {
     var d = new Date();
@@ -442,8 +601,31 @@
   var selectedDate = todayStr();
 
   var el = {
+    personalForm: document.getElementById("personalForm"),
+    pGender: document.getElementById("pGender"),
+    pAge: document.getElementById("pAge"),
+    pHeight: document.getElementById("pHeight"),
+    pWeight: document.getElementById("pWeight"),
+    pTargetWeight: document.getElementById("pTargetWeight"),
+    pActivity: document.getElementById("pActivity"),
+    pGoal: document.getElementById("pGoal"),
+    pPace: document.getElementById("pPace"),
+    pProteinPerKg: document.getElementById("pProteinPerKg"),
+    pFatPct: document.getElementById("pFatPct"),
+    calcResult: document.getElementById("calcResult"),
+    calcBMR: document.getElementById("calcBMR"),
+    calcTDEE: document.getElementById("calcTDEE"),
+    calcTargetCal: document.getElementById("calcTargetCal"),
+    calcProtein: document.getElementById("calcProtein"),
+    calcFat: document.getElementById("calcFat"),
+    calcCarbs: document.getElementById("calcCarbs"),
+    applyCalc: document.getElementById("applyCalc"),
     targetCalories: document.getElementById("targetCalories"),
+    targetProtein: document.getElementById("targetProtein"),
+    targetFat: document.getElementById("targetFat"),
+    targetCarbs: document.getElementById("targetCarbs"),
     saveTarget: document.getElementById("saveTarget"),
+    sumPFCTargetLine: document.getElementById("sumPFCTargetLine"),
     datePicker: document.getElementById("datePicker"),
     prevDay: document.getElementById("prevDay"),
     nextDay: document.getElementById("nextDay"),
@@ -471,15 +653,129 @@
   };
 
   function init() {
+    var p = state.personal;
+    el.pGender.value = p.gender;
+    el.pAge.value = p.age;
+    el.pHeight.value = p.height;
+    el.pWeight.value = p.weight;
+    el.pTargetWeight.value = p.targetWeight;
+    el.pActivity.value = p.activity;
+    el.pGoal.value = p.goal;
+    el.pPace.value = p.pace;
+    el.pProteinPerKg.value = p.proteinPerKg;
+    el.pFatPct.value = p.fatPct;
+
     el.targetCalories.value = state.targetCalories || "";
+    el.targetProtein.value = state.targetProtein || "";
+    el.targetFat.value = state.targetFat || "";
+    el.targetCarbs.value = state.targetCarbs || "";
+
     el.datePicker.value = selectedDate;
     el.weightDate.value = todayStr();
     render();
   }
 
+  function calcBMR(gender, weight, height, age) {
+    var base = 10 * weight + 6.25 * height - 5 * age;
+    return gender === "male" ? base + 5 : base - 161;
+  }
+
+  function readPersonalForm() {
+    return {
+      gender: el.pGender.value,
+      age: parseFloat(el.pAge.value),
+      height: parseFloat(el.pHeight.value),
+      weight: parseFloat(el.pWeight.value),
+      targetWeight: el.pTargetWeight.value,
+      activity: el.pActivity.value,
+      goal: el.pGoal.value,
+      pace: el.pPace.value,
+      proteinPerKg: parseFloat(el.pProteinPerKg.value) || 1.8,
+      fatPct: parseFloat(el.pFatPct.value) || 25
+    };
+  }
+
+  el.personalForm.addEventListener("submit", function(e) {
+    e.preventDefault();
+    var p = readPersonalForm();
+
+    state.personal = {
+      gender: p.gender,
+      age: el.pAge.value,
+      height: el.pHeight.value,
+      weight: el.pWeight.value,
+      targetWeight: p.targetWeight,
+      activity: p.activity,
+      goal: p.goal,
+      pace: p.pace,
+      proteinPerKg: p.proteinPerKg,
+      fatPct: p.fatPct
+    };
+    saveData();
+
+    if (!p.age || !p.height || !p.weight) {
+      alert("年齢・身長・現在体重を入力してください");
+      return;
+    }
+
+    var bmr = calcBMR(p.gender, p.weight, p.height, p.age);
+    var tdee = bmr * parseFloat(p.activity);
+
+    var dailyDelta = 0;
+    var pace = parseFloat(p.pace);
+    if (p.goal === "lose") dailyDelta = -(pace * 7700 / 7);
+    else if (p.goal === "gain") dailyDelta = (pace * 7700 / 7);
+
+    var targetCal = Math.round(tdee + dailyDelta);
+    var floor = Math.round(bmr * 0.8);
+    if (targetCal < floor) targetCal = floor;
+
+    var proteinG = Math.round(p.weight * p.proteinPerKg);
+    var fatG = Math.round((targetCal * (p.fatPct / 100)) / 9);
+    var carbsCal = targetCal - (proteinG * 4) - (fatG * 9);
+    var carbsG = Math.max(0, Math.round(carbsCal / 4));
+
+    lastCalc = {
+      bmr: Math.round(bmr),
+      tdee: Math.round(tdee),
+      targetCal: targetCal,
+      proteinG: proteinG,
+      fatG: fatG,
+      carbsG: carbsG
+    };
+
+    el.calcBMR.textContent = lastCalc.bmr;
+    el.calcTDEE.textContent = lastCalc.tdee;
+    el.calcTargetCal.textContent = lastCalc.targetCal;
+    el.calcProtein.textContent = lastCalc.proteinG + "g";
+    el.calcFat.textContent = lastCalc.fatG + "g";
+    el.calcCarbs.textContent = lastCalc.carbsG + "g";
+    el.calcResult.style.display = "block";
+  });
+
+  el.applyCalc.addEventListener("click", function() {
+    if (!lastCalc) return;
+    state.targetCalories = lastCalc.targetCal;
+    state.targetProtein = lastCalc.proteinG;
+    state.targetFat = lastCalc.fatG;
+    state.targetCarbs = lastCalc.carbsG;
+    saveData();
+    el.targetCalories.value = state.targetCalories;
+    el.targetProtein.value = state.targetProtein;
+    el.targetFat.value = state.targetFat;
+    el.targetCarbs.value = state.targetCarbs;
+    render();
+  });
+
   el.saveTarget.addEventListener("click", function() {
     var v = parseFloat(el.targetCalories.value);
     state.targetCalories = isNaN(v) ? 0 : v;
+    var p = parseFloat(el.targetProtein.value);
+    state.targetProtein = isNaN(p) ? 0 : p;
+    var f = parseFloat(el.targetFat.value);
+    state.targetFat = isNaN(f) ? 0 : f;
+    var c = parseFloat(el.targetCarbs.value);
+    state.targetCarbs = isNaN(c) ? 0 : c;
     saveData();
     render();
   });
@@ -579,6 +875,13 @@
     el.progressNote.textContent = target > 0
       ? (remain >= 0 ? "あと " + remain + " kcal 摂取可能" : (-remain) + " kcal オーバー")
       : "目標カロリーを設定してください";
+
+    var targetProtein = state.targetProtein || 0;
+    var targetFat = state.targetFat || 0;
+    var targetCarbs = state.targetCarbs || 0;
+    el.sumPFCTargetLine.textContent = (targetProtein || targetFat || targetCarbs)
+      ? "目標 P/F/C: " + targetProtein + "/" + targetFat + "/" + targetCarbs + " g"
+      : "";
   }
 
   function renderMealList() {
