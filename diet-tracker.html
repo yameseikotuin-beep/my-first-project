@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ダイエット食事管理</title>
+<!-- クラウド同期用 Firebase SDK（compat版）。読み込みに失敗しても以下のスクリプトが
+     フォールバックしてローカル(localStorage)のみのモードで動作します。 -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <style>
   :root {
     --bg: #f4f6f5;
@@ -333,6 +338,30 @@
     white-space: nowrap;
   }
   .profile-bar button:hover { background: var(--bg); }
+  .profile-bar input[type="email"], .profile-bar input[type="password"] {
+    flex: 1;
+    min-width: 140px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 0.9rem;
+  }
+  .cloud-bar { margin-top: 6px; }
+  .sync-status {
+    font-size: 0.72rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .auth-message {
+    max-width: 720px;
+    margin: 4px auto 0;
+    padding: 0 16px;
+    font-size: 0.72rem;
+    color: var(--danger);
+    min-height: 1em;
+  }
   .primary-btn {
     width: 100%;
     padding: 11px;
@@ -386,13 +415,33 @@
   <p>毎日の食事とカロリーを記録して、目標に近づこう</p>
 </header>
 
-<div class="profile-bar">
-  <span class="profile-label">👤 プロフィール</span>
+<div class="profile-bar" id="profileBar">
+  <span class="profile-label">👤 プロフィール（このブラウザのみ）</span>
   <select id="profileSelect"></select>
   <button id="addProfileBtn">+ 新規</button>
   <button id="renameProfileBtn">名前変更</button>
   <button id="deleteProfileBtn">削除</button>
 </div>
+
+<div class="profile-bar cloud-bar" id="cloudNotConfigured" style="display:none;">
+  <span class="profile-label">☁️ クラウド同期は未設定です（別端末との同期にはFirebase設定が必要。README参照）</span>
+</div>
+
+<div class="profile-bar cloud-bar" id="cloudLoggedOut" style="display:none;">
+  <span class="profile-label">☁️ クラウド同期</span>
+  <input type="email" id="authEmail" placeholder="メールアドレス" autocomplete="username">
+  <input type="password" id="authPassword" placeholder="パスワード(6文字以上)" autocomplete="current-password">
+  <button id="authLoginBtn">ログイン</button>
+  <button id="authSignupBtn">新規登録</button>
+</div>
+
+<div class="profile-bar cloud-bar" id="cloudLoggedIn" style="display:none;">
+  <span class="profile-label">☁️ ログイン中: <strong id="cloudUserEmail"></strong></span>
+  <span class="sync-status" id="syncStatus"></span>
+  <button id="authLogoutBtn">ログアウト</button>
+</div>
+
+<div class="auth-message" id="authMessage"></div>
 
 <main>
   <section class="card">
@@ -565,7 +614,7 @@
   </section>
 </main>
 
-<footer>データはこのブラウザ内（localStorage）のみに保存されます</footer>
+<footer>ログインしていない場合、データはこのブラウザ内（localStorage）のみに保存されます。ログインするとクラウド（Firestore）に保存され、別の端末・ブラウザからも同じデータにアクセスできます。</footer>
 
 <script>
 (function() {
@@ -650,25 +699,66 @@
     };
   }
 
-  function loadData(profileId) {
+  function mergeState(parsed) {
     var data = defaultState();
-    try {
-      var raw = localStorage.getItem(dataKey(profileId));
-      if (raw) {
-        var parsed = JSON.parse(raw);
-        data.targetCalories = parsed.targetCalories != null ? parsed.targetCalories : data.targetCalories;
-        data.targetProtein = parsed.targetProtein != null ? parsed.targetProtein : data.targetProtein;
-        data.targetFat = parsed.targetFat != null ? parsed.targetFat : data.targetFat;
-        data.targetCarbs = parsed.targetCarbs != null ? parsed.targetCarbs : data.targetCarbs;
-        data.personal = Object.assign({}, data.personal, parsed.personal || {});
-        data.meals = parsed.meals || [];
-        data.weights = parsed.weights || [];
-      }
-    } catch (e) {}
+    if (parsed) {
+      data.targetCalories = parsed.targetCalories != null ? parsed.targetCalories : data.targetCalories;
+      data.targetProtein = parsed.targetProtein != null ? parsed.targetProtein : data.targetProtein;
+      data.targetFat = parsed.targetFat != null ? parsed.targetFat : data.targetFat;
+      data.targetCarbs = parsed.targetCarbs != null ? parsed.targetCarbs : data.targetCarbs;
+      data.personal = Object.assign({}, data.personal, parsed.personal || {});
+      data.meals = parsed.meals || [];
+      data.weights = parsed.weights || [];
+    }
     return data;
   }
 
+  function loadData(profileId) {
+    var parsed = null;
+    try {
+      var raw = localStorage.getItem(dataKey(profileId));
+      if (raw) parsed = JSON.parse(raw);
+    } catch (e) {}
+    return mergeState(parsed);
+  }
+
+  // --- クラウド同期 (Firebase Auth + Firestore) ---
+  // 別端末・ブラウザから同じデータにアクセスするには、下記 firebaseConfig に
+  // 自分の Firebase プロジェクトの設定値を入力してください（README参照）。
+  var firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT_ID.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+
+  var firebaseEnabled = false;
+  var auth = null;
+  var db = null;
+  try {
+    if (typeof firebase !== "undefined" && firebaseConfig.apiKey && firebaseConfig.apiKey.indexOf("YOUR_") !== 0) {
+      firebase.initializeApp(firebaseConfig);
+      auth = firebase.auth();
+      db = firebase.firestore();
+      firebaseEnabled = true;
+    }
+  } catch (e) {
+    firebaseEnabled = false;
+  }
+
+  var cloudUser = null;
+  var unsubscribeCloud = null;
+
   function saveData() {
+    if (cloudUser && db) {
+      setSyncStatus("🔄 保存中...");
+      db.collection("users").doc(cloudUser.uid).set(state)
+        .then(function() { setSyncStatus("✅ 同期済み"); })
+        .catch(function() { setSyncStatus("⚠️ 保存に失敗しました"); });
+      return;
+    }
     try {
       localStorage.setItem(dataKey(activeProfileId), JSON.stringify(state));
     } catch (e) {}
@@ -698,10 +788,22 @@
   var selectedDate = todayStr();
 
   var el = {
+    profileBar: document.getElementById("profileBar"),
     profileSelect: document.getElementById("profileSelect"),
     addProfileBtn: document.getElementById("addProfileBtn"),
     renameProfileBtn: document.getElementById("renameProfileBtn"),
     deleteProfileBtn: document.getElementById("deleteProfileBtn"),
+    cloudNotConfigured: document.getElementById("cloudNotConfigured"),
+    cloudLoggedOut: document.getElementById("cloudLoggedOut"),
+    cloudLoggedIn: document.getElementById("cloudLoggedIn"),
+    authEmail: document.getElementById("authEmail"),
+    authPassword: document.getElementById("authPassword"),
+    authLoginBtn: document.getElementById("authLoginBtn"),
+    authSignupBtn: document.getElementById("authSignupBtn"),
+    authLogoutBtn: document.getElementById("authLogoutBtn"),
+    authMessage: document.getElementById("authMessage"),
+    cloudUserEmail: document.getElementById("cloudUserEmail"),
+    syncStatus: document.getElementById("syncStatus"),
     personalForm: document.getElementById("personalForm"),
     pGender: document.getElementById("pGender"),
     pAge: document.getElementById("pAge"),
@@ -770,7 +872,9 @@
     el.targetProtein.value = state.targetProtein || "";
     el.targetFat.value = state.targetFat || "";
     el.targetCarbs.value = state.targetCarbs || "";
+  }
 
+  function resetCalcPreview() {
     lastCalc = null;
     el.calcResult.style.display = "none";
   }
@@ -787,6 +891,7 @@
     localStorage.setItem(ACTIVE_PROFILE_KEY, activeProfileId);
     state = loadData(activeProfileId);
     fillFormsFromState();
+    resetCalcPreview();
     render();
   }
 
@@ -833,9 +938,116 @@
     switchToProfile(profiles[0].id);
   });
 
+  function setSyncStatus(text) {
+    if (el.syncStatus) el.syncStatus.textContent = text || "";
+  }
+
+  function showAuthMessage(msg, isError) {
+    el.authMessage.textContent = msg || "";
+    el.authMessage.style.color = isError ? "var(--danger)" : "var(--muted)";
+  }
+
+  function authErrorMessage(err) {
+    var map = {
+      "auth/email-already-in-use": "このメールアドレスは既に登録されています",
+      "auth/invalid-email": "メールアドレスの形式が正しくありません",
+      "auth/weak-password": "パスワードは6文字以上にしてください",
+      "auth/user-not-found": "ユーザーが見つかりません",
+      "auth/wrong-password": "パスワードが違います",
+      "auth/invalid-credential": "メールアドレスまたはパスワードが正しくありません",
+      "auth/too-many-requests": "試行回数が多すぎます。しばらくしてから再試行してください"
+    };
+    return (err && map[err.code]) || ("エラー: " + (err && err.message));
+  }
+
+  function updateCloudUI() {
+    if (!firebaseEnabled) {
+      el.cloudNotConfigured.style.display = "flex";
+      el.cloudLoggedOut.style.display = "none";
+      el.cloudLoggedIn.style.display = "none";
+      el.profileBar.style.display = "flex";
+      return;
+    }
+    el.cloudNotConfigured.style.display = "none";
+    if (cloudUser) {
+      el.cloudLoggedOut.style.display = "none";
+      el.cloudLoggedIn.style.display = "flex";
+      el.cloudUserEmail.textContent = cloudUser.email;
+      el.profileBar.style.display = "none";
+    } else {
+      el.cloudLoggedOut.style.display = "flex";
+      el.cloudLoggedIn.style.display = "none";
+      el.profileBar.style.display = "flex";
+    }
+  }
+
+  function subscribeToCloudData(uid) {
+    var docRef = db.collection("users").doc(uid);
+    unsubscribeCloud = docRef.onSnapshot(function(doc) {
+      if (doc.exists) {
+        state = mergeState(doc.data());
+      } else {
+        state = defaultState();
+        docRef.set(state).catch(function() { setSyncStatus("⚠️ 同期エラー"); });
+      }
+      fillFormsFromState();
+      render();
+      setSyncStatus("✅ 同期済み");
+    }, function(err) {
+      setSyncStatus("⚠️ 同期エラー: " + err.message);
+    });
+  }
+
+  if (firebaseEnabled) {
+    el.authSignupBtn.addEventListener("click", function() {
+      var email = el.authEmail.value.trim();
+      var pw = el.authPassword.value;
+      if (!email || !pw) { showAuthMessage("メールアドレスとパスワードを入力してください", true); return; }
+      showAuthMessage("");
+      auth.createUserWithEmailAndPassword(email, pw).catch(function(err) {
+        showAuthMessage(authErrorMessage(err), true);
+      });
+    });
+
+    el.authLoginBtn.addEventListener("click", function() {
+      var email = el.authEmail.value.trim();
+      var pw = el.authPassword.value;
+      if (!email || !pw) { showAuthMessage("メールアドレスとパスワードを入力してください", true); return; }
+      showAuthMessage("");
+      auth.signInWithEmailAndPassword(email, pw).catch(function(err) {
+        showAuthMessage(authErrorMessage(err), true);
+      });
+    });
+
+    el.authLogoutBtn.addEventListener("click", function() {
+      auth.signOut();
+    });
+
+    auth.onAuthStateChanged(function(user) {
+      if (unsubscribeCloud) { unsubscribeCloud(); unsubscribeCloud = null; }
+      cloudUser = user;
+      updateCloudUI();
+      showAuthMessage("");
+      el.authEmail.value = "";
+      el.authPassword.value = "";
+      if (user) {
+        setSyncStatus("🔄 同期中...");
+        resetCalcPreview();
+        subscribeToCloudData(user.uid);
+      } else {
+        state = loadData(activeProfileId);
+        fillFormsFromState();
+        resetCalcPreview();
+        render();
+      }
+    });
+  }
+
   function init() {
+    updateCloudUI();
     renderProfileSelect();
     fillFormsFromState();
+    resetCalcPreview();
     el.datePicker.value = selectedDate;
     el.weightDate.value = todayStr();
     render();
