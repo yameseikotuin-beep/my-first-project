@@ -1435,9 +1435,10 @@
   // --- AI写真解析 (Google Gemini) ---
   var GEMINI_KEY_STORAGE = "dietTracker.geminiApiKey";
   var GEMINI_MODEL_STORAGE = "dietTracker.geminiModel";
+  // Pro系モデルは有料プラン専用（無料枠が0）のことが多いため、
+  // 無料枠での利用を前提にFlash系モデルのみを候補にする。
   var GEMINI_FALLBACK_MODELS = [
-    "gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest",
-    "gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-pro-latest", "gemini-1.5-pro"
+    "gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest", "gemini-1.5-flash", "gemini-1.5-flash-latest"
   ];
   var GEMINI_PROMPT = "あなたは栄養士です。この画像に写っている食事の内容を分析してください。" +
     "料理名（日本語、簡潔に）、推定カロリー(kcal)、たんぱく質(g)、脂質(g)、炭水化物(g)を推定して返してください。" +
@@ -1623,6 +1624,7 @@
           var err = new Error(mapGeminiError(res.status, msg));
           if (res.status === 404) err.code = "MODEL_NOT_FOUND";
           if (res.status === 503) err.code = "MODEL_OVERLOADED";
+          if (res.status === 429) err.code = "MODEL_QUOTA_EXCEEDED";
           throw err;
         });
       }
@@ -1667,6 +1669,12 @@
     return pool[0].name.replace(/^models\//, "");
   }
 
+  var GEMINI_RETRYABLE_CODES = ["MODEL_NOT_FOUND", "MODEL_OVERLOADED", "MODEL_QUOTA_EXCEEDED"];
+
+  function isRetryableGeminiError(err) {
+    return !!(err && err.code && GEMINI_RETRYABLE_CODES.indexOf(err.code) !== -1);
+  }
+
   function tryGeminiModelsInSequence(apiKey, models, parts, schema, idx) {
     idx = idx || 0;
     if (idx >= models.length) {
@@ -1676,8 +1684,7 @@
       saveGeminiModel(models[idx]);
       return result;
     }).catch(function(err) {
-      var retryable = err && (err.code === "MODEL_NOT_FOUND" || err.code === "MODEL_OVERLOADED");
-      if (retryable && idx + 1 < models.length) {
+      if (isRetryableGeminiError(err) && idx + 1 < models.length) {
         return tryGeminiModelsInSequence(apiKey, models, parts, schema, idx + 1);
       }
       throw err;
@@ -1691,10 +1698,11 @@
       if (!stored) saveGeminiModel(firstModel);
       return result;
     }).catch(function(err) {
-      if (!err || (err.code !== "MODEL_NOT_FOUND" && err.code !== "MODEL_OVERLOADED")) throw err;
+      if (!isRetryableGeminiError(err)) throw err;
 
-      if (err.code === "MODEL_OVERLOADED") {
-        // 混雑は一時的なものなので、モデル一覧の再取得はせず他の候補モデルに直接切り替える
+      if (err.code === "MODEL_OVERLOADED" || err.code === "MODEL_QUOTA_EXCEEDED") {
+        // 混雑・枠超過は一時的/モデル固有のことが多いので、モデル一覧の再取得はせず
+        // 他の候補モデルに直接切り替える
         var retryList = GEMINI_FALLBACK_MODELS.filter(function(m) { return m !== firstModel; });
         return tryGeminiModelsInSequence(apiKey, retryList, parts, schema, 0);
       }
