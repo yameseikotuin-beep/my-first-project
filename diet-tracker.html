@@ -1438,6 +1438,13 @@
   // Pro系モデルは有料プラン専用（無料枠が0）のことが多いため、
   // 無料枠での利用を前提にFlash系モデルのみを候補にする。
   var GEMINI_FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"];
+  // モデル一覧APIには載っていてもgenerateContentが404になることがある
+  // 廃止済み/非対応モデル名。候補から明示的に除外する。
+  var GEMINI_DEAD_MODELS = [
+    "gemini-1.5-flash", "gemini-1.5-flash-latest",
+    "gemini-1.5-pro", "gemini-1.5-pro-latest",
+    "gemini-pro-latest", "gemini-1.0-pro", "gemini-1.0-pro-latest", "gemini-1.0-pro-vision-latest"
+  ];
   var GEMINI_PROMPT = "あなたは栄養士です。この画像に写っている食事の内容を分析してください。" +
     "料理名（日本語、簡潔に）、推定カロリー(kcal)、たんぱく質(g)、脂質(g)、炭水化物(g)を推定して返してください。" +
     "複数の料理が写っている場合は画像全体の合計値を返してください。分量は写真から判断できる一般的な1人前として推定し、" +
@@ -1663,7 +1670,9 @@
     var flash = usable.filter(function(m) { return /flash/i.test(m.name); });
     var pool = flash.length ? flash : usable;
     pool.sort(function(a, b) { return b.name.localeCompare(a.name); });
-    return pool.map(function(m) { return m.name.replace(/^models\//, ""); });
+    return pool
+      .map(function(m) { return m.name.replace(/^models\//, ""); })
+      .filter(function(name) { return GEMINI_DEAD_MODELS.indexOf(name) === -1; });
   }
 
   var GEMINI_RETRYABLE_CODES = ["MODEL_NOT_FOUND", "MODEL_OVERLOADED", "MODEL_QUOTA_EXCEEDED"];
@@ -1690,6 +1699,7 @@
 
   function callGeminiJSON(apiKey, parts, schema) {
     var stored = getStoredGeminiModel();
+    if (stored && GEMINI_DEAD_MODELS.indexOf(stored) !== -1) stored = "";
     var firstModel = stored || GEMINI_FALLBACK_MODELS[0];
     return callGeminiJSONWithModel(apiKey, firstModel, parts, schema).then(function(result) {
       if (!stored) saveGeminiModel(firstModel);
