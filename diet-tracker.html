@@ -285,6 +285,25 @@
   }
   .inline-calc input { flex: 1; }
   .inline-calc .ghost-btn { white-space: nowrap; }
+  .advice-box {
+    margin-top: 12px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+  }
+  .advice-box .advice-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 2px;
+  }
+  .advice-box p {
+    margin: 0 0 10px;
+    font-size: 0.85rem;
+    line-height: 1.6;
+  }
+  .advice-box p:last-child { margin-bottom: 0; }
   form.meal-form input, form.meal-form select {
     width: 100%;
     padding: 9px 10px;
@@ -744,6 +763,15 @@
       <div class="progress-caption"><span id="progressPct">0%</span><span id="progressNote"></span></div>
     </div>
     <div class="pfc-target-line" id="sumPFCTargetLine"></div>
+
+    <button type="button" id="dailyAdviceBtn" class="primary-btn">🤖 今日の食事をAIに評価してもらう</button>
+    <p class="field-hint" id="dailyAdviceStatus"></p>
+    <div class="advice-box" id="dailyAdviceBox" style="display:none;">
+      <div class="advice-label">📝 評価</div>
+      <p id="dailyAdviceEvaluation"></p>
+      <div class="advice-label">💡 一言アドバイス</div>
+      <p id="dailyAdviceText"></p>
+    </div>
   </section>
 
   <section class="card">
@@ -1065,6 +1093,11 @@
     targetCarbs: document.getElementById("targetCarbs"),
     saveTarget: document.getElementById("saveTarget"),
     sumPFCTargetLine: document.getElementById("sumPFCTargetLine"),
+    dailyAdviceBtn: document.getElementById("dailyAdviceBtn"),
+    dailyAdviceStatus: document.getElementById("dailyAdviceStatus"),
+    dailyAdviceBox: document.getElementById("dailyAdviceBox"),
+    dailyAdviceEvaluation: document.getElementById("dailyAdviceEvaluation"),
+    dailyAdviceText: document.getElementById("dailyAdviceText"),
     datePicker: document.getElementById("datePicker"),
     prevDay: document.getElementById("prevDay"),
     nextDay: document.getElementById("nextDay"),
@@ -1411,24 +1444,28 @@
 
   el.datePicker.addEventListener("change", function() {
     selectedDate = el.datePicker.value || todayStr();
+    resetDailyAdvice();
     render();
   });
 
   el.prevDay.addEventListener("click", function() {
     selectedDate = addDays(selectedDate, -1);
     el.datePicker.value = selectedDate;
+    resetDailyAdvice();
     render();
   });
 
   el.nextDay.addEventListener("click", function() {
     selectedDate = addDays(selectedDate, 1);
     el.datePicker.value = selectedDate;
+    resetDailyAdvice();
     render();
   });
 
   el.todayBtn.addEventListener("click", function() {
     selectedDate = todayStr();
     el.datePicker.value = selectedDate;
+    resetDailyAdvice();
     render();
   });
 
@@ -1745,6 +1782,84 @@
     return callGeminiJSON(apiKey, [{ text: prompt }], NUTRITION_SCHEMA);
   }
 
+  var DAILY_ADVICE_SCHEMA = {
+    type: "OBJECT",
+    properties: {
+      evaluation: { type: "STRING" },
+      advice: { type: "STRING" }
+    },
+    required: ["evaluation", "advice"]
+  };
+
+  function callGeminiDailyAdvice(apiKey, summaryText) {
+    var prompt = "あなたは優しく前向きな栄養士です。以下はある人の1日の食事記録です。" +
+      "目標と実績を踏まえて、今日の食事内容を2〜3文程度で評価してください。" +
+      "咎めるような言い方は避け、良かった点があれば褒めつつ、改善点があれば優しく伝えてください。" +
+      "また、明日以降に活かせる具体的な一言アドバイスも別途考えてください。\n\n" + summaryText;
+    return callGeminiJSON(apiKey, [{ text: prompt }], DAILY_ADVICE_SCHEMA);
+  }
+
+  function buildDailySummaryText() {
+    var meals = mealsForDate(selectedDate);
+    var intake = meals.reduce(function(s, m) { return s + m.calories; }, 0);
+    var protein = meals.reduce(function(s, m) { return s + m.protein; }, 0);
+    var fat = meals.reduce(function(s, m) { return s + m.fat; }, 0);
+    var carbs = meals.reduce(function(s, m) { return s + m.carbs; }, 0);
+
+    var lines = [];
+    lines.push("日付: " + selectedDate);
+    lines.push("目標カロリー: " + (state.targetCalories || 0) + "kcal");
+    lines.push("摂取カロリー: " + intake + "kcal");
+    if (state.targetProtein || state.targetFat || state.targetCarbs) {
+      lines.push("目標PFC: たんぱく質" + (state.targetProtein || 0) + "g / 脂質" + (state.targetFat || 0) + "g / 炭水化物" + (state.targetCarbs || 0) + "g");
+    }
+    lines.push("実績PFC: たんぱく質" + round1(protein) + "g / 脂質" + round1(fat) + "g / 炭水化物" + round1(carbs) + "g");
+    lines.push("食事内容:");
+    MEAL_ORDER.forEach(function(type) {
+      meals.filter(function(m) { return m.type === type; }).forEach(function(m) {
+        lines.push("- " + type + ": " + m.name + " (" + m.calories + "kcal)");
+      });
+    });
+    return lines.join("\n");
+  }
+
+  function resetDailyAdvice() {
+    el.dailyAdviceBox.style.display = "none";
+    el.dailyAdviceEvaluation.textContent = "";
+    el.dailyAdviceText.textContent = "";
+    el.dailyAdviceStatus.textContent = "";
+  }
+
+  el.dailyAdviceBtn.addEventListener("click", function() {
+    var apiKey = getGeminiKey();
+    if (!apiKey) {
+      el.dailyAdviceStatus.textContent = "先に「AI写真解析の設定」でGemini APIキーを保存してください";
+      el.dailyAdviceStatus.style.color = "var(--danger)";
+      return;
+    }
+    if (mealsForDate(selectedDate).length === 0) {
+      el.dailyAdviceStatus.textContent = "この日はまだ食事が記録されていません";
+      el.dailyAdviceStatus.style.color = "var(--danger)";
+      return;
+    }
+
+    el.dailyAdviceBtn.disabled = true;
+    el.dailyAdviceStatus.textContent = "🔄 評価中...";
+    el.dailyAdviceStatus.style.color = "var(--muted)";
+
+    callGeminiDailyAdvice(apiKey, buildDailySummaryText()).then(function(result) {
+      el.dailyAdviceEvaluation.textContent = result.evaluation || "";
+      el.dailyAdviceText.textContent = result.advice || "";
+      el.dailyAdviceBox.style.display = "block";
+      el.dailyAdviceStatus.textContent = "";
+    }).catch(function(err) {
+      el.dailyAdviceStatus.textContent = "⚠️ " + (err && err.message ? err.message : "評価に失敗しました");
+      el.dailyAdviceStatus.style.color = "var(--danger)";
+    }).finally(function() {
+      el.dailyAdviceBtn.disabled = false;
+    });
+  });
+
   el.analyzePhotoBtn.addEventListener("click", function() {
     var apiKey = getGeminiKey();
     if (!apiKey) {
@@ -1827,12 +1942,14 @@
     el.mealForm.reset();
     resetPhotoState();
     setCalcFromNameStatus("");
+    resetDailyAdvice();
     render();
   });
 
   function deleteMeal(id) {
     state.meals = state.meals.filter(function(m) { return m.id !== id; });
     saveData();
+    resetDailyAdvice();
     render();
   }
 
