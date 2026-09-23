@@ -1430,7 +1430,11 @@
 
   // --- AI写真解析 (Google Gemini) ---
   var GEMINI_KEY_STORAGE = "dietTracker.geminiApiKey";
-  var GEMINI_MODEL = "gemini-2.5-flash";
+  var GEMINI_MODEL_STORAGE = "dietTracker.geminiModel";
+  var GEMINI_FALLBACK_MODELS = [
+    "gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest",
+    "gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-pro-latest", "gemini-1.5-pro"
+  ];
   var GEMINI_PROMPT = "あなたは栄養士です。この画像に写っている食事の内容を分析してください。" +
     "料理名（日本語、簡潔に）、推定カロリー(kcal)、たんぱく質(g)、脂質(g)、炭水化物(g)を推定して返してください。" +
     "複数の料理が写っている場合は画像全体の合計値を返してください。分量は写真から判断できる一般的な1人前として推定し、" +
@@ -1450,6 +1454,14 @@
     } catch (e) {}
   }
 
+  function getStoredGeminiModel() {
+    try { return localStorage.getItem(GEMINI_MODEL_STORAGE) || ""; } catch (e) { return ""; }
+  }
+
+  function saveGeminiModel(model) {
+    try { localStorage.setItem(GEMINI_MODEL_STORAGE, model); } catch (e) {}
+  }
+
   function setAnalyzeStatus(text, isError) {
     el.analyzeStatus.textContent = text || "";
     el.analyzeStatus.style.color = isError ? "var(--danger)" : "var(--muted)";
@@ -1460,6 +1472,7 @@
   el.saveGeminiKey.addEventListener("click", function() {
     var key = el.geminiApiKey.value.trim();
     saveGeminiKeyToStorage(key);
+    saveGeminiModel("");
     var note = key
       ? "✅ 保存しました。写真から記録するボタンを使えます。"
       : "APIキーを削除しました。";
@@ -1551,8 +1564,8 @@
     return Math.round(x * 10) / 10;
   }
 
-  function callGeminiJSON(apiKey, parts, schema) {
-    var url = "https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_MODEL +
+  function callGeminiJSONWithModel(apiKey, model, parts, schema) {
+    var url = "https://generativelanguage.googleapis.com/v1beta/models/" + model +
       ":generateContent?key=" + encodeURIComponent(apiKey);
     var body = {
       contents: [{ parts: parts }],
@@ -1569,7 +1582,9 @@
       if (!res.ok) {
         return res.json().catch(function() { return null; }).then(function(errBody) {
           var msg = errBody && errBody.error && errBody.error.message;
-          throw new Error(mapGeminiError(res.status, msg));
+          var err = new Error(mapGeminiError(res.status, msg));
+          if (res.status === 404) err.code = "MODEL_NOT_FOUND";
+          throw err;
         });
       }
       return res.json();
@@ -1585,6 +1600,63 @@
         throw new Error("AIの応答を解析できませんでした");
       }
       return parsed;
+    });
+  }
+
+  function listGeminiModels(apiKey) {
+    var url = "https://generativelanguage.googleapis.com/v1beta/models?key=" + encodeURIComponent(apiKey);
+    return fetch(url).then(function(res) {
+      if (!res.ok) throw new Error("モデル一覧の取得に失敗しました");
+      return res.json();
+    });
+  }
+
+  function pickBestGeminiModel(modelsResponse) {
+    var models = (modelsResponse && modelsResponse.models) || [];
+    var usable = models.filter(function(m) {
+      return m.supportedGenerationMethods && m.supportedGenerationMethods.indexOf("generateContent") !== -1;
+    });
+    var flash = usable.filter(function(m) { return /flash/i.test(m.name); });
+    var pool = flash.length ? flash : usable;
+    if (!pool.length) return null;
+    pool.sort(function(a, b) { return b.name.localeCompare(a.name); });
+    return pool[0].name.replace(/^models\//, "");
+  }
+
+  function tryGeminiModelsInSequence(apiKey, models, parts, schema, idx) {
+    idx = idx || 0;
+    if (idx >= models.length) {
+      return Promise.reject(new Error("利用可能なAIモデルが見つかりませんでした。APIキーやAPIの有効化状況を確認してください。"));
+    }
+    return callGeminiJSONWithModel(apiKey, models[idx], parts, schema).then(function(result) {
+      saveGeminiModel(models[idx]);
+      return result;
+    }).catch(function(err) {
+      if (err && err.code === "MODEL_NOT_FOUND" && idx + 1 < models.length) {
+        return tryGeminiModelsInSequence(apiKey, models, parts, schema, idx + 1);
+      }
+      throw err;
+    });
+  }
+
+  function callGeminiJSON(apiKey, parts, schema) {
+    var stored = getStoredGeminiModel();
+    var firstModel = stored || GEMINI_FALLBACK_MODELS[0];
+    return callGeminiJSONWithModel(apiKey, firstModel, parts, schema).then(function(result) {
+      if (!stored) saveGeminiModel(firstModel);
+      return result;
+    }).catch(function(err) {
+      if (!err || err.code !== "MODEL_NOT_FOUND") throw err;
+      return listGeminiModels(apiKey).then(function(resp) {
+        var picked = pickBestGeminiModel(resp);
+        var candidates = picked ? [picked] : [];
+        GEMINI_FALLBACK_MODELS.forEach(function(m) {
+          if (candidates.indexOf(m) === -1) candidates.push(m);
+        });
+        return tryGeminiModelsInSequence(apiKey, candidates, parts, schema, 0);
+      }).catch(function() {
+        return tryGeminiModelsInSequence(apiKey, GEMINI_FALLBACK_MODELS, parts, schema, 0);
+      });
     });
   }
 
