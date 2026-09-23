@@ -1571,6 +1571,7 @@
     if (status === 403) return "APIキーが無効か、権限がありません" + (msg ? ": " + msg : "");
     if (status === 404) return "モデルが見つかりません（APIキーの有効化状況を確認してください）" + (msg ? ": " + msg : "");
     if (status === 429) return "リクエストが多すぎます。しばらく待ってから再試行してください" + (msg ? ": " + msg : "");
+    if (status === 503) return "AIモデルが混雑しています。しばらく時間をおいて再度お試しください" + (msg ? ": " + msg : "");
     return msg || ("エラー (HTTP " + status + ")");
   }
 
@@ -1621,6 +1622,7 @@
           var msg = errBody && errBody.error && errBody.error.message;
           var err = new Error(mapGeminiError(res.status, msg));
           if (res.status === 404) err.code = "MODEL_NOT_FOUND";
+          if (res.status === 503) err.code = "MODEL_OVERLOADED";
           throw err;
         });
       }
@@ -1674,7 +1676,8 @@
       saveGeminiModel(models[idx]);
       return result;
     }).catch(function(err) {
-      if (err && err.code === "MODEL_NOT_FOUND" && idx + 1 < models.length) {
+      var retryable = err && (err.code === "MODEL_NOT_FOUND" || err.code === "MODEL_OVERLOADED");
+      if (retryable && idx + 1 < models.length) {
         return tryGeminiModelsInSequence(apiKey, models, parts, schema, idx + 1);
       }
       throw err;
@@ -1688,7 +1691,14 @@
       if (!stored) saveGeminiModel(firstModel);
       return result;
     }).catch(function(err) {
-      if (!err || err.code !== "MODEL_NOT_FOUND") throw err;
+      if (!err || (err.code !== "MODEL_NOT_FOUND" && err.code !== "MODEL_OVERLOADED")) throw err;
+
+      if (err.code === "MODEL_OVERLOADED") {
+        // 混雑は一時的なものなので、モデル一覧の再取得はせず他の候補モデルに直接切り替える
+        var retryList = GEMINI_FALLBACK_MODELS.filter(function(m) { return m !== firstModel; });
+        return tryGeminiModelsInSequence(apiKey, retryList, parts, schema, 0);
+      }
+
       return listGeminiModels(apiKey).then(function(resp) {
         var picked = pickBestGeminiModel(resp);
         var candidates = picked ? [picked] : [];
