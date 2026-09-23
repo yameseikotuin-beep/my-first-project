@@ -714,10 +714,12 @@
         <input type="password" id="geminiApiKey" placeholder="AIzaSy..." style="width:100%;">
       </div>
       <button id="saveGeminiKey">保存</button>
+      <button id="diagnoseGeminiKey" class="ghost-btn">🔍 診断する</button>
     </div>
     <p class="field-hint" id="geminiKeyStatus">
       <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>で無料のAPIキーを取得できます。キーはこのブラウザにのみ保存され、写真解析のときだけGoogleのAPIへ直接送信されます（サーバーやリポジトリには保存されません）。
     </p>
+    <p class="field-hint" id="diagnoseResult"></p>
   </section>
 
   <section class="card">
@@ -1088,6 +1090,8 @@
     geminiApiKey: document.getElementById("geminiApiKey"),
     saveGeminiKey: document.getElementById("saveGeminiKey"),
     geminiKeyStatus: document.getElementById("geminiKeyStatus"),
+    diagnoseGeminiKey: document.getElementById("diagnoseGeminiKey"),
+    diagnoseResult: document.getElementById("diagnoseResult"),
     mealPhotoInput: document.getElementById("mealPhotoInput"),
     choosePhotoBtn: document.getElementById("choosePhotoBtn"),
     photoPreviewWrap: document.getElementById("photoPreviewWrap"),
@@ -1477,6 +1481,39 @@
       ? "✅ 保存しました。写真から記録するボタンを使えます。"
       : "APIキーを削除しました。";
     el.geminiKeyStatus.innerHTML = note + ' <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>で無料のAPIキーを取得できます。キーはこのブラウザにのみ保存され、写真解析のときだけGoogleのAPIへ直接送信されます（サーバーやリポジトリには保存されません）。';
+    el.diagnoseResult.textContent = "";
+  });
+
+  function setDiagnoseResult(text, isError) {
+    el.diagnoseResult.textContent = text || "";
+    el.diagnoseResult.style.color = isError ? "var(--danger)" : "var(--muted)";
+  }
+
+  el.diagnoseGeminiKey.addEventListener("click", function() {
+    var apiKey = getGeminiKey();
+    if (!apiKey) {
+      setDiagnoseResult("先にAPIキーを入力して「保存」を押してください", true);
+      return;
+    }
+    el.diagnoseGeminiKey.disabled = true;
+    setDiagnoseResult("🔄 診断中...");
+
+    listGeminiModels(apiKey).then(function(resp) {
+      var models = (resp && resp.models) || [];
+      var usable = models.filter(function(m) {
+        return m.supportedGenerationMethods && m.supportedGenerationMethods.indexOf("generateContent") !== -1;
+      });
+      if (usable.length === 0) {
+        setDiagnoseResult("⚠️ APIキーは応答しましたが、画像/テキスト生成に使えるモデルがありませんでした。Google CloudでGenerative Language APIが有効か確認してください。", true);
+        return;
+      }
+      var names = usable.slice(0, 5).map(function(m) { return m.name.replace(/^models\//, ""); }).join(", ");
+      setDiagnoseResult("✅ APIキーは正常です。利用可能なモデル " + usable.length + "件（例: " + names + "）。上のボタンをもう一度試してください。");
+    }).catch(function(err) {
+      setDiagnoseResult("⚠️ " + (err && err.message ? err.message : "診断に失敗しました"), true);
+    }).finally(function() {
+      el.diagnoseGeminiKey.disabled = false;
+    });
   });
 
   function resetPhotoState() {
@@ -1530,10 +1567,10 @@
   });
 
   function mapGeminiError(status, msg) {
-    if (status === 400) return "リクエストが不正です（APIキーや画像を確認してください）: " + msg;
-    if (status === 403) return "APIキーが無効か、権限がありません";
-    if (status === 404) return "モデルが見つかりません（APIキーの有効化状況を確認してください）";
-    if (status === 429) return "リクエストが多すぎます。しばらく待ってから再試行してください";
+    if (status === 400) return "リクエストが不正です（APIキーや画像を確認してください）" + (msg ? ": " + msg : "");
+    if (status === 403) return "APIキーが無効か、権限がありません" + (msg ? ": " + msg : "");
+    if (status === 404) return "モデルが見つかりません（APIキーの有効化状況を確認してください）" + (msg ? ": " + msg : "");
+    if (status === 429) return "リクエストが多すぎます。しばらく待ってから再試行してください" + (msg ? ": " + msg : "");
     return msg || ("エラー (HTTP " + status + ")");
   }
 
@@ -1606,7 +1643,12 @@
   function listGeminiModels(apiKey) {
     var url = "https://generativelanguage.googleapis.com/v1beta/models?key=" + encodeURIComponent(apiKey);
     return fetch(url).then(function(res) {
-      if (!res.ok) throw new Error("モデル一覧の取得に失敗しました");
+      if (!res.ok) {
+        return res.json().catch(function() { return null; }).then(function(errBody) {
+          var msg = errBody && errBody.error && errBody.error.message;
+          throw new Error(mapGeminiError(res.status, msg));
+        });
+      }
       return res.json();
     });
   }
