@@ -1437,9 +1437,7 @@
   var GEMINI_MODEL_STORAGE = "dietTracker.geminiModel";
   // Pro系モデルは有料プラン専用（無料枠が0）のことが多いため、
   // 無料枠での利用を前提にFlash系モデルのみを候補にする。
-  var GEMINI_FALLBACK_MODELS = [
-    "gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest", "gemini-1.5-flash", "gemini-1.5-flash-latest"
-  ];
+  var GEMINI_FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"];
   var GEMINI_PROMPT = "あなたは栄養士です。この画像に写っている食事の内容を分析してください。" +
     "料理名（日本語、簡潔に）、推定カロリー(kcal)、たんぱく質(g)、脂質(g)、炭水化物(g)を推定して返してください。" +
     "複数の料理が写っている場合は画像全体の合計値を返してください。分量は写真から判断できる一般的な1人前として推定し、" +
@@ -1657,16 +1655,15 @@
     });
   }
 
-  function pickBestGeminiModel(modelsResponse) {
+  function sortedFlashGeminiModelNames(modelsResponse) {
     var models = (modelsResponse && modelsResponse.models) || [];
     var usable = models.filter(function(m) {
       return m.supportedGenerationMethods && m.supportedGenerationMethods.indexOf("generateContent") !== -1;
     });
     var flash = usable.filter(function(m) { return /flash/i.test(m.name); });
     var pool = flash.length ? flash : usable;
-    if (!pool.length) return null;
     pool.sort(function(a, b) { return b.name.localeCompare(a.name); });
-    return pool[0].name.replace(/^models\//, "");
+    return pool.map(function(m) { return m.name.replace(/^models\//, ""); });
   }
 
   var GEMINI_RETRYABLE_CODES = ["MODEL_NOT_FOUND", "MODEL_OVERLOADED", "MODEL_QUOTA_EXCEEDED"];
@@ -1700,22 +1697,23 @@
     }).catch(function(err) {
       if (!isRetryableGeminiError(err)) throw err;
 
-      if (err.code === "MODEL_OVERLOADED" || err.code === "MODEL_QUOTA_EXCEEDED") {
-        // 混雑・枠超過は一時的/モデル固有のことが多いので、モデル一覧の再取得はせず
-        // 他の候補モデルに直接切り替える
-        var retryList = GEMINI_FALLBACK_MODELS.filter(function(m) { return m !== firstModel; });
-        return tryGeminiModelsInSequence(apiKey, retryList, parts, schema, 0);
-      }
-
-      return listGeminiModels(apiKey).then(function(resp) {
-        var picked = pickBestGeminiModel(resp);
-        var candidates = picked ? [picked] : [];
-        GEMINI_FALLBACK_MODELS.forEach(function(m) {
-          if (candidates.indexOf(m) === -1) candidates.push(m);
+      // まず固定の候補リスト（現在のモデルを除く）を順に試す
+      var staticCandidates = GEMINI_FALLBACK_MODELS.filter(function(m) { return m !== firstModel; });
+      return tryGeminiModelsInSequence(apiKey, staticCandidates, parts, schema, 0).catch(function(staticErr) {
+        // 固定候補が全滅した場合、モデル一覧APIで実際に使えるモデルを調べて
+        // まだ試していないFlash系モデルがあれば試す
+        var alreadyTried = [firstModel].concat(staticCandidates);
+        return Promise.resolve().then(function() {
+          return listGeminiModels(apiKey);
+        }).then(function(resp) {
+          var discovered = sortedFlashGeminiModelNames(resp).filter(function(name) {
+            return alreadyTried.indexOf(name) === -1;
+          });
+          if (!discovered.length) throw staticErr;
+          return tryGeminiModelsInSequence(apiKey, discovered, parts, schema, 0);
+        }, function() {
+          throw staticErr;
         });
-        return tryGeminiModelsInSequence(apiKey, candidates, parts, schema, 0);
-      }).catch(function() {
-        return tryGeminiModelsInSequence(apiKey, GEMINI_FALLBACK_MODELS, parts, schema, 0);
       });
     });
   }
