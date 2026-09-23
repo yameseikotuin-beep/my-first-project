@@ -202,6 +202,57 @@
     color: var(--muted);
     font-weight: 600;
   }
+  .manual-card summary {
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    list-style: none;
+  }
+  .manual-card summary::-webkit-details-marker { display: none; }
+  .manual-card summary::after {
+    content: "展開 ▾";
+    margin-left: auto;
+    font-size: 0.7rem;
+    font-weight: 400;
+    color: var(--muted);
+  }
+  .manual-card[open] summary::after { content: "閉じる ▴"; }
+  .manual-body {
+    margin-top: 14px;
+    font-size: 0.85rem;
+    line-height: 1.7;
+    color: var(--text);
+  }
+  .manual-body h4 {
+    margin: 14px 0 4px;
+    font-size: 0.85rem;
+    color: var(--primary);
+  }
+  .manual-body h4:first-child { margin-top: 0; }
+  .manual-body p { margin: 4px 0; }
+  .manual-body ul, .manual-body ol {
+    margin: 4px 0 4px 1.2em;
+    padding: 0;
+  }
+  .manual-body li { margin-bottom: 4px; }
+  .manual-inline { margin-bottom: 14px; }
+  .manual-inline summary {
+    font-size: 0.78rem;
+    color: var(--primary);
+    cursor: pointer;
+    font-weight: 600;
+    list-style: none;
+  }
+  .manual-inline summary::-webkit-details-marker { display: none; }
+  .manual-inline summary::before { content: "▸ "; }
+  .manual-inline[open] summary::before { content: "▾ "; }
+  .manual-inline .manual-body {
+    margin-top: 8px;
+    font-size: 0.76rem;
+  }
   .photo-capture { margin-bottom: 14px; }
   .photo-preview {
     width: 100%;
@@ -515,6 +566,37 @@
 
 <main>
   <section class="card">
+    <details class="manual-card">
+      <summary><span>📖 アプリの使い方</span></summary>
+      <div class="manual-body">
+        <h4>👤 プロフィール</h4>
+        <p>同じブラウザを複数人で使う場合、プロフィールを分けて記録できます（データは互いに混ざりません）。「+ 新規」で追加、「名前変更」「削除」も可能です。ログイン中はこの代わりにアカウントがプロフィールとして使われます。</p>
+
+        <h4>☁️ クラウド同期</h4>
+        <p>メールアドレスとパスワードでログインすると、記録がクラウド（Firestore）に保存され、別の端末・ブラウザから同じアカウントでログインすれば同じデータにアクセスできます。ログインしない場合は、このブラウザ内（localStorage）のみに保存されます。</p>
+
+        <h4>🧍 パーソナルデータ・目標設定</h4>
+        <p>性別・年齢・身長・体重・活動レベル・目標（減量/維持/増量）・変化スピードを入力して「自動計算する」を押すと、BMR/TDEEから目標カロリーとPFC（たんぱく質/脂質/炭水化物）が算出されます。「この設定を反映する」を押すと下の「目標値」に反映されます。</p>
+
+        <h4>🎯 目標値</h4>
+        <p>自動計算した後も、カロリー・PFCの各値を直接編集して保存できます。</p>
+
+        <h4>日付の移動</h4>
+        <p>「‹」「›」ボタンや日付欄、「今日」ボタンで表示する日を切り替え、過去の記録を確認・編集できます。</p>
+
+        <h4>📊 本日のサマリー</h4>
+        <p>選択した日の目標カロリーに対する摂取量・残りと、PFCの合計・目標PFCとの比較を表示します。</p>
+
+        <h4>➕ 食事を記録</h4>
+        <p>写真からのAI解析・食品名と分量からのAI計算・手動入力の3通りで記録できます。詳しくは「食事を記録」欄内の「食事記録の方法を見る」をご覧ください。</p>
+
+        <h4>🍽️ 記録一覧・📈 グラフ・⚖️ 体重記録</h4>
+        <p>その日の記録一覧（削除も可能）、直近14日間のカロリー推移グラフ、体重の記録とグラフを確認できます。</p>
+      </div>
+    </details>
+  </section>
+
+  <section class="card">
     <h2>🧍 パーソナルデータ・目標設定</h2>
     <form class="meal-form" id="personalForm">
       <div>
@@ -664,6 +746,22 @@
 
   <section class="card">
     <h2>➕ 食事を記録</h2>
+
+    <details class="manual-inline">
+      <summary>食事記録の方法を見る</summary>
+      <div class="manual-body">
+        <h4>① 写真から記録</h4>
+        <p>「📷 写真から記録する」で写真を選択・撮影し、「🤖 AIで解析して自動入力」を押すと、Gemini AIが料理名・カロリー・PFCを推定して自動入力します。事前に上の「🤖 AI写真解析の設定」でAPIキーを保存しておく必要があります。</p>
+
+        <h4>② 食品名+分量から計算</h4>
+        <p>food名と分量（g）を入力し「🤖 計算」を押すと、AIがその分量に応じた栄養価を推定して自動入力します。①と同じAPIキーを使います。</p>
+
+        <h4>③ 手動入力</h4>
+        <p>カロリー・food名・PFCの各欄に直接入力します。PFCは任意項目です（空欄でも記録できます）。</p>
+
+        <p>①②はいずれもAIによる推定値です。内容を確認し、必要に応じて数値を修正してから「記録を追加」を押してください。</p>
+      </div>
+    </details>
 
     <div class="photo-capture">
       <input type="file" id="mealPhotoInput" accept="image/*" capture="environment" style="display:none;">
