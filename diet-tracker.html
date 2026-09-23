@@ -228,6 +228,12 @@
     white-space: nowrap;
   }
   .ghost-btn:hover { background: var(--bg); }
+  .inline-calc {
+    display: flex;
+    gap: 8px;
+  }
+  .inline-calc input { flex: 1; }
+  .inline-calc .ghost-btn { white-space: nowrap; }
   form.meal-form input, form.meal-form select {
     width: 100%;
     padding: 9px 10px;
@@ -692,6 +698,14 @@
         <label>food名</label>
         <input type="text" id="mealName" required placeholder="例: 鶏胸肉サラダ">
       </div>
+      <div class="full">
+        <label>分量 (g)（食品名とあわせてAI自動計算に使用・任意）</label>
+        <div class="inline-calc">
+          <input type="number" id="mealGrams" min="0" step="1" placeholder="例: 150">
+          <button type="button" id="calcFromNameBtn" class="ghost-btn">🤖 計算</button>
+        </div>
+        <p class="field-hint" id="calcFromNameStatus"></p>
+      </div>
       <div>
         <label>たんぱく質 (g)</label>
         <input type="number" id="mealProtein" min="0" step="0.1" placeholder="任意">
@@ -962,6 +976,9 @@
     mealProtein: document.getElementById("mealProtein"),
     mealFat: document.getElementById("mealFat"),
     mealCarbs: document.getElementById("mealCarbs"),
+    mealGrams: document.getElementById("mealGrams"),
+    calcFromNameBtn: document.getElementById("calcFromNameBtn"),
+    calcFromNameStatus: document.getElementById("calcFromNameStatus"),
     mealList: document.getElementById("mealList"),
     geminiApiKey: document.getElementById("geminiApiKey"),
     saveGeminiKey: document.getElementById("saveGeminiKey"),
@@ -1402,29 +1419,41 @@
     return msg || ("エラー (HTTP " + status + ")");
   }
 
-  function callGeminiVision(apiKey, base64Data, mimeType) {
+  var NUTRITION_SCHEMA_WITH_NAME = {
+    type: "OBJECT",
+    properties: {
+      name: { type: "STRING" },
+      calories: { type: "NUMBER" },
+      protein: { type: "NUMBER" },
+      fat: { type: "NUMBER" },
+      carbs: { type: "NUMBER" }
+    },
+    required: ["name", "calories", "protein", "fat", "carbs"]
+  };
+
+  var NUTRITION_SCHEMA = {
+    type: "OBJECT",
+    properties: {
+      calories: { type: "NUMBER" },
+      protein: { type: "NUMBER" },
+      fat: { type: "NUMBER" },
+      carbs: { type: "NUMBER" }
+    },
+    required: ["calories", "protein", "fat", "carbs"]
+  };
+
+  function round1(x) {
+    return Math.round(x * 10) / 10;
+  }
+
+  function callGeminiJSON(apiKey, parts, schema) {
     var url = "https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_MODEL +
       ":generateContent?key=" + encodeURIComponent(apiKey);
     var body = {
-      contents: [{
-        parts: [
-          { text: GEMINI_PROMPT },
-          { inline_data: { mime_type: mimeType, data: base64Data } }
-        ]
-      }],
+      contents: [{ parts: parts }],
       generationConfig: {
         responseMimeType: "application/json",
-        responseSchema: {
-          type: "OBJECT",
-          properties: {
-            name: { type: "STRING" },
-            calories: { type: "NUMBER" },
-            protein: { type: "NUMBER" },
-            fat: { type: "NUMBER" },
-            carbs: { type: "NUMBER" }
-          },
-          required: ["name", "calories", "protein", "fat", "carbs"]
-        }
+        responseSchema: schema
       }
     };
     return fetch(url, {
@@ -1454,6 +1483,20 @@
     });
   }
 
+  function callGeminiVision(apiKey, base64Data, mimeType) {
+    var parts = [
+      { text: GEMINI_PROMPT },
+      { inline_data: { mime_type: mimeType, data: base64Data } }
+    ];
+    return callGeminiJSON(apiKey, parts, NUTRITION_SCHEMA_WITH_NAME);
+  }
+
+  function callGeminiTextEstimate(apiKey, name, grams) {
+    var prompt = "以下の食品の栄養価を推定してください。食品名: " + name + "。分量: " + grams + "g。" +
+      "この分量に相当するカロリー(kcal)、たんぱく質(g)、脂質(g)、炭水化物(g)を、一般的な栄養データに基づいて推定してください。";
+    return callGeminiJSON(apiKey, [{ text: prompt }], NUTRITION_SCHEMA);
+  }
+
   el.analyzePhotoBtn.addEventListener("click", function() {
     var apiKey = getGeminiKey();
     if (!apiKey) {
@@ -1468,14 +1511,53 @@
     callGeminiVision(apiKey, currentPhotoBase64, currentPhotoMime).then(function(result) {
       if (result.name) el.mealName.value = result.name;
       if (result.calories != null && !isNaN(result.calories)) el.mealCalories.value = Math.round(result.calories);
-      if (result.protein != null && !isNaN(result.protein)) el.mealProtein.value = Math.round(result.protein * 10) / 10;
-      if (result.fat != null && !isNaN(result.fat)) el.mealFat.value = Math.round(result.fat * 10) / 10;
-      if (result.carbs != null && !isNaN(result.carbs)) el.mealCarbs.value = Math.round(result.carbs * 10) / 10;
+      if (result.protein != null && !isNaN(result.protein)) el.mealProtein.value = round1(result.protein);
+      if (result.fat != null && !isNaN(result.fat)) el.mealFat.value = round1(result.fat);
+      if (result.carbs != null && !isNaN(result.carbs)) el.mealCarbs.value = round1(result.carbs);
       setAnalyzeStatus("✅ 解析結果を入力しました。内容を確認して「記録を追加」を押してください");
     }).catch(function(err) {
       setAnalyzeStatus("⚠️ " + (err && err.message ? err.message : "解析に失敗しました"), true);
     }).finally(function() {
       el.analyzePhotoBtn.disabled = false;
+    });
+  });
+
+  function setCalcFromNameStatus(text, isError) {
+    el.calcFromNameStatus.textContent = text || "";
+    el.calcFromNameStatus.style.color = isError ? "var(--danger)" : "var(--muted)";
+  }
+
+  el.calcFromNameBtn.addEventListener("click", function() {
+    var apiKey = getGeminiKey();
+    var name = el.mealName.value.trim();
+    var grams = parseFloat(el.mealGrams.value);
+
+    if (!apiKey) {
+      setCalcFromNameStatus("先に上の「AI写真解析の設定」でGemini APIキーを保存してください", true);
+      return;
+    }
+    if (!name) {
+      setCalcFromNameStatus("food名を入力してください", true);
+      return;
+    }
+    if (!grams || grams <= 0) {
+      setCalcFromNameStatus("分量(g)を入力してください", true);
+      return;
+    }
+
+    el.calcFromNameBtn.disabled = true;
+    setCalcFromNameStatus("🔄 計算中...");
+
+    callGeminiTextEstimate(apiKey, name, grams).then(function(result) {
+      if (result.calories != null && !isNaN(result.calories)) el.mealCalories.value = Math.round(result.calories);
+      if (result.protein != null && !isNaN(result.protein)) el.mealProtein.value = round1(result.protein);
+      if (result.fat != null && !isNaN(result.fat)) el.mealFat.value = round1(result.fat);
+      if (result.carbs != null && !isNaN(result.carbs)) el.mealCarbs.value = round1(result.carbs);
+      setCalcFromNameStatus("✅ 計算結果を入力しました。内容を確認して「記録を追加」を押してください");
+    }).catch(function(err) {
+      setCalcFromNameStatus("⚠️ " + (err && err.message ? err.message : "計算に失敗しました"), true);
+    }).finally(function() {
+      el.calcFromNameBtn.disabled = false;
     });
   });
 
@@ -1496,6 +1578,7 @@
     saveData();
     el.mealForm.reset();
     resetPhotoState();
+    setCalcFromNameStatus("");
     render();
   });
 
