@@ -1939,7 +1939,9 @@
     if (!meal.name) return;
     state.meals.push(meal);
     saveData();
+    var lastMealType = el.mealType.value;
     el.mealForm.reset();
+    el.mealType.value = lastMealType;
     resetPhotoState();
     setCalcFromNameStatus("");
     resetDailyAdvice();
