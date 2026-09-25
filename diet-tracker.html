@@ -738,6 +738,29 @@
 
   <section class="card">
     <h2>🤖 AI写真解析の設定</h2>
+
+    <details class="manual-inline">
+      <summary>APIキーの取得・保存の手順を見る</summary>
+      <div class="manual-body">
+        <h4>① APIキーを取得する</h4>
+        <ol>
+          <li><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>を開く</li>
+          <li>お持ちのGoogleアカウントでログインする</li>
+          <li>「APIキーを作成」（Create API key）をクリックする</li>
+          <li>プロジェクトを選ぶ画面が出たら、既存のプロジェクトでも「Default Gemini Project」のような自動作成のものでもよい</li>
+          <li>作成が終わると文字列（例: <code>AIzaSy...</code>）が表示されるので、コピーアイコンでコピーする</li>
+        </ol>
+        <h4>② このアプリに保存する</h4>
+        <ol>
+          <li>コピーしたキーを、下の「Gemini APIキー」欄に貼り付ける</li>
+          <li>「保存」ボタンを押す</li>
+          <li>うまく動くか不安なときは「🔍 診断する」ボタンを押すと、キーが有効か・使えるモデルがあるかをその場で確認できる</li>
+        </ol>
+        <p>保存したキーはこのブラウザだけに残り、写真解析・食品名からの計算・1日の評価機能を使うときにだけGoogleのAPIへ直接送信されます。リポジトリやサーバーには一切保存されません。</p>
+        <p>「モデルが見つかりません」「混雑しています」のようなエラーが出ても、アプリ側で自動的に別のモデルに切り替えて再試行するので、多くの場合そのままもう一度ボタンを押せば解決します。</p>
+      </div>
+    </details>
+
     <div class="target-form">
       <div class="field" style="flex:1;min-width:220px;">
         <label>Gemini APIキー</label>
