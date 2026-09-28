@@ -428,6 +428,50 @@
     font-weight: 600;
     cursor: pointer;
   }
+  .weight-list-title {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin: 16px 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .weight-list {
+    max-height: 260px;
+    overflow-y: auto;
+  }
+  .weight-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 6px;
+    background: var(--bg);
+  }
+  .weight-item .date { font-size: 0.85rem; }
+  .weight-item .date .today-tag {
+    font-size: 0.68rem;
+    color: var(--primary);
+    margin-left: 6px;
+  }
+  .weight-item .weight-value { font-weight: 700; margin-left: 10px; white-space: nowrap; }
+  .weight-item .diff {
+    font-size: 0.72rem;
+    margin-left: 8px;
+    white-space: nowrap;
+  }
+  .weight-item .diff.down { color: var(--primary); }
+  .weight-item .diff.up { color: var(--danger); }
+  .weight-item .del {
+    margin-left: 10px;
+    background: none;
+    border: none;
+    color: var(--danger);
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 2px 6px;
+  }
   .tabs {
     display: flex;
     gap: 6px;
@@ -909,6 +953,8 @@
       <button id="addWeight">追加</button>
     </div>
     <canvas id="weightChart" width="600" height="160"></canvas>
+    <h3 class="weight-list-title">記録一覧</h3>
+    <div id="weightList" class="weight-list"></div>
   </section>
 </main>
 
@@ -1170,7 +1216,8 @@
     weightDate: document.getElementById("weightDate"),
     weightValue: document.getElementById("weightValue"),
     addWeight: document.getElementById("addWeight"),
-    weightChart: document.getElementById("weightChart")
+    weightChart: document.getElementById("weightChart"),
+    weightList: document.getElementById("weightList")
   };
 
   function fillFormsFromState() {
@@ -2008,6 +2055,7 @@
     renderMealList();
     renderCalorieChart();
     renderWeightChart();
+    renderWeightList();
   }
 
   function mealsForDate(dateStr) {
@@ -2213,6 +2261,56 @@
     ctx.textAlign = "start";
     ctx.fillText(maxV.toFixed(1) + "kg", padding.left, padding.top + 8);
     ctx.fillText(minV.toFixed(1) + "kg", padding.left, padding.top + chartH - 2);
+  }
+
+  var WEEKDAY_JP = ["日", "月", "火", "水", "木", "金", "土"];
+
+  function formatDateLabel(dateStr) {
+    var d = new Date(dateStr + "T00:00:00");
+    return (d.getMonth() + 1) + "/" + d.getDate() + "（" + WEEKDAY_JP[d.getDay()] + "）";
+  }
+
+  function deleteWeight(date) {
+    state.weights = state.weights.filter(function(w) { return w.date !== date; });
+    saveData();
+    render();
+  }
+
+  function renderWeightList() {
+    var weights = state.weights.slice().sort(function(a, b) { return b.date.localeCompare(a.date); });
+    if (weights.length === 0) {
+      el.weightList.innerHTML = '<div class="empty-msg">体重の記録はまだありません</div>';
+      return;
+    }
+    var today = todayStr();
+    var html = weights.map(function(w, idx) {
+      var prev = weights[idx + 1];
+      var diffHtml = "";
+      if (prev) {
+        var diff = w.weight - prev.weight;
+        if (Math.abs(diff) >= 0.05) {
+          var cls = diff > 0 ? "up" : "down";
+          var sign = diff > 0 ? "+" : "";
+          diffHtml = '<span class="diff ' + cls + '">' + sign + diff.toFixed(1) + "kg</span>";
+        }
+      }
+      var todayTag = w.date === today ? '<span class="today-tag">今日</span>' : "";
+      return '<div class="weight-item">' +
+        '<div class="date">' + formatDateLabel(w.date) + todayTag + "</div>" +
+        '<div style="display:flex;align-items:center;">' +
+        '<span class="weight-value">' + w.weight.toFixed(1) + " kg</span>" +
+        diffHtml +
+        '<button class="del" data-date="' + w.date + '" title="削除">✕</button>' +
+        "</div>" +
+        "</div>";
+    }).join("");
+    el.weightList.innerHTML = html;
+
+    el.weightList.querySelectorAll(".del").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        deleteWeight(btn.getAttribute("data-date"));
+      });
+    });
   }
 
   init();
