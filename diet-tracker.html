@@ -264,6 +264,57 @@
     margin-top: 8px;
     font-size: 0.76rem;
   }
+  .favorites-bar { margin-bottom: 14px; }
+  .favorites-label {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .favorites-chips {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .favorite-chip {
+    display: flex;
+    align-items: stretch;
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .favorite-select {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 8px 10px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    white-space: nowrap;
+    text-align: left;
+  }
+  .favorite-select .fav-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .favorite-select .fav-cal {
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+  .favorite-del {
+    border: none;
+    border-left: 1px solid var(--border);
+    background: none;
+    color: var(--danger);
+    cursor: pointer;
+    padding: 0 8px;
+    font-size: 0.85rem;
+  }
   .photo-capture { margin-bottom: 14px; }
   .photo-preview {
     width: 100%;
@@ -337,6 +388,12 @@
     margin-top: 4px;
   }
   form.meal-form button:hover { background: var(--primary-dark); }
+  form.meal-form button.ghost-btn {
+    background: var(--card);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  form.meal-form button.ghost-btn:hover { background: var(--bg); }
 
   .meal-group h3 {
     font-size: 0.85rem;
@@ -878,6 +935,11 @@
       </div>
     </details>
 
+    <div class="favorites-bar" id="favoritesBar" style="display:none;">
+      <div class="favorites-label">⭐ お気に入りから記録</div>
+      <div class="favorites-chips" id="favoritesChips"></div>
+    </div>
+
     <div class="photo-capture">
       <input type="file" id="mealPhotoInput" accept="image/*" capture="environment" style="display:none;">
       <button type="button" id="choosePhotoBtn" class="primary-btn">📷 写真から記録する</button>
@@ -932,6 +994,7 @@
         <input type="number" id="mealCarbs" min="0" step="0.1" placeholder="任意">
       </div>
       <button type="submit">記録を追加</button>
+      <button type="button" id="saveFavoriteBtn" class="ghost-btn" style="width:100%;">☆ この内容をお気に入りに登録</button>
     </form>
   </section>
 
@@ -947,6 +1010,11 @@
 
   <section class="card">
     <h2>⚖️ 体重記録</h2>
+    <div class="advice-box" id="goalPredictionBox" style="display:none;">
+      <div class="advice-label">🎯 目標体重までの予測</div>
+      <p id="goalPredictionText"></p>
+    </div>
+    <p class="field-hint" id="goalPredictionHint"></p>
     <div class="weight-form">
       <input type="date" id="weightDate">
       <input type="number" id="weightValue" min="0" step="0.1" placeholder="体重 (kg)">
@@ -1039,7 +1107,8 @@
         fatPct: 25
       },
       meals: [],
-      weights: []
+      weights: [],
+      favorites: []
     };
   }
 
@@ -1053,6 +1122,7 @@
       data.personal = Object.assign({}, data.personal, parsed.personal || {});
       data.meals = parsed.meals || [];
       data.weights = parsed.weights || [];
+      data.favorites = parsed.favorites || [];
     }
     return data;
   }
@@ -1217,7 +1287,13 @@
     weightValue: document.getElementById("weightValue"),
     addWeight: document.getElementById("addWeight"),
     weightChart: document.getElementById("weightChart"),
-    weightList: document.getElementById("weightList")
+    weightList: document.getElementById("weightList"),
+    favoritesBar: document.getElementById("favoritesBar"),
+    favoritesChips: document.getElementById("favoritesChips"),
+    saveFavoriteBtn: document.getElementById("saveFavoriteBtn"),
+    goalPredictionBox: document.getElementById("goalPredictionBox"),
+    goalPredictionText: document.getElementById("goalPredictionText"),
+    goalPredictionHint: document.getElementById("goalPredictionHint")
   };
 
   function fillFormsFromState() {
@@ -1455,6 +1531,7 @@
       fatPct: p.fatPct
     };
     saveData();
+    renderGoalPrediction();
 
     if (!p.age || !p.height || !p.weight) {
       alert("年齢・身長・現在体重を入力してください");
@@ -2036,6 +2113,76 @@
     render();
   }
 
+  el.saveFavoriteBtn.addEventListener("click", function() {
+    var name = el.mealName.value.trim();
+    var calories = parseFloat(el.mealCalories.value) || 0;
+    if (!name || !calories) {
+      alert("food名とカロリーを入力してから登録してください");
+      return;
+    }
+    var favorite = {
+      id: Date.now() + "-" + Math.random().toString(36).slice(2, 8),
+      name: name,
+      calories: calories,
+      protein: parseFloat(el.mealProtein.value) || 0,
+      fat: parseFloat(el.mealFat.value) || 0,
+      carbs: parseFloat(el.mealCarbs.value) || 0
+    };
+    var existingIdx = state.favorites.findIndex(function(f) { return f.name === name; });
+    if (existingIdx !== -1) {
+      favorite.id = state.favorites[existingIdx].id;
+      state.favorites[existingIdx] = favorite;
+    } else {
+      state.favorites.push(favorite);
+    }
+    saveData();
+    render();
+  });
+
+  function selectFavorite(id) {
+    var favorite = state.favorites.filter(function(f) { return f.id === id; })[0];
+    if (!favorite) return;
+    el.mealName.value = favorite.name;
+    el.mealCalories.value = favorite.calories;
+    el.mealProtein.value = favorite.protein || "";
+    el.mealFat.value = favorite.fat || "";
+    el.mealCarbs.value = favorite.carbs || "";
+  }
+
+  function deleteFavorite(id) {
+    state.favorites = state.favorites.filter(function(f) { return f.id !== id; });
+    saveData();
+    render();
+  }
+
+  function renderFavorites() {
+    if (!state.favorites.length) {
+      el.favoritesBar.style.display = "none";
+      return;
+    }
+    el.favoritesBar.style.display = "block";
+    el.favoritesChips.innerHTML = state.favorites.map(function(f) {
+      return '<div class="favorite-chip">' +
+        '<button type="button" class="favorite-select" data-id="' + f.id + '">' +
+        '<span class="fav-name">' + escapeHtml(f.name) + '</span>' +
+        '<span class="fav-cal">' + f.calories + 'kcal</span>' +
+        '</button>' +
+        '<button type="button" class="favorite-del" data-id="' + f.id + '" title="削除">✕</button>' +
+        '</div>';
+    }).join("");
+
+    el.favoritesChips.querySelectorAll(".favorite-select").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        selectFavorite(btn.getAttribute("data-id"));
+      });
+    });
+    el.favoritesChips.querySelectorAll(".favorite-del").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        deleteFavorite(btn.getAttribute("data-id"));
+      });
+    });
+  }
+
   el.addWeight.addEventListener("click", function() {
     var date = el.weightDate.value || todayStr();
     var val = parseFloat(el.weightValue.value);
@@ -2056,6 +2203,8 @@
     renderCalorieChart();
     renderWeightChart();
     renderWeightList();
+    renderFavorites();
+    renderGoalPrediction();
   }
 
   function mealsForDate(dateStr) {
@@ -2311,6 +2460,78 @@
         deleteWeight(btn.getAttribute("data-date"));
       });
     });
+  }
+
+  function computeWeightTrend() {
+    var sorted = state.weights.slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+    if (sorted.length < 2) return null;
+    var recent = sorted.slice(-30);
+    var baseTime = new Date(recent[0].date + "T00:00:00").getTime();
+    var points = recent.map(function(w) {
+      var days = (new Date(w.date + "T00:00:00").getTime() - baseTime) / 86400000;
+      return { x: days, y: w.weight };
+    });
+    var n = points.length;
+    var sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+    points.forEach(function(p) {
+      sumX += p.x; sumY += p.y; sumXY += p.x * p.y; sumXX += p.x * p.x;
+    });
+    var denom = n * sumXX - sumX * sumX;
+    if (denom === 0) return null;
+    var slope = (n * sumXY - sumX * sumY) / denom;
+    var latest = sorted[sorted.length - 1];
+    return { slope: slope, latestWeight: latest.weight };
+  }
+
+  function renderGoalPrediction() {
+    var targetWeight = parseFloat(state.personal.targetWeight);
+    if (!targetWeight || targetWeight <= 0) {
+      el.goalPredictionBox.style.display = "none";
+      el.goalPredictionHint.textContent = "パーソナルデータで目標体重を設定すると、到達予測が表示されます";
+      return;
+    }
+    if (state.weights.length < 2) {
+      el.goalPredictionBox.style.display = "none";
+      el.goalPredictionHint.textContent = "体重を2日分以上記録すると、目標体重までの到達予測が表示されます";
+      return;
+    }
+
+    var trend = computeWeightTrend();
+    el.goalPredictionHint.textContent = "";
+
+    var diff = targetWeight - trend.latestWeight;
+    if (Math.abs(diff) < 0.1) {
+      el.goalPredictionBox.style.display = "block";
+      el.goalPredictionText.textContent = "🎉 目標体重（" + targetWeight + "kg）にほぼ到達しています！";
+      return;
+    }
+
+    var weeklyRate = trend.slope * 7;
+    var onTrack = trend.slope !== 0 && (diff > 0) === (trend.slope > 0);
+
+    if (!onTrack) {
+      el.goalPredictionBox.style.display = "block";
+      el.goalPredictionText.textContent = "現在の体重は " + trend.latestWeight.toFixed(1) + "kg、目標は " + targetWeight +
+        "kg です。直近の記録では目標に向けたペースが見られません。食事内容を見直してみましょう。";
+      return;
+    }
+
+    var daysNeeded = diff / trend.slope;
+    if (!isFinite(daysNeeded) || daysNeeded <= 0 || daysNeeded > 3650) {
+      el.goalPredictionBox.style.display = "block";
+      el.goalPredictionText.textContent = "現在の体重は " + trend.latestWeight.toFixed(1) + "kg、目標は " + targetWeight + "kg です。";
+      return;
+    }
+
+    var roundedDays = Math.round(daysNeeded);
+    var predDate = addDays(todayStr(), roundedDays);
+    var predLabel = predDate.slice(5).replace("-", "/");
+    var trendWord = trend.slope < 0 ? "減少" : "増加";
+
+    el.goalPredictionBox.style.display = "block";
+    el.goalPredictionText.textContent = "現在 " + trend.latestWeight.toFixed(1) + "kg → 目標 " + targetWeight + "kg（あと " +
+      Math.abs(diff).toFixed(1) + "kg）。週あたり約" + Math.abs(weeklyRate).toFixed(2) + "kg" + trendWord +
+      "のペースなら、あと約" + roundedDays + "日（" + predLabel + "頃）で到達予想です。";
   }
 
   init();
