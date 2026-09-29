@@ -264,6 +264,13 @@
     margin-top: 8px;
     font-size: 0.76rem;
   }
+  .nutrient-details { margin: 0; }
+  .nutrient-details-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 10px;
+  }
   .favorites-bar { margin-bottom: 14px; }
   .favorites-label {
     font-size: 0.78rem;
@@ -716,13 +723,16 @@
         <p>「‹」「›」ボタンや日付欄、「今日」ボタンで表示する日を切り替え、過去の記録を確認・編集できます。</p>
 
         <h4>📊 本日のサマリー</h4>
-        <p>選択した日の目標カロリーに対する摂取量・残りと、PFCの合計・目標PFCとの比較を表示します。「🤖 今日の食事をAIに評価してもらう」を押すと、その日の食事内容をAIが評価し、一言アドバイスを表示します。</p>
+        <p>選択した日の目標カロリーに対する摂取量・残りと、PFCの合計・目標PFCとの比較を表示します。運動を記録した日は、消費カロリーが「残り」に自動的に反映されます。食物繊維・糖質・塩分を入力した記録がある日は、その合計もあわせて表示されます。「🤖 今日の食事をAIに評価してもらう」を押すと、その日の食事内容をAIが評価し、一言アドバイスを表示します。</p>
 
         <h4>➕ 食事を記録</h4>
-        <p>写真からのAI解析・食品名と分量からのAI計算・手動入力の3通りで記録できます。詳しくは「食事を記録」欄内の「食事記録の方法を見る」をご覧ください。</p>
+        <p>写真からのAI解析・食品名と分量からのAI計算・手動入力の3通りで記録できます。詳しくは「食事を記録」欄内の「食事記録の方法を見る」をご覧ください。「詳細な栄養素を追加」を開くと、食物繊維・糖質・塩分も記録できます（任意項目、AI解析・計算でも自動入力されます）。</p>
 
         <h4>⭐ お気に入り</h4>
         <p>食事記録フォームの「☆ この内容をお気に入りに登録」で、よく食べるものを保存できます。登録したお気に入りはフォーム上部にチップとして表示され、タップすると内容がフォームに自動入力されます（記録の確定には別途「記録を追加」を押してください）。同じ名前で登録し直すと内容が上書きされます。</p>
+
+        <h4>🏃 運動記録</h4>
+        <p>運動内容・時間(分)を入力し、消費カロリーを手動入力するか「🤖 推定」でAIに概算してもらえます（パーソナルデータの体重が設定されていると、より精度の高い推定になります）。記録した消費カロリーは、その日の「本日のサマリー」の残りカロリーに自動的に加算されます。</p>
 
         <h4>🍽️ 記録一覧・📈 グラフ</h4>
         <p>その日の記録一覧（削除も可能）と、直近14日間のカロリー推移グラフを確認できます。</p>
@@ -904,6 +914,7 @@
       <div class="progress-caption"><span id="progressPct">0%</span><span id="progressNote"></span></div>
     </div>
     <div class="pfc-target-line" id="sumPFCTargetLine"></div>
+    <div class="pfc-target-line" id="sumExtraNutrients"></div>
 
     <button type="button" id="dailyAdviceBtn" class="primary-btn">🤖 今日の食事をAIに評価してもらう</button>
     <p class="field-hint" id="dailyAdviceStatus"></p>
@@ -935,7 +946,7 @@
         </ul>
 
         <h4>③ 手動入力</h4>
-        <p>カロリー・food名・PFCの各欄に直接入力します。PFCは任意項目です（空欄でも記録できます）。</p>
+        <p>カロリー・food名・PFCの各欄に直接入力します。PFCは任意項目です（空欄でも記録できます）。「詳細な栄養素を追加」を開くと、食物繊維・糖質・塩分も入力できます。</p>
 
         <p>①②はいずれもAIによる推定値です。内容を確認し、必要に応じて数値を修正してから「記録を追加」を押してください。</p>
       </div>
@@ -999,6 +1010,23 @@
         <label>炭水化物 (g)</label>
         <input type="number" id="mealCarbs" min="0" step="0.1" placeholder="任意">
       </div>
+      <details class="full manual-inline nutrient-details">
+        <summary>詳細な栄養素を追加（食物繊維・糖質・塩分、任意）</summary>
+        <div class="nutrient-details-grid">
+          <div>
+            <label>食物繊維 (g)</label>
+            <input type="number" id="mealFiber" min="0" step="0.1" placeholder="任意">
+          </div>
+          <div>
+            <label>糖質 (g)</label>
+            <input type="number" id="mealSugar" min="0" step="0.1" placeholder="任意">
+          </div>
+          <div>
+            <label>塩分 (g)</label>
+            <input type="number" id="mealSalt" min="0" step="0.1" placeholder="任意">
+          </div>
+        </div>
+      </details>
       <button type="submit">記録を追加</button>
       <button type="button" id="saveFavoriteBtn" class="ghost-btn" style="width:100%;">☆ この内容をお気に入りに登録</button>
     </form>
@@ -1007,6 +1035,30 @@
   <section class="card">
     <h2>🍽️ 記録一覧</h2>
     <div id="mealList"></div>
+  </section>
+
+  <section class="card">
+    <h2>🏃 運動記録</h2>
+    <form class="meal-form" id="exerciseForm">
+      <div class="full">
+        <label>運動内容</label>
+        <input type="text" id="exerciseName" required placeholder="例: ランニング、ウォーキング">
+      </div>
+      <div>
+        <label>時間 (分)</label>
+        <input type="number" id="exerciseMinutes" min="0" step="1" placeholder="例: 30">
+      </div>
+      <div>
+        <label>消費カロリー (kcal)</label>
+        <div class="inline-calc">
+          <input type="number" id="exerciseCalories" min="0" step="1" placeholder="例: 200">
+          <button type="button" id="calcExerciseBtn" class="ghost-btn">🤖 推定</button>
+        </div>
+      </div>
+      <p class="field-hint full" id="exerciseCalcStatus"></p>
+      <button type="submit">運動を記録</button>
+    </form>
+    <div id="exerciseList"></div>
   </section>
 
   <section class="card">
@@ -1114,7 +1166,8 @@
       },
       meals: [],
       weights: [],
-      favorites: []
+      favorites: [],
+      exercises: []
     };
   }
 
@@ -1129,6 +1182,7 @@
       data.meals = parsed.meals || [];
       data.weights = parsed.weights || [];
       data.favorites = parsed.favorites || [];
+      data.exercises = parsed.exercises || [];
     }
     return data;
   }
@@ -1249,6 +1303,7 @@
     targetCarbs: document.getElementById("targetCarbs"),
     saveTarget: document.getElementById("saveTarget"),
     sumPFCTargetLine: document.getElementById("sumPFCTargetLine"),
+    sumExtraNutrients: document.getElementById("sumExtraNutrients"),
     dailyAdviceBtn: document.getElementById("dailyAdviceBtn"),
     dailyAdviceStatus: document.getElementById("dailyAdviceStatus"),
     dailyAdviceBox: document.getElementById("dailyAdviceBox"),
@@ -1272,6 +1327,16 @@
     mealProtein: document.getElementById("mealProtein"),
     mealFat: document.getElementById("mealFat"),
     mealCarbs: document.getElementById("mealCarbs"),
+    mealFiber: document.getElementById("mealFiber"),
+    mealSugar: document.getElementById("mealSugar"),
+    mealSalt: document.getElementById("mealSalt"),
+    exerciseForm: document.getElementById("exerciseForm"),
+    exerciseName: document.getElementById("exerciseName"),
+    exerciseMinutes: document.getElementById("exerciseMinutes"),
+    exerciseCalories: document.getElementById("exerciseCalories"),
+    calcExerciseBtn: document.getElementById("calcExerciseBtn"),
+    exerciseCalcStatus: document.getElementById("exerciseCalcStatus"),
+    exerciseList: document.getElementById("exerciseList"),
     mealGrams: document.getElementById("mealGrams"),
     calcFromNameBtn: document.getElementById("calcFromNameBtn"),
     calcFromNameStatus: document.getElementById("calcFromNameStatus"),
@@ -1647,7 +1712,7 @@
     "gemini-pro-latest", "gemini-1.0-pro", "gemini-1.0-pro-latest", "gemini-1.0-pro-vision-latest"
   ];
   var GEMINI_PROMPT = "あなたは栄養士です。この画像に写っている食事の内容を分析してください。" +
-    "料理名（日本語、簡潔に）、推定カロリー(kcal)、たんぱく質(g)、脂質(g)、炭水化物(g)を推定して返してください。" +
+    "料理名（日本語、簡潔に）、推定カロリー(kcal)、たんぱく質(g)、脂質(g)、炭水化物(g)、食物繊維(g)、糖質(g)、塩分相当量(g)を推定して返してください。" +
     "複数の料理が写っている場合は画像全体の合計値を返してください。分量は写真から判断できる一般的な1人前として推定し、" +
     "不明な場合は標準的な量と仮定してください。数値は妥当な範囲でよいので必ず概算を返してください。";
 
@@ -1789,9 +1854,12 @@
       calories: { type: "NUMBER" },
       protein: { type: "NUMBER" },
       fat: { type: "NUMBER" },
-      carbs: { type: "NUMBER" }
+      carbs: { type: "NUMBER" },
+      fiber: { type: "NUMBER" },
+      sugar: { type: "NUMBER" },
+      salt: { type: "NUMBER" }
     },
-    required: ["name", "calories", "protein", "fat", "carbs"]
+    required: ["name", "calories", "protein", "fat", "carbs", "fiber", "sugar", "salt"]
   };
 
   var NUTRITION_SCHEMA = {
@@ -1800,9 +1868,12 @@
       calories: { type: "NUMBER" },
       protein: { type: "NUMBER" },
       fat: { type: "NUMBER" },
-      carbs: { type: "NUMBER" }
+      carbs: { type: "NUMBER" },
+      fiber: { type: "NUMBER" },
+      sugar: { type: "NUMBER" },
+      salt: { type: "NUMBER" }
     },
-    required: ["calories", "protein", "fat", "carbs"]
+    required: ["calories", "protein", "fat", "carbs", "fiber", "sugar", "salt"]
   };
 
   function round1(x) {
@@ -1942,8 +2013,24 @@
       "食品名は「鶏むね肉」のような単一の食材の場合も、「カレーライス」「親子丼」のような" +
       "複数の材料からなる完成した料理の場合もあります。いずれの場合も、指定された分量" +
       "（完成した料理の場合は料理全体の総重量）に相当するカロリー(kcal)、たんぱく質(g)、" +
-      "脂質(g)、炭水化物(g)を、一般的な栄養データに基づいて推定してください。";
+      "脂質(g)、炭水化物(g)、食物繊維(g)、糖質(g)、塩分相当量(g)を、一般的な栄養データに基づいて推定してください。";
     return callGeminiJSON(apiKey, [{ text: prompt }], NUTRITION_SCHEMA);
+  }
+
+  var EXERCISE_SCHEMA = {
+    type: "OBJECT",
+    properties: {
+      calories: { type: "NUMBER" }
+    },
+    required: ["calories"]
+  };
+
+  function callGeminiExerciseEstimate(apiKey, name, minutes) {
+    var weight = parseFloat(state.personal.weight);
+    var prompt = "以下の運動による消費カロリーを推定してください。運動内容: " + name + "。時間: " + minutes + "分。" +
+      (weight ? "体重: " + weight + "kg。" : "") +
+      "一般的な運動強度を仮定し、妥当な範囲でよいので消費カロリー(kcal)を概算で返してください。";
+    return callGeminiJSON(apiKey, [{ text: prompt }], EXERCISE_SCHEMA);
   }
 
   var DAILY_ADVICE_SCHEMA = {
@@ -1969,6 +2056,11 @@
     var protein = meals.reduce(function(s, m) { return s + m.protein; }, 0);
     var fat = meals.reduce(function(s, m) { return s + m.fat; }, 0);
     var carbs = meals.reduce(function(s, m) { return s + m.carbs; }, 0);
+    var fiber = meals.reduce(function(s, m) { return s + (m.fiber || 0); }, 0);
+    var sugar = meals.reduce(function(s, m) { return s + (m.sugar || 0); }, 0);
+    var salt = meals.reduce(function(s, m) { return s + (m.salt || 0); }, 0);
+    var exercises = exercisesForDate(selectedDate);
+    var burned = exercises.reduce(function(s, ex) { return s + ex.calories; }, 0);
 
     var lines = [];
     lines.push("日付: " + selectedDate);
@@ -1978,6 +2070,12 @@
       lines.push("目標PFC: たんぱく質" + (state.targetProtein || 0) + "g / 脂質" + (state.targetFat || 0) + "g / 炭水化物" + (state.targetCarbs || 0) + "g");
     }
     lines.push("実績PFC: たんぱく質" + round1(protein) + "g / 脂質" + round1(fat) + "g / 炭水化物" + round1(carbs) + "g");
+    if (fiber || sugar || salt) {
+      lines.push("その他の栄養素: 食物繊維" + round1(fiber) + "g / 糖質" + round1(sugar) + "g / 塩分" + round1(salt) + "g");
+    }
+    if (burned > 0) {
+      lines.push("運動による消費カロリー: " + burned + "kcal");
+    }
     lines.push("食事内容:");
     MEAL_ORDER.forEach(function(type) {
       meals.filter(function(m) { return m.type === type; }).forEach(function(m) {
@@ -2041,6 +2139,9 @@
       if (result.protein != null && !isNaN(result.protein)) el.mealProtein.value = round1(result.protein);
       if (result.fat != null && !isNaN(result.fat)) el.mealFat.value = round1(result.fat);
       if (result.carbs != null && !isNaN(result.carbs)) el.mealCarbs.value = round1(result.carbs);
+      if (result.fiber != null && !isNaN(result.fiber)) el.mealFiber.value = round1(result.fiber);
+      if (result.sugar != null && !isNaN(result.sugar)) el.mealSugar.value = round1(result.sugar);
+      if (result.salt != null && !isNaN(result.salt)) el.mealSalt.value = round1(result.salt);
       setAnalyzeStatus("✅ 解析結果を入力しました。内容を確認して「記録を追加」を押してください");
     }).catch(function(err) {
       setAnalyzeStatus("⚠️ " + (err && err.message ? err.message : "解析に失敗しました"), true);
@@ -2080,6 +2181,9 @@
       if (result.protein != null && !isNaN(result.protein)) el.mealProtein.value = round1(result.protein);
       if (result.fat != null && !isNaN(result.fat)) el.mealFat.value = round1(result.fat);
       if (result.carbs != null && !isNaN(result.carbs)) el.mealCarbs.value = round1(result.carbs);
+      if (result.fiber != null && !isNaN(result.fiber)) el.mealFiber.value = round1(result.fiber);
+      if (result.sugar != null && !isNaN(result.sugar)) el.mealSugar.value = round1(result.sugar);
+      if (result.salt != null && !isNaN(result.salt)) el.mealSalt.value = round1(result.salt);
       setCalcFromNameStatus("✅ 計算結果を入力しました。内容を確認して「記録を追加」を押してください");
     }).catch(function(err) {
       setCalcFromNameStatus("⚠️ " + (err && err.message ? err.message : "計算に失敗しました"), true);
@@ -2098,7 +2202,10 @@
       calories: parseFloat(el.mealCalories.value) || 0,
       protein: parseFloat(el.mealProtein.value) || 0,
       fat: parseFloat(el.mealFat.value) || 0,
-      carbs: parseFloat(el.mealCarbs.value) || 0
+      carbs: parseFloat(el.mealCarbs.value) || 0,
+      fiber: parseFloat(el.mealFiber.value) || 0,
+      sugar: parseFloat(el.mealSugar.value) || 0,
+      salt: parseFloat(el.mealSalt.value) || 0
     };
     if (!meal.name) return;
     state.meals.push(meal);
@@ -2132,7 +2239,10 @@
       calories: calories,
       protein: parseFloat(el.mealProtein.value) || 0,
       fat: parseFloat(el.mealFat.value) || 0,
-      carbs: parseFloat(el.mealCarbs.value) || 0
+      carbs: parseFloat(el.mealCarbs.value) || 0,
+      fiber: parseFloat(el.mealFiber.value) || 0,
+      sugar: parseFloat(el.mealSugar.value) || 0,
+      salt: parseFloat(el.mealSalt.value) || 0
     };
     var existingIdx = state.favorites.findIndex(function(f) { return f.name === name; });
     if (existingIdx !== -1) {
@@ -2153,6 +2263,9 @@
     el.mealProtein.value = favorite.protein || "";
     el.mealFat.value = favorite.fat || "";
     el.mealCarbs.value = favorite.carbs || "";
+    el.mealFiber.value = favorite.fiber || "";
+    el.mealSugar.value = favorite.sugar || "";
+    el.mealSalt.value = favorite.salt || "";
   }
 
   function deleteFavorite(id) {
@@ -2189,6 +2302,92 @@
     });
   }
 
+  function setExerciseCalcStatus(text, isError) {
+    el.exerciseCalcStatus.textContent = text || "";
+    el.exerciseCalcStatus.style.color = isError ? "var(--danger)" : "var(--muted)";
+  }
+
+  el.calcExerciseBtn.addEventListener("click", function() {
+    var apiKey = getGeminiKey();
+    var name = el.exerciseName.value.trim();
+    var minutes = parseFloat(el.exerciseMinutes.value);
+
+    if (!apiKey) {
+      setExerciseCalcStatus("先に上の「AI写真解析の設定」でGemini APIキーを保存してください", true);
+      return;
+    }
+    if (!name) {
+      setExerciseCalcStatus("運動内容を入力してください", true);
+      return;
+    }
+    if (!minutes || minutes <= 0) {
+      setExerciseCalcStatus("時間(分)を入力してください", true);
+      return;
+    }
+
+    el.calcExerciseBtn.disabled = true;
+    setExerciseCalcStatus("🔄 推定中...");
+
+    callGeminiExerciseEstimate(apiKey, name, minutes).then(function(result) {
+      if (result.calories != null && !isNaN(result.calories)) el.exerciseCalories.value = Math.round(result.calories);
+      setExerciseCalcStatus("✅ 推定結果を入力しました。内容を確認して「運動を記録」を押してください");
+    }).catch(function(err) {
+      setExerciseCalcStatus("⚠️ " + (err && err.message ? err.message : "推定に失敗しました"), true);
+    }).finally(function() {
+      el.calcExerciseBtn.disabled = false;
+    });
+  });
+
+  el.exerciseForm.addEventListener("submit", function(e) {
+    e.preventDefault();
+    var name = el.exerciseName.value.trim();
+    if (!name) return;
+    var exercise = {
+      id: Date.now() + "-" + Math.random().toString(36).slice(2, 8),
+      date: selectedDate,
+      name: name,
+      minutes: parseFloat(el.exerciseMinutes.value) || 0,
+      calories: parseFloat(el.exerciseCalories.value) || 0
+    };
+    state.exercises.push(exercise);
+    saveData();
+    el.exerciseForm.reset();
+    setExerciseCalcStatus("");
+    resetDailyAdvice();
+    render();
+  });
+
+  function deleteExercise(id) {
+    state.exercises = state.exercises.filter(function(ex) { return ex.id !== id; });
+    saveData();
+    resetDailyAdvice();
+    render();
+  }
+
+  function renderExerciseList() {
+    var exercises = exercisesForDate(selectedDate);
+    if (exercises.length === 0) {
+      el.exerciseList.innerHTML = '<div class="empty-msg">この日の運動記録はまだありません</div>';
+      return;
+    }
+    var html = exercises.map(function(ex) {
+      return '<div class="meal-item">' +
+        '<div class="info"><div class="name">' + escapeHtml(ex.name) + '</div>' +
+        (ex.minutes ? '<div class="macro">' + ex.minutes + '分</div>' : '') +
+        '</div>' +
+        '<div class="kcal">-' + ex.calories + ' kcal</div>' +
+        '<button class="del" data-id="' + ex.id + '" title="削除">✕</button>' +
+        '</div>';
+    }).join("");
+    el.exerciseList.innerHTML = html;
+
+    el.exerciseList.querySelectorAll(".del").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        deleteExercise(btn.getAttribute("data-id"));
+      });
+    });
+  }
+
   el.addWeight.addEventListener("click", function() {
     var date = el.weightDate.value || todayStr();
     var val = parseFloat(el.weightValue.value);
@@ -2206,6 +2405,7 @@
   function render() {
     renderSummary();
     renderMealList();
+    renderExerciseList();
     renderCalorieChart();
     renderWeightChart();
     renderWeightList();
@@ -2217,14 +2417,23 @@
     return state.meals.filter(function(m) { return m.date === dateStr; });
   }
 
+  function exercisesForDate(dateStr) {
+    return state.exercises.filter(function(ex) { return ex.date === dateStr; });
+  }
+
   function renderSummary() {
     var meals = mealsForDate(selectedDate);
     var intake = meals.reduce(function(s, m) { return s + m.calories; }, 0);
     var target = state.targetCalories || 0;
-    var remain = target - intake;
+    var exerciseBurned = exercisesForDate(selectedDate).reduce(function(s, ex) { return s + ex.calories; }, 0);
+    var effectiveTarget = target + exerciseBurned;
+    var remain = effectiveTarget - intake;
     var protein = meals.reduce(function(s, m) { return s + m.protein; }, 0);
     var fat = meals.reduce(function(s, m) { return s + m.fat; }, 0);
     var carbs = meals.reduce(function(s, m) { return s + m.carbs; }, 0);
+    var fiber = meals.reduce(function(s, m) { return s + (m.fiber || 0); }, 0);
+    var sugar = meals.reduce(function(s, m) { return s + (m.sugar || 0); }, 0);
+    var salt = meals.reduce(function(s, m) { return s + (m.salt || 0); }, 0);
 
     el.sumTarget.textContent = target;
     el.sumIntake.textContent = intake;
@@ -2232,12 +2441,13 @@
     el.sumRemain.style.color = remain < 0 ? "var(--over)" : "var(--text)";
     el.sumPFC.textContent = protein.toFixed(0) + "/" + fat.toFixed(0) + "/" + carbs.toFixed(0);
 
-    var pct = target > 0 ? Math.min(100, (intake / target) * 100) : 0;
+    var pct = effectiveTarget > 0 ? Math.min(100, (intake / effectiveTarget) * 100) : 0;
     el.progressBar.style.width = pct + "%";
-    el.progressBar.classList.toggle("over", intake > target && target > 0);
+    el.progressBar.classList.toggle("over", intake > effectiveTarget && effectiveTarget > 0);
     el.progressPct.textContent = Math.round(pct) + "%";
+    var exerciseNote = exerciseBurned > 0 ? "（運動 +" + exerciseBurned + "kcal 反映済み）" : "";
     el.progressNote.textContent = target > 0
-      ? (remain >= 0 ? "あと " + remain + " kcal 摂取可能" : (-remain) + " kcal オーバー")
+      ? (remain >= 0 ? "あと " + remain + " kcal 摂取可能" + exerciseNote : (-remain) + " kcal オーバー" + exerciseNote)
       : "目標カロリーを設定してください";
 
     var targetProtein = state.targetProtein || 0;
@@ -2245,6 +2455,10 @@
     var targetCarbs = state.targetCarbs || 0;
     el.sumPFCTargetLine.textContent = (targetProtein || targetFat || targetCarbs)
       ? "目標 P/F/C: " + targetProtein + "/" + targetFat + "/" + targetCarbs + " g"
+      : "";
+
+    el.sumExtraNutrients.textContent = (fiber || sugar || salt)
+      ? "食物繊維 " + round1(fiber) + "g ・ 糖質 " + round1(sugar) + "g ・ 塩分 " + round1(salt) + "g"
       : "";
   }
 
@@ -2271,6 +2485,9 @@
         if (m.protein) macro.push("P " + m.protein + "g");
         if (m.fat) macro.push("F " + m.fat + "g");
         if (m.carbs) macro.push("C " + m.carbs + "g");
+        if (m.fiber) macro.push("食物繊維 " + m.fiber + "g");
+        if (m.sugar) macro.push("糖質 " + m.sugar + "g");
+        if (m.salt) macro.push("塩分 " + m.salt + "g");
         html += '<div class="meal-item">' +
           '<div class="info"><div class="name">' + escapeHtml(m.name) + '</div>' +
           (macro.length ? '<div class="macro">' + macro.join(" / ") + '</div>' : '') +
