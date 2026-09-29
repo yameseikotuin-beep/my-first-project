@@ -2327,17 +2327,23 @@
     var primary = styles.getPropertyValue("--primary").trim() || "#2f9e6e";
     var over = styles.getPropertyValue("--over").trim() || "#e5484d";
     var muted = styles.getPropertyValue("--muted").trim() || "#888";
-    var border = styles.getPropertyValue("--border").trim() || "#ddd";
 
     if (target > 0) {
       var ty = padding.top + chartH - (target / maxVal) * chartH;
-      ctx.strokeStyle = border;
-      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = muted;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 3]);
       ctx.beginPath();
       ctx.moveTo(padding.left, ty);
       ctx.lineTo(W - padding.right, ty);
       ctx.stroke();
       ctx.setLineDash([]);
+      ctx.lineWidth = 1;
+
+      ctx.fillStyle = muted;
+      ctx.font = "9px sans-serif";
+      ctx.textAlign = "end";
+      ctx.fillText("目標 " + target + "kcal", W - padding.right, ty - 3);
     }
 
     days.forEach(function(d, i) {
