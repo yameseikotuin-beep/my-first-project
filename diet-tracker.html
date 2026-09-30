@@ -714,7 +714,7 @@
         <p>メールアドレスとパスワードでログインすると、記録がクラウド（Firestore）に保存され、別の端末・ブラウザから同じアカウントでログインすれば同じデータにアクセスできます。ログインしない場合は、このブラウザ内（localStorage）のみに保存されます。</p>
 
         <h4>🧍 パーソナルデータ・目標設定</h4>
-        <p>性別・年齢・身長・体重・活動レベル・目標（減量/維持/増量）・変化スピードを入力して「自動計算する」を押すと、BMR/TDEEから目標カロリーとPFC（たんぱく質/脂質/炭水化物）が算出されます。「この設定を反映する」を押すと下の「目標値」に反映されます。</p>
+        <p>性別・年齢・身長・体重・活動レベル・目標（減量/維持/増量）・変化スピードを入力して「自動計算する」を押すと、BMR/TDEEから目標カロリーとPFC（たんぱく質/脂質/炭水化物）が算出されます。「この設定を反映する」を押すと下の「目標値」に反映されます。年齢・身長・体重を保存すると、初期設定が完了したとみなされ、「パーソナルデータ・目標設定」「目標値」「AI写真解析の設定」の3つの欄はページ下部（体重記録の下）に自動的に移動します。内容はいつでもそこから確認・変更できます。</p>
 
         <h4>🎯 目標値</h4>
         <p>自動計算した後も、カロリー・PFCの各値を直接編集して保存できます。</p>
@@ -746,6 +746,7 @@
     </details>
   </section>
 
+  <div id="setupSection">
   <section class="card">
     <h2>🧍 パーソナルデータ・目標設定</h2>
     <form class="meal-form" id="personalForm">
@@ -904,6 +905,7 @@
     </p>
     <p class="field-hint" id="diagnoseResult"></p>
   </section>
+  </div>
 
   <section class="card">
     <div class="date-nav">
@@ -1301,6 +1303,7 @@
     authMessage: document.getElementById("authMessage"),
     cloudUserEmail: document.getElementById("cloudUserEmail"),
     syncStatus: document.getElementById("syncStatus"),
+    setupSection: document.getElementById("setupSection"),
     personalForm: document.getElementById("personalForm"),
     pGender: document.getElementById("pGender"),
     pAge: document.getElementById("pAge"),
@@ -1630,6 +1633,7 @@
     };
     saveData();
     renderGoalPrediction();
+    repositionSetupSection();
 
     if (!p.age || !p.height || !p.weight) {
       alert("年齢・身長・現在体重を入力してください");
@@ -2523,6 +2527,24 @@
     renderWeightList();
     renderFavorites();
     renderGoalPrediction();
+    repositionSetupSection();
+  }
+
+  function isPersonalSetupComplete() {
+    var p = state.personal;
+    return !!(p && p.age && p.height && p.weight);
+  }
+
+  function repositionSetupSection() {
+    var mainEl = el.setupSection && el.setupSection.parentNode;
+    if (!el.setupSection || !mainEl) return;
+    if (isPersonalSetupComplete()) {
+      if (mainEl.lastElementChild !== el.setupSection) {
+        mainEl.appendChild(el.setupSection);
+      }
+    } else if (mainEl.children[1] !== el.setupSection) {
+      mainEl.insertBefore(el.setupSection, mainEl.children[1] || null);
+    }
   }
 
   function mealsForDate(dateStr) {
