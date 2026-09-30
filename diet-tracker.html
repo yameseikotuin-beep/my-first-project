@@ -323,6 +323,71 @@
     font-size: 0.85rem;
   }
   .photo-capture { margin-bottom: 14px; }
+  .bulk-text-entry { margin-bottom: 14px; }
+  .bulk-text-entry label {
+    font-size: 0.75rem;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 4px;
+  }
+  .bulk-text-entry textarea {
+    width: 100%;
+    padding: 9px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.95rem;
+    font-family: inherit;
+    resize: vertical;
+    margin-bottom: 8px;
+  }
+  .bulk-item {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 8px;
+    background: var(--bg);
+  }
+  .bulk-item-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .bulk-item-row input[type="checkbox"] { width: auto; flex: 0 0 auto; }
+  .bulk-item-row select, .bulk-item-row input[type="text"] {
+    padding: 8px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 0.88rem;
+  }
+  .bulk-item-row select { flex: 0 0 78px; }
+  .bulk-item-row input[type="text"] { flex: 1; min-width: 0; }
+  .bulk-item-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .bulk-item-grid label, .bulk-item .nutrient-details-grid label {
+    font-size: 0.62rem;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 2px;
+  }
+  .bulk-item-grid input, .bulk-item .nutrient-details-grid input {
+    width: 100%;
+    padding: 6px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 0.82rem;
+  }
+  .bulk-item .nutrient-details-grid { margin-top: 0; }
   .photo-preview {
     width: 100%;
     max-height: 260px;
@@ -957,7 +1022,7 @@
     <details class="manual-inline">
       <summary>食事記録の方法を見る</summary>
       <div class="manual-body">
-        <p>「記録を追加」を押すごとに1品分が食事リストに追加されます。定食のように複数の料理をまとめて食べた場合も、まとめて1件にするのではなく、料理ごとに①〜③のいずれかの方法で1品ずつ記録してください（例: ごはん、味噌汁、焼き魚をそれぞれ記録）。分けて記録すると、後から食事リストで料理ごとの内容を確認・修正しやすくなります。</p>
+        <p>「記録を追加」を押すごとに1品分が食事リストに追加されます。定食のように複数の料理をまとめて食べた場合も、まとめて1件にするのではなく、料理ごとに①〜④のいずれかの方法で1品ずつ記録してください（例: ごはん、味噌汁、焼き魚をそれぞれ記録）。ただし③のまとめてテキスト入力を使えば、複数の料理を一度に記録できます。分けて記録すると、後から食事リストで料理ごとの内容を確認・修正しやすくなります。</p>
 
         <h4>① 写真から記録</h4>
         <p>「📷 写真から記録する」で写真を選択・撮影し、「🤖 AIで解析して自動入力」を押すと、Gemini AIが料理名・カロリー・PFCを推定して自動入力します。事前に上の「🤖 AI写真解析の設定」でAPIキーを保存しておく必要があります。</p>
@@ -972,10 +1037,14 @@
           <li>food名「親子丼」、分量「500」</li>
         </ul>
 
-        <h4>③ 手動入力</h4>
+        <h4>③ まとめてテキストで記録</h4>
+        <p>「今日食べたものをまとめて入力」欄に、1日分の食事を自由な文章で入力し「🤖 AIでまとめて解析」を押すと、AIが食事ごとに分割して食事タイプ・料理名・カロリー・PFC・食物繊維・糖質・塩分をまとめて推定します。内容がリスト表示されるので、不要な項目はチェックを外し、必要なら数値を修正してから「選択した内容をまとめて記録する」を押すと、一度にすべて記録されます。①②と同じAPIキーを使います。</p>
+        <p><strong>入力例:</strong> 「朝はご飯と味噌汁と焼き鮭、昼はコンビニのサラダチキンサンドとコーヒー、夜は特に食べていません」</p>
+
+        <h4>④ 手動入力</h4>
         <p>カロリー・food名・PFCの各欄に直接入力します。PFCは任意項目です（空欄でも記録できます）。「詳細な栄養素を追加」を開くと、食物繊維・糖質・塩分も入力できます。</p>
 
-        <p>①②はいずれもAIによる推定値です。内容を確認し、必要に応じて数値を修正してから「記録を追加」を押してください。</p>
+        <p>①②③はいずれもAIによる推定値です。内容を確認し、必要に応じて数値を修正してから記録を確定してください。</p>
       </div>
     </details>
 
@@ -995,6 +1064,21 @@
         </div>
       </div>
       <p class="field-hint" id="analyzeStatus"></p>
+    </div>
+
+    <div class="bulk-text-entry">
+      <label for="bulkMealText">📝 今日食べたものをまとめて入力</label>
+      <textarea id="bulkMealText" rows="2" placeholder="例: 朝はご飯と味噌汁と焼き鮭、昼はコンビニのサラダチキンサンドとコーヒー、夜は特に食べていません"></textarea>
+      <button type="button" id="bulkParseBtn" class="primary-btn">🤖 AIでまとめて解析</button>
+      <p class="field-hint" id="bulkParseStatus"></p>
+      <div id="bulkPreviewWrap" style="display:none;">
+        <p class="field-hint">内容を確認し、不要な項目はチェックを外し、必要なら数値を修正してから記録してください。</p>
+        <div id="bulkPreviewList"></div>
+        <div class="photo-actions">
+          <button type="button" id="bulkConfirmBtn" class="primary-btn">選択した内容をまとめて記録する</button>
+          <button type="button" id="bulkCancelBtn" class="ghost-btn">✕ キャンセル</button>
+        </div>
+      </div>
     </div>
 
     <p class="field-hint" style="margin: 10px 0 -4px;">または、以下に直接入力：</p>
@@ -1388,6 +1472,13 @@
     analyzePhotoBtn: document.getElementById("analyzePhotoBtn"),
     clearPhotoBtn: document.getElementById("clearPhotoBtn"),
     analyzeStatus: document.getElementById("analyzeStatus"),
+    bulkMealText: document.getElementById("bulkMealText"),
+    bulkParseBtn: document.getElementById("bulkParseBtn"),
+    bulkParseStatus: document.getElementById("bulkParseStatus"),
+    bulkPreviewWrap: document.getElementById("bulkPreviewWrap"),
+    bulkPreviewList: document.getElementById("bulkPreviewList"),
+    bulkConfirmBtn: document.getElementById("bulkConfirmBtn"),
+    bulkCancelBtn: document.getElementById("bulkCancelBtn"),
     calorieChart: document.getElementById("calorieChart"),
     weightDate: document.getElementById("weightDate"),
     weightValue: document.getElementById("weightValue"),
@@ -2061,6 +2152,34 @@
     return callGeminiJSON(apiKey, [{ text: prompt }], NUTRITION_SCHEMA);
   }
 
+  var BULK_MEAL_SCHEMA = {
+    type: "ARRAY",
+    items: {
+      type: "OBJECT",
+      properties: {
+        mealType: { type: "STRING", enum: ["朝食", "昼食", "夕食", "間食"] },
+        name: { type: "STRING" },
+        calories: { type: "NUMBER" },
+        protein: { type: "NUMBER" },
+        fat: { type: "NUMBER" },
+        carbs: { type: "NUMBER" },
+        fiber: { type: "NUMBER" },
+        sugar: { type: "NUMBER" },
+        salt: { type: "NUMBER" }
+      },
+      required: ["mealType", "name", "calories", "protein", "fat", "carbs", "fiber", "sugar", "salt"]
+    }
+  };
+
+  function callGeminiBulkParse(apiKey, text) {
+    var prompt = "あなたは栄養士です。以下はユーザーが自由な文章で入力した、ある1日の食事内容です。" +
+      "文章に含まれる食事を1品ずつすべて抽出し、それぞれについて食事タイプ（朝食・昼食・夕食・間食のいずれか。" +
+      "文脈から判断し、不明な場合は間食としてください）、料理名、カロリー(kcal)、たんぱく質(g)、脂質(g)、" +
+      "炭水化物(g)、食物繊維(g)、糖質(g)、塩分相当量(g)を、一般的な栄養データに基づいて推定してください。" +
+      "「特に食べていません」のように食事がなかった旨の記述は結果に含めないでください。\n\n入力文: " + text;
+    return callGeminiJSON(apiKey, [{ text: prompt }], BULK_MEAL_SCHEMA);
+  }
+
   var EXERCISE_SCHEMA = {
     type: "OBJECT",
     properties: {
@@ -2339,6 +2458,119 @@
     resetDailyAdvice();
     resetNextMealSuggestion();
     render();
+  });
+
+  var bulkParsedCount = 0;
+
+  function setBulkParseStatus(text, isError) {
+    el.bulkParseStatus.textContent = text || "";
+    el.bulkParseStatus.style.color = isError ? "var(--danger)" : "var(--muted)";
+  }
+
+  function renderBulkPreview(items) {
+    bulkParsedCount = items.length;
+    if (!items.length) {
+      el.bulkPreviewWrap.style.display = "none";
+      el.bulkPreviewList.innerHTML = "";
+      return;
+    }
+    el.bulkPreviewList.innerHTML = items.map(function(item, i) {
+      var typeSelectOptions = MEAL_ORDER.map(function(t) {
+        return '<option value="' + t + '"' + (t === item.mealType ? " selected" : "") + '>' + t + '</option>';
+      }).join("");
+      return (
+        '<div class="bulk-item">' +
+          '<div class="bulk-item-row">' +
+            '<input type="checkbox" id="bulk-include-' + i + '" checked>' +
+            '<select id="bulk-type-' + i + '">' + typeSelectOptions + '</select>' +
+            '<input type="text" id="bulk-name-' + i + '" value="' + escapeHtml(item.name || "") + '">' +
+          '</div>' +
+          '<div class="bulk-item-grid">' +
+            '<div><label>カロリー(kcal)</label><input type="number" id="bulk-calories-' + i + '" value="' + (item.calories || 0) + '"></div>' +
+            '<div><label>たんぱく質(g)</label><input type="number" step="0.1" id="bulk-protein-' + i + '" value="' + (item.protein || 0) + '"></div>' +
+            '<div><label>脂質(g)</label><input type="number" step="0.1" id="bulk-fat-' + i + '" value="' + (item.fat || 0) + '"></div>' +
+            '<div><label>炭水化物(g)</label><input type="number" step="0.1" id="bulk-carbs-' + i + '" value="' + (item.carbs || 0) + '"></div>' +
+          '</div>' +
+          '<div class="nutrient-details-grid">' +
+            '<div><label>食物繊維(g)</label><input type="number" step="0.1" id="bulk-fiber-' + i + '" value="' + (item.fiber || 0) + '"></div>' +
+            '<div><label>糖質(g)</label><input type="number" step="0.1" id="bulk-sugar-' + i + '" value="' + (item.sugar || 0) + '"></div>' +
+            '<div><label>塩分(g)</label><input type="number" step="0.1" id="bulk-salt-' + i + '" value="' + (item.salt || 0) + '"></div>' +
+          '</div>' +
+        '</div>'
+      );
+    }).join("");
+    el.bulkPreviewWrap.style.display = "block";
+  }
+
+  el.bulkParseBtn.addEventListener("click", function() {
+    var apiKey = getGeminiKey();
+    if (!apiKey) {
+      setBulkParseStatus("先に「AI写真解析の設定」でGemini APIキーを保存してください", true);
+      return;
+    }
+    var text = el.bulkMealText.value.trim();
+    if (!text) {
+      setBulkParseStatus("食事の内容を入力してください", true);
+      return;
+    }
+    el.bulkParseBtn.disabled = true;
+    setBulkParseStatus("🔄 解析中...");
+    callGeminiBulkParse(apiKey, text).then(function(items) {
+      items = Array.isArray(items) ? items : [];
+      if (!items.length) {
+        setBulkParseStatus("食事を検出できませんでした。内容を確認してもう一度お試しください", true);
+        renderBulkPreview([]);
+        return;
+      }
+      renderBulkPreview(items);
+      setBulkParseStatus("✅ " + items.length + "件の食事を検出しました。内容を確認して記録してください");
+    }).catch(function(err) {
+      setBulkParseStatus("⚠️ " + (err && err.message ? err.message : "解析に失敗しました"), true);
+    }).finally(function() {
+      el.bulkParseBtn.disabled = false;
+    });
+  });
+
+  el.bulkConfirmBtn.addEventListener("click", function() {
+    var added = 0;
+    for (var i = 0; i < bulkParsedCount; i++) {
+      var includeEl = document.getElementById("bulk-include-" + i);
+      if (!includeEl || !includeEl.checked) continue;
+      var nameEl = document.getElementById("bulk-name-" + i);
+      var name = nameEl ? nameEl.value.trim() : "";
+      if (!name) continue;
+      var meal = {
+        id: Date.now() + "-" + Math.random().toString(36).slice(2, 8) + "-" + i,
+        date: selectedDate,
+        type: document.getElementById("bulk-type-" + i).value,
+        name: name,
+        calories: parseFloat(document.getElementById("bulk-calories-" + i).value) || 0,
+        protein: parseFloat(document.getElementById("bulk-protein-" + i).value) || 0,
+        fat: parseFloat(document.getElementById("bulk-fat-" + i).value) || 0,
+        carbs: parseFloat(document.getElementById("bulk-carbs-" + i).value) || 0,
+        fiber: parseFloat(document.getElementById("bulk-fiber-" + i).value) || 0,
+        sugar: parseFloat(document.getElementById("bulk-sugar-" + i).value) || 0,
+        salt: parseFloat(document.getElementById("bulk-salt-" + i).value) || 0
+      };
+      state.meals.push(meal);
+      added++;
+    }
+    if (added === 0) {
+      setBulkParseStatus("記録する項目が選択されていません", true);
+      return;
+    }
+    saveData();
+    el.bulkMealText.value = "";
+    renderBulkPreview([]);
+    setBulkParseStatus("✅ " + added + "件の食事を記録しました");
+    resetDailyAdvice();
+    resetNextMealSuggestion();
+    render();
+  });
+
+  el.bulkCancelBtn.addEventListener("click", function() {
+    renderBulkPreview([]);
+    setBulkParseStatus("");
   });
 
   function deleteMeal(id) {
