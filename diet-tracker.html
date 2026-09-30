@@ -731,6 +731,9 @@
         <h4>⭐ お気に入り</h4>
         <p>食事記録フォームの「☆ この内容をお気に入りに登録」で、よく食べるものを保存できます。登録したお気に入りはフォーム上部にチップとして表示され、タップすると内容がフォームに自動入力されます（記録の確定には別途「記録を追加」を押してください）。同じ名前で登録し直すと内容が上書きされます。</p>
 
+        <h4>🍽️ 次の食事のおすすめ</h4>
+        <p>「食事を記録」欄の「🤖 次の食事のおすすめを見る」を押すと、その日の残りカロリー・PFCと、すでに記録した食事内容を踏まえて、AIが次の食事の提案をしてくれます。食事を追加・削除したり日付を移動すると、内容が古くならないよう提案は自動的にリセットされます。</p>
+
         <h4>🏃 運動記録</h4>
         <p>運動内容・時間(分)を入力し、消費カロリーを手動入力するか「🤖 推定」でAIに概算してもらえます（パーソナルデータの体重が設定されていると、より精度の高い推定になります）。記録した消費カロリーは、その日の「本日のサマリー」の残りカロリーに自動的に加算されます。</p>
 
@@ -1030,6 +1033,13 @@
       <button type="submit">記録を追加</button>
       <button type="button" id="saveFavoriteBtn" class="ghost-btn" style="width:100%;">☆ この内容をお気に入りに登録</button>
     </form>
+
+    <button type="button" id="nextMealBtn" class="primary-btn">🤖 次の食事のおすすめを見る</button>
+    <p class="field-hint" id="nextMealStatus"></p>
+    <div class="advice-box" id="nextMealBox" style="display:none;">
+      <div class="advice-label">🍽️ 次の食事のおすすめ</div>
+      <p id="nextMealText"></p>
+    </div>
   </section>
 
   <section class="card">
@@ -1362,6 +1372,10 @@
     favoritesBar: document.getElementById("favoritesBar"),
     favoritesChips: document.getElementById("favoritesChips"),
     saveFavoriteBtn: document.getElementById("saveFavoriteBtn"),
+    nextMealBtn: document.getElementById("nextMealBtn"),
+    nextMealStatus: document.getElementById("nextMealStatus"),
+    nextMealBox: document.getElementById("nextMealBox"),
+    nextMealText: document.getElementById("nextMealText"),
     goalPredictionBox: document.getElementById("goalPredictionBox"),
     goalPredictionText: document.getElementById("goalPredictionText"),
     goalPredictionHint: document.getElementById("goalPredictionHint")
@@ -1674,6 +1688,7 @@
   el.datePicker.addEventListener("change", function() {
     selectedDate = el.datePicker.value || todayStr();
     resetDailyAdvice();
+    resetNextMealSuggestion();
     render();
   });
 
@@ -1681,6 +1696,7 @@
     selectedDate = addDays(selectedDate, -1);
     el.datePicker.value = selectedDate;
     resetDailyAdvice();
+    resetNextMealSuggestion();
     render();
   });
 
@@ -1688,6 +1704,7 @@
     selectedDate = addDays(selectedDate, 1);
     el.datePicker.value = selectedDate;
     resetDailyAdvice();
+    resetNextMealSuggestion();
     render();
   });
 
@@ -1695,6 +1712,7 @@
     selectedDate = todayStr();
     el.datePicker.value = selectedDate;
     resetDailyAdvice();
+    resetNextMealSuggestion();
     render();
   });
 
@@ -2122,6 +2140,83 @@
     });
   });
 
+  var NEXT_MEAL_SCHEMA = {
+    type: "OBJECT",
+    properties: {
+      suggestion: { type: "STRING" }
+    },
+    required: ["suggestion"]
+  };
+
+  function callGeminiNextMealSuggestion(apiKey, summaryText) {
+    var prompt = "あなたは栄養士です。以下はある人の今日ここまでの食事記録と、1日の目標に対する残りの摂取可能量です。" +
+      "この情報を踏まえて、次の食事におすすめの内容を2〜3文程度で提案してください。" +
+      "具体的な料理例を1〜2個挙げ、残りカロリーを大きく超えないよう配慮してください。" +
+      "すでに目標を超えている場合は、無理に我慢させず、次の食事を軽めにする程度の優しい提案にしてください。\n\n" + summaryText;
+    return callGeminiJSON(apiKey, [{ text: prompt }], NEXT_MEAL_SCHEMA);
+  }
+
+  function buildNextMealSummaryText() {
+    var meals = mealsForDate(selectedDate);
+    var intake = meals.reduce(function(s, m) { return s + m.calories; }, 0);
+    var protein = meals.reduce(function(s, m) { return s + m.protein; }, 0);
+    var fat = meals.reduce(function(s, m) { return s + m.fat; }, 0);
+    var carbs = meals.reduce(function(s, m) { return s + m.carbs; }, 0);
+    var burned = exercisesForDate(selectedDate).reduce(function(s, ex) { return s + ex.calories; }, 0);
+    var effectiveTarget = (state.targetCalories || 0) + burned;
+    var remainCal = effectiveTarget - intake;
+
+    var lines = [];
+    lines.push("残り摂取可能カロリー: " + remainCal + "kcal" + (remainCal < 0 ? "（すでに目標を超過しています）" : ""));
+    if (state.targetProtein || state.targetFat || state.targetCarbs) {
+      var remainProtein = (state.targetProtein || 0) - protein;
+      var remainFat = (state.targetFat || 0) - fat;
+      var remainCarbs = (state.targetCarbs || 0) - carbs;
+      lines.push("残りのPFC目安: たんぱく質" + round1(remainProtein) + "g / 脂質" + round1(remainFat) + "g / 炭水化物" + round1(remainCarbs) + "g");
+    }
+    var recordedTypes = [];
+    MEAL_ORDER.forEach(function(type) {
+      if (meals.some(function(m) { return m.type === type; })) recordedTypes.push(type);
+    });
+    lines.push("本日すでに記録した食事: " + (recordedTypes.length ? recordedTypes.join("、") : "まだありません"));
+    return lines.join("\n");
+  }
+
+  function resetNextMealSuggestion() {
+    el.nextMealBox.style.display = "none";
+    el.nextMealText.textContent = "";
+    el.nextMealStatus.textContent = "";
+  }
+
+  el.nextMealBtn.addEventListener("click", function() {
+    var apiKey = getGeminiKey();
+    if (!apiKey) {
+      el.nextMealStatus.textContent = "先に「AI写真解析の設定」でGemini APIキーを保存してください";
+      el.nextMealStatus.style.color = "var(--danger)";
+      return;
+    }
+    if (!state.targetCalories) {
+      el.nextMealStatus.textContent = "先に「目標値」でカロリーを設定してください";
+      el.nextMealStatus.style.color = "var(--danger)";
+      return;
+    }
+
+    el.nextMealBtn.disabled = true;
+    el.nextMealStatus.textContent = "🔄 考え中...";
+    el.nextMealStatus.style.color = "var(--muted)";
+
+    callGeminiNextMealSuggestion(apiKey, buildNextMealSummaryText()).then(function(result) {
+      el.nextMealText.textContent = result.suggestion || "";
+      el.nextMealBox.style.display = "block";
+      el.nextMealStatus.textContent = "";
+    }).catch(function(err) {
+      el.nextMealStatus.textContent = "⚠️ " + (err && err.message ? err.message : "提案の取得に失敗しました");
+      el.nextMealStatus.style.color = "var(--danger)";
+    }).finally(function() {
+      el.nextMealBtn.disabled = false;
+    });
+  });
+
   el.analyzePhotoBtn.addEventListener("click", function() {
     var apiKey = getGeminiKey();
     if (!apiKey) {
@@ -2216,6 +2311,7 @@
     resetPhotoState();
     setCalcFromNameStatus("");
     resetDailyAdvice();
+    resetNextMealSuggestion();
     render();
   });
 
@@ -2223,6 +2319,7 @@
     state.meals = state.meals.filter(function(m) { return m.id !== id; });
     saveData();
     resetDailyAdvice();
+    resetNextMealSuggestion();
     render();
   }
 
@@ -2354,6 +2451,7 @@
     el.exerciseForm.reset();
     setExerciseCalcStatus("");
     resetDailyAdvice();
+    resetNextMealSuggestion();
     render();
   });
 
@@ -2361,6 +2459,7 @@
     state.exercises = state.exercises.filter(function(ex) { return ex.id !== id; });
     saveData();
     resetDailyAdvice();
+    resetNextMealSuggestion();
     render();
   }
 
