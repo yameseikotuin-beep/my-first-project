@@ -864,6 +864,7 @@
       <summary>APIキーの取得・保存の手順を見る</summary>
       <div class="manual-body">
         <h4>① APIキーを取得する</h4>
+        <p><strong>必ずSafariやChromeなど通常のブラウザで開いてください。</strong>LINEなどのアプリ内で開いたページ（アプリ内ブラウザ）からだと、Googleのアカウント操作（プロジェクト作成やAPIキー発行）が正しく動作せず、原因の分かりにくいエラーになることがあります。</p>
         <ol>
           <li><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>を開く</li>
           <li>お持ちのGoogleアカウントでログインする</li>
@@ -872,7 +873,7 @@
           <li>作成が終わると文字列（例: <code>AIzaSy...</code>）が表示されるので、コピーアイコンでコピーする</li>
         </ol>
         <p><strong>「このプロジェクトでキーを作成する権限がありません」と出る場合：</strong>選択されたプロジェクトに対する権限が足りないことが原因です。プロジェクトを選ぶ画面で、既存のプロジェクトではなく<strong>「新しいプロジェクトでキーを作成」</strong>（Create API key in new project）を選び直してください。それでも出る場合は、会社・学校のGoogle Workspaceアカウントでは組織のポリシーにより作成が禁止されていることがあるため、個人のGmailアカウントでログインし直して試してください。</p>
-        <p><strong>「APIキーを作成できません（Google Cloudプロジェクトを作成できませんでした）」と出る場合：</strong>AI Studio側での自動プロジェクト作成に失敗しています。以下の手順で先にプロジェクトを作ってください。</p>
+        <p><strong>「APIキーを作成できません（Google Cloudプロジェクトを作成できませんでした）」と出る場合：</strong>まずLINEなどのアプリ内ブラウザで開いていないか確認し、開いている場合はSafari/Chromeで開き直してください（個人アカウントでもこれだけで解決することがあります）。それでも直らない場合は、AI Studio側での自動プロジェクト作成に失敗しているので、以下の手順で先にプロジェクトを作ってください。</p>
         <ol>
           <li>同じGoogleアカウントで<a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener noreferrer">Google Cloud Console のプロジェクト作成画面</a>を開く</li>
           <li>プロジェクト名を入力し「作成」を押す（ここで出たエラーが本当の原因を教えてくれます。電話番号確認や利用規約への同意を求められることがあります）</li>
