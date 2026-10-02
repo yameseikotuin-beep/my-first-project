@@ -68,11 +68,11 @@ export function Home() {
 
       <div className="home-hero">
         <a className="photo-menu" href={href('calorie')} style={photoBg('calorie')}>
-          <span className="photo-menu-label"><span className="num">1</span>カロリーから考える</span>
+          <span className="photo-menu-label"><span className="num">1</span><span>カロリーから<wbr />考える</span></span>
           <span className="photo-menu-sub">目標カロリーとPFCに合うレシピを自動で作成</span>
         </a>
         <a className="photo-menu alt" href={href('ingredients')} style={photoBg('ingredients')}>
-          <span className="photo-menu-label"><span className="num">2</span>食材から考える</span>
+          <span className="photo-menu-label"><span className="num">2</span><span>食材から<wbr />考える</span></span>
           <span className="photo-menu-sub">冷蔵庫の食材で高タンパク・低脂質レシピ</span>
         </a>
       </div>
