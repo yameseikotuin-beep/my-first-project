@@ -5,6 +5,14 @@ import { navigate } from '../router'
 import { setSession, toast } from '../store/session'
 import { quickDailyPlan, seedFor } from '../engine/quickPlan'
 
+/** 朝・昼・夕を表す3枚の料理写真を横に並べた背景（下側を暗くして文字を読みやすくする） */
+function quickPlanBg() {
+  const url = (name: string) => `url("${import.meta.env.BASE_URL}dishes/${name}.jpg")`
+  return {
+    backgroundImage: ['linear-gradient(180deg, rgba(0,0,0,0) 20%, rgba(0,0,0,0.45) 55%, rgba(0,0,0,0.8))', url('egg'), url('bowl'), url('grill'), 'linear-gradient(135deg, #f08a24, #f5b14a)'].join(', '),
+  }
+}
+
 const MENU = [
   { to: 'saved?tab=favorites', ico: '★', title: 'お気に入りレシピ' },
   { to: 'saved?tab=history', ico: '🕘', title: 'レシピ履歴' },
@@ -49,11 +57,11 @@ export function Home() {
         </div>
       </section>
 
-      <button type="button" className="quick-plan" onClick={makeTodayPlan}>
-        <span className="quick-plan-ico" aria-hidden>🍱</span>
-        <span>
-          <b>今日の献立をつくる</b>
-          <span className="quick-plan-sub">ボタンひとつで朝・昼・夕の3食（1日 {s.calorieTarget}kcal）</span>
+      <button type="button" className="quick-plan" onClick={makeTodayPlan} style={quickPlanBg()}>
+        <span className="quick-plan-meals" aria-hidden><span data-l="朝" /><span data-l="昼" /><span data-l="夕" /></span>
+        <span className="quick-plan-text">
+          <b>🍱 今日の献立をつくる</b>
+          <span className="quick-plan-sub">朝・昼・夕の3食をボタンひとつで（1日 {s.calorieTarget}kcal）</span>
         </span>
         <span className="quick-plan-arrow" aria-hidden>›</span>
       </button>
