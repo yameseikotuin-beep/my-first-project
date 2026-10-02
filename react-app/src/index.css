@@ -200,3 +200,36 @@ details > summary { cursor: pointer; font-weight: 600; }
   .app-header .header-account .badge.failed { background: #ffb3b3; }
   .app-header select { min-width: 76px; }
 }
+
+/* ===== ホーム画面（写真） ===== */
+.home-banner {
+  position: relative; border-radius: 20px; overflow: hidden; margin-bottom: 14px;
+  min-height: 230px; display: flex; align-items: flex-end;
+  background-size: cover; background-position: center; background-color: var(--green);
+  box-shadow: var(--shadow); color: #fff;
+}
+.home-banner-inner { padding: 20px; width: 100%; }
+.home-banner h1 { color: #fff; font-size: 1.55rem; margin: 2px 0 12px; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
+.home-greeting { margin: 0; font-size: 0.9rem; opacity: 0.95; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4); }
+.home-goal {
+  display: inline-flex; align-items: baseline; gap: 8px; flex-wrap: wrap; text-decoration: none; color: #fff;
+  background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.45); border-radius: 999px; padding: 6px 14px; font-size: 0.85rem;
+}
+.home-goal b { font-size: 1.1rem; }
+.photo-menu {
+  position: relative; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px;
+  min-height: 150px; padding: 16px; border-radius: 18px; overflow: hidden; text-decoration: none; color: #fff;
+  background-size: cover; background-position: center; background-color: var(--green-dark);
+  box-shadow: var(--shadow); transition: transform 0.15s ease;
+}
+.photo-menu:active { transform: scale(0.98); }
+.photo-menu.alt { background-color: var(--orange); }
+.photo-menu-label { display: flex; align-items: center; gap: 8px; font-size: 1.2rem; font-weight: 800; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.45); }
+.photo-menu-label .num {
+  display: inline-flex; width: 28px; height: 28px; border-radius: 50%; align-items: center; justify-content: center;
+  background: var(--green); color: #fff; font-size: 0.95rem; box-shadow: 0 0 0 2px #fff;
+}
+.photo-menu.alt .photo-menu-label .num { background: var(--orange); }
+.photo-menu-sub { font-size: 0.85rem; opacity: 0.95; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5); }
+@media (min-width: 640px) { .home-banner { min-height: 280px; } .photo-menu { min-height: 190px; } }

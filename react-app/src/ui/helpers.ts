@@ -21,3 +21,29 @@ export function today(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
+
+/** 時間帯のあいさつ */
+export function greeting(): string {
+  const h = new Date().getHours()
+  return h < 5 ? 'こんばんは' : h < 11 ? 'おはようございます' : h < 17 ? 'こんにちは' : 'こんばんは'
+}
+
+/**
+ * ホーム画面の写真（public/home/*.jpg）を背景にするスタイル。
+ * 写真が読み込めない場合は、CSS の背景グラデーションがそのまま見える。
+ */
+const FALLBACK: Record<string, string> = {
+  hero: 'linear-gradient(135deg, #2e9d6a 0%, #7cc576 55%, #f6c453 100%)',
+  calorie: 'linear-gradient(135deg, #1f7a51 0%, #46b37b 100%)',
+  ingredients: 'linear-gradient(135deg, #e0701a 0%, #f5a94a 100%)',
+}
+
+export function photoBg(name: string): { backgroundImage: string } {
+  return {
+    backgroundImage: [
+      'linear-gradient(180deg, rgba(0,0,0,0.02) 25%, rgba(0,0,0,0.62))',
+      `url("${import.meta.env.BASE_URL}home/${name}.jpg")`,
+      FALLBACK[name] ?? FALLBACK.hero,
+    ].join(', '),
+  }
+}
