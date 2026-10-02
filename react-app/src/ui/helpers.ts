@@ -41,7 +41,7 @@ const FALLBACK: Record<string, string> = {
 export function photoBg(name: string): { backgroundImage: string } {
   return {
     backgroundImage: [
-      'linear-gradient(180deg, rgba(0,0,0,0.02) 25%, rgba(0,0,0,0.62))',
+      'linear-gradient(180deg, rgba(0,0,0,0) 10%, rgba(0,0,0,0.38) 45%, rgba(0,0,0,0.78))',
       `url("${import.meta.env.BASE_URL}home/${name}.jpg")`,
       FALLBACK[name] ?? FALLBACK.hero,
     ].join(', '),
