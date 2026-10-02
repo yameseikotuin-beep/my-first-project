@@ -21,7 +21,7 @@ const kcalOf = async (page: Page) => Number((await page.locator('.kcal-big').fir
 test('テスト1: カロリー指定で条件を満たすレシピを生成し、詳細で条件達成を確認できる', async ({ page }) => {
   const errors = watchErrors(page)
   await page.goto('./')
-  await page.getByRole('link', { name: /カロリーからレシピを考える/ }).click()
+  await page.getByRole('link', { name: /カロリーから考える/ }).click()
   await page.locator('input[type=number]').first().fill('400')
   await fillPfc(page, ['35', '10'])
   await page.getByRole('radio', { name: '和食' }).click()
