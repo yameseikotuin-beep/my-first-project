@@ -14,10 +14,6 @@ function quickPlanBg() {
   }
 }
 
-const dishBg = (name: string) => ({
-  backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55)), url("${import.meta.env.BASE_URL}dishes/${name}.jpg")`,
-})
-
 export function Home() {
   const d = useAppData()
   const s = settingsFor(d)
@@ -28,10 +24,10 @@ export function Home() {
   const expiring = inventory.filter((i) => i.expiry && daysUntil(i.expiry, t) <= 2).length
 
   const features = [
-    { to: 'saved?tab=favorites', ico: '★', title: 'お気に入り', sub: 'また作りたいレシピ', photo: 'salad', count: mine(d, d.favorites).length, unit: '件' },
-    { to: 'saved?tab=history', ico: '🕘', title: 'レシピ履歴', sub: '最近見たレシピ', photo: 'soup', count: mine(d, d.history).length, unit: '件' },
-    { to: 'plan', ico: '📅', title: '食事プラン', sub: '数日分の献立を計画', photo: 'rice', count: mine(d, d.mealPlans).length, unit: '件' },
-    { to: 'shopping', ico: '🛒', title: '買い物リスト', sub: '献立の食材をまとめる', photo: 'fruit-bowl', count: mine(d, d.shoppingLists).length, unit: '件' },
+    { to: 'saved?tab=favorites', ico: '★', title: 'お気に入り', sub: 'また作りたいレシピ', tone: 'yellow', count: mine(d, d.favorites).length, unit: '件' },
+    { to: 'saved?tab=history', ico: '🕘', title: 'レシピ履歴', sub: '最近見たレシピ', tone: 'blue', count: mine(d, d.history).length, unit: '件' },
+    { to: 'plan', ico: '📅', title: '食事プラン', sub: '数日分の献立を計画', tone: 'green', count: mine(d, d.mealPlans).length, unit: '件' },
+    { to: 'shopping', ico: '🛒', title: '買い物リスト', sub: '献立の食材をまとめる', tone: 'orange', count: mine(d, d.shoppingLists).length, unit: '件' },
   ]
   const settingsMenu = [
     { to: 'inventory', ico: '🧊', color: '#e3f1fb', title: '食材の在庫', sub: inventory.length > 0 ? `${inventory.length}品を登録中` : '冷蔵庫の食材と期限を管理', alert: expiring > 0 ? `期限間近 ${expiring}` : '' },
@@ -90,15 +86,14 @@ export function Home() {
       <h2 className="home-section">レシピと献立</h2>
       <div className="feature-grid">
         {features.map((m) => (
-          <a key={m.to} className="feature-tile" href={href(m.to)}>
-            <span className="feature-photo" style={dishBg(m.photo)}>
+          <a key={m.to} className={`feature-tile ${m.tone}`} href={href(m.to)}>
+            <span className="feature-top">
               <span className="feature-ico" aria-hidden>{m.ico}</span>
               {m.count > 0 && <span className="feature-count">{m.count}{m.unit}</span>}
             </span>
-            <span className="feature-body">
-              <strong>{m.title}</strong>
-              <span className="feature-sub">{m.sub}</span>
-            </span>
+            <strong>{m.title}</strong>
+            <span className="feature-sub">{m.sub}</span>
+            <span className="feature-arrow" aria-hidden>›</span>
           </a>
         ))}
       </div>
