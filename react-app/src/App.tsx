@@ -1,122 +1,73 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useRoute, href } from './router'
+import { getSaveError, update, useAppData } from './store/store'
+import { useSession } from './store/session'
+import { Home } from './pages/Home'
+import { GenerateForm } from './pages/GenerateForm'
+import { Results } from './pages/Results'
+import { RecipePage } from './pages/RecipePage'
+import { Saved } from './pages/Saved'
+import { Settings } from './pages/Settings'
+import { Foods } from './pages/Foods'
+import { Profiles } from './pages/Profiles'
+import { MealPlanPage } from './pages/MealPlan'
+import { Shopping } from './pages/Shopping'
+import { Inventory } from './pages/Inventory'
 
-function App() {
-  const [count, setCount] = useState(0)
+const NAV = [
+  { to: '', ico: '🏠', label: 'ホーム', match: [''] },
+  { to: 'calorie', ico: '🔥', label: 'カロリー', match: ['calorie'] },
+  { to: 'ingredients', ico: '🥬', label: '食材', match: ['ingredients'] },
+  { to: 'saved', ico: '★', label: 'レシピ', match: ['saved', 'recipe', 'results'] },
+  { to: 'shopping', ico: '🛒', label: '買い物', match: ['shopping', 'inventory'] },
+]
+
+export default function App() {
+  const route = useRoute()
+  const d = useAppData()
+  const s = useSession()
+  const [page, id] = route.path
+  const key = d.activeUserId ?? 'guest'
+  const saveError = getSaveError()
+
+  let content
+  switch (page ?? '') {
+    case '': content = <Home />; break
+    case 'calorie': content = <GenerateForm key={`c-${key}`} mode="calorie" />; break
+    case 'ingredients': content = <GenerateForm key={`i-${key}`} mode="ingredients" />; break
+    case 'results': content = <Results />; break
+    case 'recipe': content = <RecipePage id={id ?? ''} />; break
+    case 'saved': content = <Saved />; break
+    case 'settings': content = <Settings key={key} />; break
+    case 'foods': content = <Foods />; break
+    case 'profiles': content = <Profiles key={key} />; break
+    case 'plan': content = <MealPlanPage key={`${key}-${id ?? ''}`} />; break
+    case 'shopping': content = <Shopping key={`${key}-${id ?? ''}`} />; break
+    case 'inventory': content = <Inventory />; break
+    default: content = <p>ページが見つかりません。<a href={href('')}>ホームへ</a></p>
+  }
 
   return (
     <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
+      <header className="app-header">
+        <a className="brand" href={href('')}><span aria-hidden>🥗</span>ダイエットレシピメーカー</a>
+        <span className="spacer" />
+        <select aria-label="利用者" value={d.activeUserId ?? ''} onChange={(e) => update((dd) => ({ ...dd, activeUserId: e.target.value || null }))}>
+          <option value="">ゲスト</option>
+          {d.profiles.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+      </header>
+      <main>
+        {saveError && <div className="banner error small">{saveError}</div>}
+        {content}
+      </main>
+      <nav className="bottom-nav" aria-label="メインメニュー">
+        {NAV.map((n) => (
+          <a key={n.label} href={href(n.to)} className={n.match.includes(page ?? '') ? 'active' : ''}>
+            <span className="ico" aria-hidden>{n.ico}</span>{n.label}
+          </a>
+        ))}
+      </nav>
+      {s.toast && <div className="toast" role="status">{s.toast}</div>}
     </>
   )
 }
-
-export default App

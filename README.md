@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | [ダイエット食事管理アプリ](#ダイエット食事管理アプリ) | `diet-tracker.html` | 不要 |
 | [InBody × 痛み因果診断アプリ](#inbody--痛み因果診断アプリ) | `index.html` | 不要 |
-| [React アプリ（開発中）](#react-アプリ開発中) | `react-app/` フォルダ | 必要（Vite） |
+| [ダイエットレシピメーカー](#ダイエットレシピメーカー) | `react-app/` フォルダ | 必要（Vite） |
 
 ## ダイエット食事管理アプリ
 
@@ -92,9 +92,11 @@ InBody計測結果シートの画像をアップロードすると、OCR（Tesse
 - OCR: [Tesseract.js](https://github.com/naptha/tesseract.js)（CDN経由で読み込み、外部サーバー通信なし）
 - 外部フレームワーク不要、ビルド不要
 
-## React アプリ（開発中）
+## ダイエットレシピメーカー
 
-`react-app/` フォルダにある React + TypeScript + Vite のアプリです。セットアップ方法とコマンドは [`react-app/README.md`](react-app/README.md) を見てください。
+`react-app/` フォルダにある、高タンパク・低脂質のレシピを自動生成するアプリです（React + TypeScript + Vite）。
+指定したカロリー・PFC・食材から、日本食品標準成分表に基づいて栄養計算したレシピを考えます。食事プラン・買い物リスト・在庫管理もできます。
+詳しくは [`react-app/README.md`](react-app/README.md) を見てください。
 
 ```bash
 cd react-app
