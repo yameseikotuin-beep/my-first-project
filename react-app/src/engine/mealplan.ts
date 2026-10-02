@@ -98,6 +98,8 @@ export function generateMealPlan(db: FoodDb, input: MealPlanInput): MealPlan {
         allowedSeasonings: [],
         variation: d,
         excludeTemplates: [...used, ...previousTemplates],
+        // 800kcalを超える食事は、それに見合う量まで分量の上限を広げる
+        portionScale: Math.min(Math.max(budget.calories / 800, 1), 1.5),
       }
       let result = generateRecipes(db, req, 1)
       // 種類の重複回避で候補がなくなった場合は、重複を許して再試行

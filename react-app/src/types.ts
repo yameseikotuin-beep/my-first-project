@@ -135,6 +135,8 @@ export interface GenerationRequest {
   variation?: number
   /** 使わないテンプレート */
   excludeTemplates?: string[]
+  /** 1食の量が多い場合に分量の上限を広げる倍率（1〜1.5。食事プランで使う） */
+  portionScale?: number
 }
 
 // ---- レシピ ----
@@ -203,6 +205,12 @@ export interface Recipe {
   warnings: string[]
   /** 指定されたが使わなかった食材とその理由 */
   unusedFoods: { name: string; reason: string }[]
+  /** 分量上限の倍率（生成時の値。調整で同じ範囲を使うため保持） */
+  portionScale?: number
+  /** 作成方法: テンプレート（料理の型）または AI による考案 */
+  source?: 'template' | 'ai'
+  /** AIで生成した料理画像（Storage のパス） */
+  imagePath?: string | null
   createdAt: string
   updatedAt: string
 }

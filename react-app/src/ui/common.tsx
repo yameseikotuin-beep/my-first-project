@@ -1,16 +1,7 @@
-import { useId, useMemo, useState, type ReactNode } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import type { ConstraintMode, Nutrition, NutritionTargets, PfcRatio, RecipeStatus } from '../types'
-import { useAppData } from '../store/store'
-import { createFoodDb, type FoodDb } from '../engine/foodDb'
-import { round1 } from '../engine/nutrition'
-
-export function useFoodDb(): FoodDb {
-  const d = useAppData()
-  return useMemo(() => createFoodDb(d.customFoods), [d.customFoods])
-}
-
-export const fmt1 = (x: number) => round1(x).toFixed(1)
-export const fmt0 = (x: number) => String(Math.round(x))
+import type { FoodDb } from '../engine/foodDb'
+import { fmt0, fmt1 } from './helpers'
 
 export function Seg<T extends string | number>({ value, options, onChange, labels }: { value: T | undefined; options: T[]; onChange: (v: T) => void; labels?: Partial<Record<T, string>> }) {
   return (
@@ -155,15 +146,4 @@ export function FoodChipsInput({ value, onChange, placeholder, db, quick }: { va
 
 export function Empty({ children }: { children: ReactNode }) {
   return <div className="card muted small" style={{ textAlign: 'center' }}>{children}</div>
-}
-
-export function formatDate(iso: string) {
-  if (!iso) return ''
-  const d = new Date(iso)
-  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
-
-export function today(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }

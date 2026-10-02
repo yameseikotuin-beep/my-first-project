@@ -3,7 +3,8 @@
 高タンパク・低脂質のダイエットレシピを、指定したカロリー・PFC・食材から自動で考えるアプリです。
 栄養値はすべて食品成分データ（日本食品標準成分表）から計算し、条件を満たしているかを検証してから表示します。
 
-React + TypeScript + Vite で作られた、ブラウザだけで動くアプリです（サーバー・APIキー不要）。
+React + TypeScript + Vite で作られたアプリです。基本機能はブラウザだけで動き（サーバー・APIキー不要）、
+Supabase を設定すると、端末間の同期・AI（Claude）によるレシピ考案・料理写真風の画像生成（Gemini）が使えます。
 
 ## セットアップ
 
@@ -17,7 +18,10 @@ npm run dev      # http://localhost:5173
 | --- | --- |
 | `npm run dev` | 開発サーバーを起動 |
 | `npm run build` | 型チェックと本番ビルド（`dist/` に出力。相対パスなのでサブフォルダに置いても動く） |
-| `npm test` | 栄養計算エンジンの単体テスト（vitest） |
+| `npm test` | 単体テスト（vitest。栄養計算・生成・同期・AI応答の検証など） |
+| `npm run test:e2e` | 画面操作のE2Eテスト（Playwright。先に `npm run build && npm run build:e2e-cloud`） |
+| `npm run test:db` | Supabase のマイグレーションの検証（ローカルの PostgreSQL 16 以上。`PGURL` で接続先を指定） |
+| `npm run export-foods` | 食品データを Edge Function 用の JSON に書き出す（食品データを更新したら実行） |
 | `npm run lint` | oxlint |
 
 ## 機能
@@ -34,6 +38,9 @@ npm run dev      # http://localhost:5173
 | 買い物リスト（レシピ・食事プランから集計、在庫の差し引き、購入チェック、コピー、印刷） | 買い物リスト |
 | 在庫管理と、期限の近い食材を使い切るレシピの提案 | 食材の在庫 |
 | 食品成分データの閲覧、成分表にない食材の推定値登録 | 食材データベース |
+| AIによる自由なレシピ考案（要ログイン） | カロリー／食材から → 「AIが自由に考案」 |
+| 料理写真風の画像生成（要ログイン） | レシピ詳細 → 「画像を生成」 |
+| ログイン・複数端末での同期 | アカウント・同期 |
 
 ## 仕組み
 
@@ -64,6 +71,61 @@ npm run dev      # http://localhost:5173
 | `src/engine/shopping.ts` | 買い物リスト・在庫 |
 | `src/store/store.ts` | 保存データ（localStorage） |
 
+## AIによるレシピ考案
+
+AI（Claude）には料理の構成（使う食品・分量の目安・手順）だけを考えてもらい、栄養計算はアプリが行います。
+
+1. アプリが条件と使える食品（避ける食材・アレルゲンを除いたもの）を Edge Function に送る
+2. Edge Function が Claude（既定は `claude-opus-5-5`）に依頼する。食品は**食品成分データにある食品の番号だけ**を JSON Schema（enum）で許可し、栄養値は出力させない
+3. Edge Function が応答の構造・分量・食品を検証する（不正なレシピは理由つきで除外）
+4. アプリが、AIの分量を初期値として ±40〜50% の範囲で条件に合わせて調整し、成分表から計算・検証する
+5. 条件を満たしたレシピだけを「AI考案」として表示する（満たせない案は理由と調整案つきで参考表示）
+
+安全性フィルターで断られた場合は、サーバー側で別のモデルに切り替える設定（`fallbacks: "default"`）にしています。
+
+## クラウド機能のセットアップ
+
+クラウド機能を使わない場合、この節は不要です。
+
+1. [Supabase](https://supabase.com/) でプロジェクトを作成する
+2. Supabase CLI でプロジェクトに接続し、データベースを作る
+
+   ```bash
+   cd react-app
+   npx supabase login
+   npx supabase link --project-ref <プロジェクトID>
+   npx supabase db push          # supabase/migrations の内容を反映
+   ```
+
+3. APIキーを Supabase のシークレットに登録する（**アプリ側の .env には書かない**）
+
+   ```bash
+   npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-...   # Claude（https://console.anthropic.com/）
+   npx supabase secrets set GEMINI_API_KEY=...             # Gemini（https://aistudio.google.com/）
+   # 任意: CLAUDE_MODEL, GEMINI_IMAGE_MODEL（既定 gemini-3.1-flash-image）,
+   #       AI_RECIPE_DAILY_LIMIT（既定30）, AI_IMAGE_DAILY_LIMIT（既定20）, ALLOWED_ORIGIN（CORS。既定 *）
+   ```
+
+4. Edge Function をデプロイする
+
+   ```bash
+   npx supabase functions deploy generate-recipe
+   npx supabase functions deploy generate-image
+   ```
+
+5. `.env.example` を `.env.local` にコピーし、Supabase の URL と anon キーを書いて、ビルドし直す
+6. Supabase の Authentication で、メール認証のリダイレクト先にアプリのURLを登録する
+
+| 構成 | 内容 |
+| --- | --- |
+| `supabase/migrations/` | 同期用テーブル（行レベルセキュリティで本人のみ読み書き）、送信関数（新しい更新だけ反映）、AI利用回数、画像用の非公開バケット |
+| `supabase/functions/generate-recipe` | Claude によるレシピ考案（ログイン必須・1日の回数制限） |
+| `supabase/functions/generate-image` | Gemini による画像生成と Storage への保存（ログイン必須・1日の回数制限） |
+| `supabase/functions/_shared/` | 入力・出力の検証、プロンプト（単体テストあり） |
+| `src/sync/` | 端末間同期（変更の検出・送信・取り込み。同じデータは後から更新した方を採用） |
+
+AIの利用料金は、各サービス（Anthropic・Google）の料金体系に従って発生します。
+
 ## 食品成分データについて
 
 - 出典は文部科学省「日本食品標準成分表2020年版（八訂）」です。
@@ -81,15 +143,15 @@ npm run dev      # http://localhost:5173
 
 ## データの保存とセキュリティ
 
-- データはブラウザの localStorage に保存され、外部には送信しません。端末・ブラウザをまたいだ同期はありません。
-- 外部APIを使っていないため、APIキーなどの秘密情報はありません。
-- 入力値は範囲チェックをしてから使います。
+- ログインしない場合、データはブラウザの localStorage にだけ保存され、外部に送信しません。
+- ログインすると、データは Supabase に保存され、行レベルセキュリティで本人だけが読み書きできます。
+- Claude・Gemini の APIキーは Edge Function の環境変数（Supabase のシークレット）にだけ置き、アプリには含めません。
+  アプリに入る `VITE_SUPABASE_ANON_KEY` は公開前提の鍵です。
+- AIの利用は1日あたりの回数で制限しています。入力値はアプリとサーバーの両方で範囲・形式を検証します。
 
 ## 未実装・今後の課題
 
-- **LLM（AI）によるレシピ構成**: 現在は料理の型（テンプレート）から構成案を作っています。AIの出力を受け取る
-  JSON形式と検証（`parseRecipeDraft`）、その後の照合・計算・検証パイプラインは実装済みです。APIキーをフロントエンドに
-  置かないよう、AIを使うにはサーバー側（API Routes 等）の追加が必要です。
-- **サーバー側DB・ログイン**（Supabase 等）: 現在はブラウザ内保存のみです。
-- **完成写真**: AI画像生成は使わず、材料の種類と量から描くイメージ図を表示しています。
-- 料理の型は26種類です。種類を増やすと提案の幅が広がります。
+- 実際の Supabase・Claude・Gemini への接続は、開発環境に認証情報がないため未確認です。
+  通信部分はテストで模擬し、Edge Function は型検査（`deno check`）、データベースは PostgreSQL での検証まで行っています。
+- 食事プランで脂質の目標を高く設定した場合（例: 1日2600kcal・脂質72g）、低脂質の料理が中心のため脂質が目標の80〜90%になることがあります（画面に不足量を表示します）。
+- 食品成分データは公式ファイルとの機械照合が未完了です（上記「食品成分データについて」）。

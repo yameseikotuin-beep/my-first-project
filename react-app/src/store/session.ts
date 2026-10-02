@@ -5,6 +5,8 @@ import type { GenerationResult } from '../engine/generator'
 /** 生成結果など、保存しない一時的な状態（タブを閉じると消える） */
 export interface Session {
   request: GenerationRequest | null
+  /** AIで考案した結果か（再生成もAIで行う）。note は利用者の希望 */
+  ai: { note?: string } | null
   result: GenerationResult | null
   /** 生成結果・調整後のレシピ（ID→レシピ） */
   working: Record<string, Recipe>
@@ -18,7 +20,7 @@ let state: Session = load()
 const listeners = new Set<() => void>()
 
 function load(): Session {
-  const empty: Session = { request: null, result: null, working: {}, drafts: {}, toast: null }
+  const empty: Session = { request: null, ai: null, result: null, working: {}, drafts: {}, toast: null }
   try {
     const raw = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(KEY) : null
     return raw ? { ...empty, ...(JSON.parse(raw) as Session), toast: null } : empty

@@ -4,6 +4,7 @@ import { toast } from '../store/session'
 import { gramsFromRatio } from '../engine/nutrition'
 import { Field } from '../ui/common'
 import { href } from '../router'
+import { nowIso } from '../util/time'
 
 export function Settings() {
   const d = useAppData()
@@ -29,7 +30,7 @@ export function Settings() {
           calorieTarget: Number(f.calorieTarget), proteinTarget: Number(f.proteinTarget), fatTarget: Number(f.fatTarget), carbohydrateTarget: Number(f.carbohydrateTarget),
           pfcRatio: { protein: Number(f.p), fat: Number(f.fat), carbohydrates: Number(f.c) },
           mealCalories: Number(f.mealCalories),
-          updatedAt: new Date().toISOString(),
+          updatedAt: nowIso(),
         },
       ],
     }))

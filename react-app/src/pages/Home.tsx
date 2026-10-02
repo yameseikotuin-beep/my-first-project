@@ -10,6 +10,7 @@ const MENU = [
   { to: 'profiles', ico: '👤', title: '利用者・目標設定' },
   { to: 'settings', ico: '⚙️', title: '栄養設定' },
   { to: 'foods', ico: '📚', title: '食材データベース' },
+  { to: 'account', ico: '☁️', title: 'アカウント・同期' },
 ]
 
 export function Home() {

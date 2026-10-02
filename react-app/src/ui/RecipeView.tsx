@@ -7,8 +7,12 @@ import { adjustRecipe, ADJUST_LABEL, substituteIngredient, substituteOptions, ty
 import { recalcRecipe } from '../engine/draft'
 import { scaledIngredients } from '../engine/servings'
 import { matchFood } from '../engine/foodDb'
-import { fmt0, fmt1, PfcBar, PfcNumbers, StatusBadge, TargetCompare, useFoodDb } from './common'
+import { PfcBar, PfcNumbers, StatusBadge, TargetCompare } from './common'
+import { fmt0, fmt1, useFoodDb } from './helpers'
 import { RecipeImage } from './RecipeImage'
+import { cloudConfigured } from '../cloud/supabase'
+import { useAuth } from '../cloud/auth'
+import { generateRecipeImage } from '../cloud/images'
 
 const OPS: AdjustOp[] = ['kcal-100', 'kcal+100', 'protein+10', 'fat-5', 'carb-10', 'lowfat', 'highprotein', 'faster']
 
@@ -23,6 +27,26 @@ export function RecipeView({ initial, onRegenerate }: { initial: Recipe; onRegen
   const saved = d.recipes.find((r) => r.id === recipe.id)
   const dirty = !saved || JSON.stringify(saved) !== JSON.stringify({ ...recipe, userId: saved.userId, updatedAt: saved.updatedAt })
   const fav = isFavorite(d, recipe.id)
+  const auth = useAuth()
+  const [imageBusy, setImageBusy] = useState(false)
+
+  async function makeImage() {
+    setImageBusy(true)
+    setMessage(null)
+    try {
+      const path = await generateRecipeImage(recipe)
+      const next = { ...recipe, imagePath: path }
+      setRecipe(next)
+      putWorking(next)
+      // 保存済みのレシピなら画像の情報も保存する
+      if (saved) saveRecipe({ ...saved, imagePath: path })
+      setMessage('料理写真風の画像を生成しました。AIが作ったイメージのため、実際の料理の見た目とは異なる場合があります。')
+    } catch (e) {
+      setMessage(`画像を生成できませんでした（${e instanceof Error ? e.message : String(e)}）。`)
+    } finally {
+      setImageBusy(false)
+    }
+  }
 
   useEffect(() => {
     // 閲覧したレシピを履歴に残す
@@ -91,6 +115,11 @@ export function RecipeView({ initial, onRegenerate }: { initial: Recipe; onRegen
         <button className="btn primary" onClick={() => { saveRecipe(recipe); toast('レシピを保存しました') }} disabled={!dirty}>{saved ? (dirty ? '変更を保存' : '保存済み') : '保存'}</button>
         <button className="btn" onClick={() => { toggleFavorite(recipe); toast(fav ? 'お気に入りから外しました' : 'お気に入りに追加しました') }} aria-pressed={fav}>{fav ? '★ お気に入り' : '☆ お気に入り'}</button>
         {onRegenerate && <button className="btn" onClick={onRegenerate}>再生成</button>}
+        {cloudConfigured && auth.session && (
+          <button className="btn" onClick={() => void makeImage()} disabled={imageBusy} aria-busy={imageBusy}>
+            {imageBusy ? '画像を生成中…' : recipe.imagePath ? '画像を作り直す' : '📷 画像を生成'}
+          </button>
+        )}
         <button className="btn" onClick={() => {
           if (editing) setRecipe(recalcRecipe(db, { ...recipe, steps: recipe.steps.filter((x) => x.trim()) }))
           setEditing(!editing)

@@ -4,9 +4,11 @@ import { mine, update, useAppData } from '../store/store'
 import { toast } from '../store/session'
 import { buildShoppingItems, CATEGORY_ORDER, formatAmount, shoppingText, unitLabel } from '../engine/shopping'
 import { useRoute, navigate } from '../router'
-import { Empty, formatDate, today, useFoodDb } from '../ui/common'
+import { Empty } from '../ui/common'
+import { formatDate, today, useFoodDb } from '../ui/helpers'
 import { UNIT_BASIS } from '../data/foods'
 import { newId } from '../util/id'
+import { nowIso } from '../util/time'
 
 export function Shopping() {
   const route = useRoute()
@@ -46,7 +48,7 @@ function ListBuilder({ initialPlan }: { initialPlan: string | null }) {
     }
     if (!sources.length) return
     const { items, notes } = buildShoppingItems(db, sources, useInventory ? mine(d, d.inventory) : [], today())
-    const now = new Date().toISOString()
+    const now = nowIso()
     const list: ShoppingList = { id: newId(), userId: d.activeUserId, name: `${today()} の買い物`, sources: [...names, ...notes.map((n) => `※${n}`)], items, createdAt: now, updatedAt: now }
     update((dd) => ({ ...dd, shoppingLists: [list, ...dd.shoppingLists] }))
     navigate(`shopping/${list.id}`)
@@ -105,7 +107,7 @@ function ListView({ list }: { list: ShoppingList }) {
   const db = useFoodDb()
   const [newItem, setNewItem] = useState({ name: '', g: '' })
   const save = (items: ShoppingItem[], extra: Partial<ShoppingList> = {}) =>
-    update((d) => ({ ...d, shoppingLists: d.shoppingLists.map((l) => (l.id === list.id ? { ...l, ...extra, items, updatedAt: new Date().toISOString() } : l)) }))
+    update((d) => ({ ...d, shoppingLists: d.shoppingLists.map((l) => (l.id === list.id ? { ...l, ...extra, items, updatedAt: nowIso() } : l)) }))
   const setItem = (key: string, patch: Partial<ShoppingItem>) => save(list.items.map((i) => (i.key === key ? { ...i, ...patch } : i)))
 
   const visible = list.items.filter((i) => i.buyG > 0 || i.manual)

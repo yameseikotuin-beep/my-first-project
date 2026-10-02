@@ -1,0 +1,8 @@
+# Supabase CLI の設定（supabase link でプロジェクトに接続して使う）
+project_id = "diet-recipe-maker"
+
+[functions.generate-recipe]
+verify_jwt = true
+
+[functions.generate-image]
+verify_jwt = true

@@ -68,9 +68,23 @@ function persist() {
   }
 }
 
-export function update(fn: (d: AppData) => AppData) {
+export type ChangeOrigin = 'local' | 'remote'
+type ChangeListener = (prev: AppData, next: AppData, origin: ChangeOrigin) => void
+const changeListeners = new Set<ChangeListener>()
+
+/** データの変更を監視する（端末間同期で使う）。戻り値で解除 */
+export function onDataChange(fn: ChangeListener): () => void {
+  changeListeners.add(fn)
+  return () => changeListeners.delete(fn)
+}
+
+/** origin 'remote' はサーバーから取り込んだ変更（再送信しない） */
+export function update(fn: (d: AppData) => AppData, origin: ChangeOrigin = 'local') {
+  const prev = state
   state = fn(state)
+  if (state === prev) return
   persist()
+  changeListeners.forEach((l) => l(prev, state, origin))
   listeners.forEach((l) => l())
 }
 

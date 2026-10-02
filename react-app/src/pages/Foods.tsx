@@ -5,8 +5,10 @@ import { toast } from '../store/session'
 import { normalizeName } from '../engine/foodDb'
 import { CATEGORY_ORDER } from '../engine/shopping'
 import { FOOD_SOURCE } from '../data/foods'
-import { Field, useFoodDb } from '../ui/common'
+import { Field } from '../ui/common'
+import { useFoodDb } from '../ui/helpers'
 import { newId } from '../util/id'
+import { nowIso } from '../util/time'
 
 const ROLE_BY_CATEGORY: Record<FoodCategory, FoodRole> = {
   肉類: 'protein', 魚介類: 'protein', '卵・乳製品': 'protein', 野菜: 'veg', きのこ類: 'veg', '豆類・大豆製品': 'protein',
@@ -88,7 +90,7 @@ function AddCustomFood({ existing }: { existing: Food[] }) {
       allergens: [],
       source: `ユーザー入力（推定値）: ${f.source.trim()}`,
       sourceVersion: '-',
-      updatedAt: new Date().toISOString().slice(0, 10),
+      updatedAt: nowIso().slice(0, 10),
       verification: 'user',
       estimated: true,
     }

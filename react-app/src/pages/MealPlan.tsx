@@ -4,7 +4,8 @@ import { activeProfile, mine, settingsFor, update, useAppData } from '../store/s
 import { putWorking, toast } from '../store/session'
 import { MEAL_PRESETS, achievement, generateMealPlan, type MealSlotDef } from '../engine/mealplan'
 import { navigate, useRoute } from '../router'
-import { Field, FoodChipsInput, PfcBar, Seg, fmt0, fmt1, formatDate, today, useFoodDb } from '../ui/common'
+import { Field, FoodChipsInput, PfcBar, Seg } from '../ui/common'
+import { fmt0, fmt1, formatDate, today, useFoodDb } from '../ui/helpers'
 import { RecipeCard } from '../ui/RecipeCard'
 
 export function MealPlanPage() {

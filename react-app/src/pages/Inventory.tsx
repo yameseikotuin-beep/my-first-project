@@ -4,10 +4,12 @@ import { mine, update, useAppData } from '../store/store'
 import { setSession, toast } from '../store/session'
 import { daysUntil, isExpired, matchInventoryFood, useUpCandidates } from '../engine/shopping'
 import { navigate } from '../router'
-import { Empty, Field, today, useFoodDb } from '../ui/common'
-import { initialForm } from './GenerateForm'
+import { Empty, Field } from '../ui/common'
+import { today, useFoodDb } from '../ui/helpers'
+import { initialForm } from './formState'
 import { activeProfile, settingsFor } from '../store/store'
 import { newId } from '../util/id'
+import { nowIso } from '../util/time'
 
 const UNITS: InventoryUnit[] = ['g', 'ml', '個', '本', 'パック', '袋', '枚', '切れ', '束', '玉', '缶']
 
@@ -22,7 +24,7 @@ export function Inventory() {
   function add() {
     const amount = Number(f.amount)
     if (!f.name.trim() || !(amount > 0)) return
-    const item: InventoryItem = { id: newId(), userId: d.activeUserId, name: f.name.trim(), foodId: matchInventoryFood(db, f.name), amount, unit: f.unit, expiry: f.expiry || null, createdAt: new Date().toISOString() }
+    const item: InventoryItem = { id: newId(), userId: d.activeUserId, name: f.name.trim(), foodId: matchInventoryFood(db, f.name), amount, unit: f.unit, expiry: f.expiry || null, createdAt: nowIso() }
     update((dd) => ({ ...dd, inventory: [...dd.inventory, item] }))
     setF({ name: '', amount: '', unit: 'g', expiry: '' })
   }

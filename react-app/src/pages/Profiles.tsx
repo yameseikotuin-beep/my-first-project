@@ -3,11 +3,13 @@ import { ALLERGENS, type ActivityLevel, type Profile, type Sex } from '../types'
 import { countUserData, deleteProfile, update, useAppData } from '../store/store'
 import { toast } from '../store/session'
 import { ACTIVITY, calculateTargets } from '../engine/profile'
-import { Field, Seg, formatDate } from '../ui/common'
+import { Field, Seg } from '../ui/common'
+import { formatDate } from '../ui/helpers'
 import { newId } from '../util/id'
+import { nowIso } from '../util/time'
 
 function blank(): Profile {
-  const now = new Date().toISOString()
+  const now = nowIso()
   return {
     id: newId(), name: '', age: null, sex: 'unspecified', heightCm: null, weightKg: null, targetWeightKg: null, bodyFatPercent: null,
     activityLevel: 'moderate', exerciseFrequency: '', goal: 'lose', periodWeeks: 12, allergens: [], avoidFoods: [], preferences: '',
@@ -83,7 +85,7 @@ function ProfileEditor({ profile, onDone }: { profile: Profile; onDone: () => vo
 
   function save(applyTargets: boolean) {
     if (!p.name.trim()) return
-    const now = new Date().toISOString()
+    const now = nowIso()
     const saved: Profile = { ...p, name: p.name.trim(), avoidFoods: avoidText.split(/[,、，\s]+/).filter(Boolean), updatedAt: now }
     update((dd) => {
       let next = { ...dd, profiles: exists ? dd.profiles.map((x) => (x.id === saved.id ? saved : x)) : [...dd.profiles, saved] }

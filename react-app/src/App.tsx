@@ -12,6 +12,8 @@ import { Profiles } from './pages/Profiles'
 import { MealPlanPage } from './pages/MealPlan'
 import { Shopping } from './pages/Shopping'
 import { Inventory } from './pages/Inventory'
+import { Account, SyncBadge } from './pages/Account'
+import { cloudConfigured } from './cloud/supabase'
 
 const NAV = [
   { to: '', ico: '🏠', label: 'ホーム', match: [''] },
@@ -43,6 +45,7 @@ export default function App() {
     case 'plan': content = <MealPlanPage key={`${key}-${id ?? ''}`} />; break
     case 'shopping': content = <Shopping key={`${key}-${id ?? ''}`} />; break
     case 'inventory': content = <Inventory />; break
+    case 'account': content = <Account />; break
     default: content = <p>ページが見つかりません。<a href={href('')}>ホームへ</a></p>
   }
 
@@ -51,6 +54,7 @@ export default function App() {
       <header className="app-header">
         <a className="brand" href={href('')}><span aria-hidden>🥗</span>ダイエットレシピメーカー</a>
         <span className="spacer" />
+        {cloudConfigured && <a href={href('account')} className="header-account" aria-label="アカウント・同期"><SyncBadge />{' '}👤</a>}
         <select aria-label="利用者" value={d.activeUserId ?? ''} onChange={(e) => update((dd) => ({ ...dd, activeUserId: e.target.value || null }))}>
           <option value="">ゲスト</option>
           {d.profiles.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}

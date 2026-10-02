@@ -164,7 +164,7 @@ describe('テスト2: 食材指定（鶏むね肉・キャベツ・玉ねぎ・�
   it('追加食材は明記され、使わなかった指定食材は理由を示す', () => {
     for (const r of result.recipes) {
       const userIds = ['11220', '06061', '06153', '12004']
-      for (const i of r.ingredients.filter((x) => !x.fixed)) {
+      for (const i of r.ingredients.filter((x) => !x.fixed && db.get(x.foodId)?.category !== '調味料')) {
         expect(i.added, `${r.recipeName} ${i.name}`).toBe(!userIds.includes(i.foodId!))
       }
       for (const u of r.unusedFoods) expect(u.reason.length).toBeGreaterThan(0)
@@ -174,7 +174,7 @@ describe('テスト2: 食材指定（鶏むね肉・キャベツ・玉ねぎ・�
   it('追加食材を禁止すると、指定食材と調味料だけで作る', () => {
     const r = generateRecipes(db, req({ mode: 'ingredients', useFoods: ['鶏むね肉', 'キャベツ', '玉ねぎ', '卵'], extraPolicy: 'forbid', targets: { maxCalories: 500 } }))
     expect(r.recipes.length).toBeGreaterThan(0)
-    for (const rec of r.recipes) expect(rec.ingredients.filter((i) => !i.fixed).every((i) => !i.added)).toBe(true)
+    for (const rec of r.recipes) expect(rec.ingredients.filter((i) => !i.fixed && db.get(i.foodId)?.category !== '調味料').every((i) => !i.added)).toBe(true)
   })
 })
 

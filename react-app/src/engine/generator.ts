@@ -4,6 +4,7 @@ import type { FoodDb } from './foodDb'
 import { matchFood, normalizeName } from './foodDb'
 import { emptyNutrition, runPipeline, type DraftMeta, type RecipeDraft } from './draft'
 import { checkFeasibility, suggestionsFromRecipe } from './feasibility'
+import { MAX_MAIN_PROTEIN, targetDeviation } from './validate'
 
 /** 表示用の短い名前（括弧内を省く） */
 export function shortName(food: Food): string {
@@ -163,7 +164,7 @@ export function composeDraft(
   t: RecipeTemplate,
   method: CookMethod,
   fills: Fill[],
-  req: Pick<GenerationRequest, 'mealType' | 'servings'>,
+  req: Pick<GenerationRequest, 'mealType' | 'servings' | 'portionScale'>,
   db: FoodDb,
   unused: { name: string; reason: string }[],
   oilFactor = 1,
@@ -205,17 +206,31 @@ export function composeDraft(
       ...active.map((f) => ({
         slot: f.slot.key,
         role: f.food!.role,
-        bounds: { min: f.slot.min, max: f.slot.max, step: f.slot.step, default: f.slot.default, optional: !!f.slot.optional },
+        bounds: { min: f.slot.min, max: scaledMax(f.slot, req.portionScale ?? 1), step: f.slot.step, default: f.slot.default, optional: !!f.slot.optional },
         added: f.added,
         fixed: false,
       })),
-      ...seasonings.map((s) => ({ role: s.food.role, added: false, fixed: true })),
+      // 油は脂質の目標に合わせて現実的な範囲（既定量の半分〜3倍、最大6g以上）で調整できる
+      ...seasonings.map((s) =>
+        s.food.role === 'fat'
+          ? { role: s.food.role, added: false, fixed: false, bounds: { min: Math.max(1, Math.round(s.grams * 0.5)), max: Math.max(Math.round(s.grams * 3), 6), step: 1, default: Math.round(s.grams), optional: false } }
+          : { role: s.food.role, added: false, fixed: true },
+      ),
     ],
     stepNeeds: steps.map((s) => s.needs ?? null),
     points: t.points,
     unusedFoods: unused,
   }
   return { draft, meta }
+}
+
+/** 分量上限を倍率に合わせて広げる（刻み幅に揃え、主菜は現実的な上限 MAX_MAIN_PROTEIN まで） */
+export function scaledMax(slot: TemplateSlot, scale: number): number {
+  const k = Math.min(Math.max(scale, 1), 1.5)
+  if (k === 1) return slot.max
+  let max = slot.min + Math.floor((slot.max * k - slot.min) / slot.step) * slot.step
+  if (slot.role === 'protein' && slot.key === 'protein') max = Math.min(max, Math.max(slot.max, MAX_MAIN_PROTEIN))
+  return max
 }
 
 export interface GenerationResult {
@@ -244,7 +259,7 @@ export function generateRecipes(db: FoodDb, req: GenerationRequest, limit = 5): 
   }
 
   const candidates = candidateTemplates(req, rr)
-  const variants = req.mode === 'calorie' ? 2 : 1
+  const variants = req.mode === 'calorie' ? 3 : 1
   const results: { recipe: Recipe; usedCount: number; order: number }[] = []
   const offset = req.variation ?? 0
   candidates.forEach(({ template, method }, order) => {
@@ -253,6 +268,7 @@ export function generateRecipes(db: FoodDb, req: GenerationRequest, limit = 5): 
       if (!filled) continue
       const { draft, meta } = composeDraft(template, method, filled.fills, req, db, filled.unused)
       const recipe = runPipeline(db, draft, meta, req.targets, { optimize: true, servings: req.servings })
+      if (req.portionScale && req.portionScale !== 1) recipe.portionScale = req.portionScale
       const usedCount = filled.used.reduce((s, f) => s + (rr.useUpFoods.includes(f) ? 2 : 1), 0)
       results.push({ recipe, usedCount, order: (order + offset * 3) % Math.max(candidates.length, 1) })
     }
@@ -323,6 +339,9 @@ export function generateRecipes(db: FoodDb, req: GenerationRequest, limit = 5): 
     const s = STATUS_RANK[a.recipe.validation.status] - STATUS_RANK[b.recipe.validation.status]
     if (s) return s
     if (a.usedCount !== b.usedCount) return b.usedCount - a.usedCount
+    // 目標値への近さ（同程度なら料理の型の順序で多様性を保つ）
+    const dev = Math.round(targetDeviation(a.recipe.nutrition, req.targets) * 20) - Math.round(targetDeviation(b.recipe.nutrition, req.targets) * 20)
+    if (dev) return dev
     return a.order - b.order
   }
 }
@@ -343,11 +362,13 @@ export function rebuildFromTemplate(
     return { slot, food, added: ing?.added ?? false }
   })
   const targets = changes.targets ?? recipe.targets
-  const { draft, meta } = composeDraft(t, method, fills, { mealType: recipe.mealType ?? '夕食', servings: recipe.servings }, db, recipe.unusedFoods, changes.oilFactor ?? 1)
+  const { draft, meta } = composeDraft(t, method, fills, { mealType: recipe.mealType ?? '夕食', servings: recipe.servings, portionScale: recipe.portionScale }, db, recipe.unusedFoods, changes.oilFactor ?? 1)
   // 現在の分量を初期値として使う
   draft.ingredients.forEach((d) => {
     const cur = recipe.ingredients.find((i) => i.foodId === d.database_id)
     if (cur) d.amount_g = cur.amountG
   })
-  return runPipeline(db, draft, meta, targets, { optimize: true, servings: recipe.servings, id: recipe.id, userId: recipe.userId, now: recipe.createdAt })
+  const rebuilt = runPipeline(db, draft, meta, targets, { optimize: true, servings: recipe.servings, id: recipe.id, userId: recipe.userId, now: recipe.createdAt })
+  if (recipe.portionScale) rebuilt.portionScale = recipe.portionScale
+  return rebuilt
 }

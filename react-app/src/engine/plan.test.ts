@@ -142,3 +142,17 @@ describe('買い物リスト', () => {
     expect(r.expired.map((i) => i.id)).toEqual(['c'])
   })
 })
+
+describe('食事プランの目標適合度（回帰テスト）', () => {
+  it('一般的な目標では、全項目が目標の90〜110%に収まる', () => {
+    for (const daily of [{ calories: 1690, protein: 87, fat: 38, carbohydrates: 251 }, { calories: 2200, protein: 140, fat: 49, carbohydrates: 300 }, { calories: 1400, protein: 90, fat: 31, carbohydrates: 190 }]) {
+      for (const n of [3, 4, 5] as const) {
+        const p = generateMealPlan(db, { name: '', daily, days: 2, startDate: '2026-10-02', userId: null, meals: MEAL_PRESETS[n].map((m) => ({ ...m, eatingOut: false })), base: { avoidFoods: [], avoidAllergens: [], useFoods: [] } })
+        for (const d of p.days) for (const a of achievement(daily, d.totals)) {
+          expect(a.percent, `${daily.calories}kcal ${n}食 ${a.label}`).toBeGreaterThanOrEqual(90)
+          expect(a.percent, `${daily.calories}kcal ${n}食 ${a.label}`).toBeLessThanOrEqual(110)
+        }
+      }
+    }
+  })
+})

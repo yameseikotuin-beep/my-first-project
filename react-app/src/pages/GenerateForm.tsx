@@ -1,32 +1,19 @@
 import { useMemo, useState } from 'react'
-import { ALLERGENS, type Allergen, type ConstraintMode, type CookMethod, type Difficulty, type ExtraPolicy, type GenerationRequest, type Genre, type MealType, type NutrientConstraint } from '../types'
+import { ALLERGENS, type CookMethod, type Difficulty, type ExtraPolicy, type GenerationRequest, type Genre, type MealType, type NutrientConstraint } from '../types'
 import { activeProfile, settingsFor, useAppData } from '../store/store'
 import { setSession, useSession } from '../store/session'
 import { matchFood } from '../engine/foodDb'
 import { generateRecipes } from '../engine/generator'
 import { gramsFromRatio, round1 } from '../engine/nutrition'
 import { navigate } from '../router'
-import { Field, FoodChipsInput, Seg, useFoodDb } from '../ui/common'
+import { initialForm, type FormState, type ModeOrNone, type NutKey } from './formState'
+import { Field, FoodChipsInput, Seg } from '../ui/common'
+import { useFoodDb } from '../ui/helpers'
+import { cloudConfigured } from '../cloud/supabase'
+import { useAuth } from '../cloud/auth'
+import { generateAiRecipes } from '../cloud/ai'
+import { href } from '../router'
 
-type NutKey = 'protein' | 'fat' | 'carbohydrates'
-type ModeOrNone = ConstraintMode | 'none'
-
-export interface FormState {
-  kcal: string
-  mealType: MealType
-  pfc: Record<NutKey, { value: string; mode: ModeOrNone }>
-  time: number
-  genre: Genre | ''
-  difficulty: Difficulty | ''
-  servings: number
-  method: CookMethod | ''
-  useFoods: string[]
-  useUpFoods: string[]
-  avoidFoods: string[]
-  allergens: Allergen[]
-  extraPolicy: ExtraPolicy
-  seasonings: string[]
-}
 
 const GENRES: (Genre | '')[] = ['', '和食', '洋食', '中華', '韓国料理', 'エスニック']
 const METHODS: (CookMethod | '')[] = ['', '焼く', '蒸す', '煮る', '炒める', '電子レンジ']
@@ -34,29 +21,6 @@ const TIMES = [10, 15, 20, 30, 0]
 const NUT_LABEL: Record<NutKey, string> = { protein: 'タンパク質', fat: '脂質', carbohydrates: '炭水化物' }
 const QUICK_FOODS = ['鶏むね肉', '鶏ささみ', '豚ヒレ肉', '鮭', 'たら', 'えび', 'ツナ缶', '卵', '木綿豆腐', 'キャベツ', '玉ねぎ', 'ブロッコリー', 'にんじん', 'もやし', 'しめじ', 'トマト', 'ほうれん草', '白菜', 'ピーマン', 'ごはん']
 const SEASONING_IDS = ['17007', '17012', '03003', '16025', '16001', '17045', '17110', '17015', '17028', '17093', '17027', '17031', '17036', '17004', '17107', '02034', '01015', '14006', '14001', '14002', '06223', '06103', '07156', '05018']
-
-export function initialForm(mode: 'calorie' | 'ingredients', mealCalories: number, avoidFoods: string[], allergens: Allergen[]): FormState {
-  return {
-    kcal: String(mealCalories),
-    mealType: '夕食',
-    pfc: {
-      protein: { value: '', mode: 'min' },
-      fat: { value: '', mode: 'max' },
-      carbohydrates: { value: '', mode: mode === 'calorie' ? 'target' : 'max' },
-    },
-    time: 0,
-    genre: '',
-    difficulty: '',
-    servings: 1,
-    method: '',
-    useFoods: [],
-    useUpFoods: [],
-    avoidFoods,
-    allergens,
-    extraPolicy: 'allow',
-    seasonings: [],
-  }
-}
 
 export function GenerateForm({ mode }: { mode: 'calorie' | 'ingredients' }) {
   const d = useAppData()
@@ -70,6 +34,11 @@ export function GenerateForm({ mode }: { mode: 'calorie' | 'ingredients' }) {
   )
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [runError, setRunError] = useState<string | null>(null)
+  const auth = useAuth()
+  const [engine, setEngine] = useState<'template' | 'ai'>(() => (session.ai ? 'ai' : 'template'))
+  const [note, setNote] = useState(session.ai?.note ?? '')
+  const [busy, setBusy] = useState(false)
+  const aiBlocked = engine === 'ai' && !auth.session
   const setForm = (f: FormState) => {
     setFormState(f)
     setSession((s) => ({ ...s, drafts: { ...s.drafts, [draftKey]: f } }))
@@ -136,20 +105,25 @@ export function GenerateForm({ mode }: { mode: 'calorie' | 'ingredients' }) {
     }
   }
 
-  function submit() {
+  async function submit() {
+    if (busy) return
     setRunError(null)
     const req = buildRequest()
     if (!req) {
       window.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
+    setBusy(true)
     try {
-      const result = generateRecipes(db, req)
+      const useAi = engine === 'ai'
+      const result = useAi ? await generateAiRecipes(db, req, note) : generateRecipes(db, req)
       const working = Object.fromEntries(result.recipes.concat(result.rejected).map((r) => [r.id, r]))
-      setSession((s) => ({ ...s, request: req, result, working: { ...s.working, ...working } }))
+      setSession((s) => ({ ...s, request: req, ai: useAi ? { note } : null, result, working: { ...s.working, ...working } }))
       navigate('results')
     } catch (err) {
       setRunError(`レシピの生成中にエラーが発生しました（${err instanceof Error ? err.message : String(err)}）。もう一度お試しください。`)
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -284,11 +258,28 @@ export function GenerateForm({ mode }: { mode: 'calorie' | 'ingredients' }) {
       {runError && (
         <div className="banner error">
           {runError}
-          <div style={{ marginTop: 8 }}><button className="btn small" onClick={submit}>再試行</button></div>
+          <div style={{ marginTop: 8 }}><button className="btn small" onClick={() => void submit()}>再試行</button></div>
         </div>
       )}
-      <button className="btn primary block" style={{ minHeight: 52, fontSize: '1.05rem' }} onClick={submit}>レシピを考える</button>
-      <p className="tiny muted" style={{ marginTop: 10 }}>レシピは端末内で生成し、入力内容を外部に送信しません。</p>
+      {cloudConfigured && (
+        <div className="card">
+          <div className="lbl">考え方</div>
+          <Seg value={engine} options={['template', 'ai'] as ('template' | 'ai')[]} labels={{ template: '料理の型から（すぐ表示）', ai: 'AIが自由に考案' }} onChange={setEngine} />
+          {engine === 'ai' && (
+            <>
+              <p className="tiny muted" style={{ marginTop: 6 }}>AI（Claude）が食品成分データにある食材から料理を考案し、アプリが分量の調整・栄養計算・条件の検証を行います。20〜60秒ほどかかります。</p>
+              <Field label="AIへの希望（任意・200文字まで）">
+                <input type="text" maxLength={200} placeholder="例: さっぱりした味、作り置きできるもの" value={note} onChange={(e) => setNote(e.target.value)} />
+              </Field>
+              {aiBlocked && <div className="banner info small">AIによる考案を使うには<a href={href('account')}>ログイン</a>してください。</div>}
+            </>
+          )}
+        </div>
+      )}
+      <button className="btn primary block" style={{ minHeight: 52, fontSize: '1.05rem' }} onClick={() => void submit()} disabled={busy || aiBlocked} aria-busy={busy}>
+        {busy ? (engine === 'ai' ? 'AIが考案中…' : '考え中…') : engine === 'ai' ? 'AIにレシピを考えてもらう' : 'レシピを考える'}
+      </button>
+      <p className="tiny muted" style={{ marginTop: 10 }}>{engine === 'ai' ? 'AIを使う場合、入力した条件と食材がサーバー経由でAIサービス（Anthropic）に送信されます。' : 'レシピは端末内で生成し、入力内容を外部に送信しません。'}</p>
     </div>
   )
 }

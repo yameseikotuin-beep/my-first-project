@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
@@ -6,4 +7,8 @@ export default defineConfig({
   // サブフォルダ (例: /my-first-project/react-app/) に置いても動くよう相対パスで出力
   base: './',
   plugins: [react()],
+  test: {
+    // e2e/ は Playwright で実行する
+    include: ['src/**/*.test.ts'],
+  },
 })

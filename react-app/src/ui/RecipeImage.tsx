@@ -1,4 +1,5 @@
 import type { FoodCategory, Recipe } from '../types'
+import { useImageUrl } from '../cloud/images'
 
 const CATEGORY_COLOR: Record<FoodCategory, string> = {
   肉類: '#e8a17a',
@@ -17,7 +18,7 @@ const CATEGORY_COLOR: Record<FoodCategory, string> = {
  * 完成イメージ（材料の種類と量から自動で描く図）。写真ではない。
  * 皿の上に材料の分類ごとの色を量に比例して配置する。
  */
-export function RecipeImage({ recipe, size = 220, categoryOf }: { recipe: Recipe; size?: number; categoryOf: (foodId: string | null) => FoodCategory }) {
+function RecipeIllustration({ recipe, size = 220, categoryOf }: { recipe: Recipe; size?: number; categoryOf: (foodId: string | null) => FoodCategory }) {
   const items = recipe.ingredients.filter((i) => !i.fixed && i.amountG > 0)
   const carb = items.filter((i) => categoryOf(i.foodId) === '穀類・主食')
   const main = items.filter((i) => categoryOf(i.foodId) !== '穀類・主食')
@@ -51,4 +52,20 @@ export function RecipeImage({ recipe, size = 220, categoryOf }: { recipe: Recipe
       <text x="12" y="210" fontSize="10" fill="#9a9a9a">イメージ図（自動描画）</text>
     </svg>
   )
+}
+
+/**
+ * 料理の画像。AIで生成した写真風の画像があればそれを、なければ材料から描くイメージ図を表示する。
+ */
+export function RecipeImage({ recipe, size = 220, categoryOf }: { recipe: Recipe; size?: number; categoryOf: (foodId: string | null) => FoodCategory }) {
+  const url = useImageUrl(recipe.imagePath)
+  if (url) {
+    return (
+      <figure style={{ margin: 0, position: 'relative' }}>
+        <img src={url} alt={`${recipe.recipeName}のAI生成イメージ`} width={size} height={size} loading="lazy" style={{ display: 'block', width: '100%', maxWidth: size, height: 'auto', aspectRatio: '1 / 1', objectFit: 'cover', borderRadius: 14 }} />
+        {size >= 160 && <figcaption className="tiny" style={{ position: 'absolute', left: 8, bottom: 6, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,.6)' }}>AI生成イメージ</figcaption>}
+      </figure>
+    )
+  }
+  return <RecipeIllustration recipe={recipe} size={size} categoryOf={categoryOf} />
 }

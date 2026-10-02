@@ -6,7 +6,7 @@ import { targetTolerance } from './optimizer'
 const NUTRIENT_LABEL = { protein: 'タンパク質', fat: '脂質', carbohydrates: '炭水化物' } as const
 
 /** 1人前あたりの現実的な上限（g） */
-export const MAX_SERVING_WEIGHT = 900
+export const MAX_SERVING_WEIGHT = 1100
 export const MAX_MAIN_PROTEIN = 300
 
 export function validateRecipe(
@@ -108,4 +108,18 @@ export function validateRecipe(
   if (status === 'failed') messages.push('このレシピは指定条件を満たしていません。')
   if (status === 'partial') messages.push('必須条件は満たしていますが、目標値との差が許容範囲を超えている項目があります。')
   return { status, checks, messages }
+}
+
+/**
+ * 目標値（目安・カロリー目標）からの相対的なずれの合計。小さいほど目標に近い。
+ * 必須条件（以上・以下）は検証で別に扱うため、ここでは目安の項目だけを見る。
+ */
+export function targetDeviation(n: Nutrition, t: NutritionTargets): number {
+  const tc = t.targetCalories ?? t.maxCalories * 0.95
+  let d = Math.abs(n.calories - tc) / Math.max(tc, 1)
+  for (const key of ['protein', 'fat', 'carbohydrates'] as const) {
+    const c = t[key]
+    if (c?.mode === 'target') d += Math.abs(n[key] - c.value) / Math.max(c.value, 5)
+  }
+  return d
 }

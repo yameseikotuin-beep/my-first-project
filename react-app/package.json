@@ -8,13 +8,19 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "export-foods": "node scripts/export-foods.mjs",
+    "test:e2e": "playwright test",
+    "test:db": "scripts/test-db.sh",
+    "build:e2e-cloud": "VITE_SUPABASE_URL=http://supabase.test VITE_SUPABASE_ANON_KEY=e2e-anon-key vite build --outDir dist-e2e-cloud"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.117.2",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.1",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",

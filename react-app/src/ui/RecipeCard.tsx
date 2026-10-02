@@ -1,6 +1,7 @@
 import type { Recipe } from '../types'
 import { href } from '../router'
-import { fmt0, fmt1, PfcBar, StatusBadge, useFoodDb } from './common'
+import { PfcBar, StatusBadge } from './common'
+import { fmt0, fmt1, useFoodDb } from './helpers'
 import { RecipeImage } from './RecipeImage'
 
 export function RecipeCard({ recipe, extra }: { recipe: Recipe; extra?: React.ReactNode }) {
@@ -21,6 +22,7 @@ export function RecipeCard({ recipe, extra }: { recipe: Recipe; extra?: React.Re
           </div>
           <div className="row tiny muted" style={{ gap: 8, marginTop: 2 }}>
             <StatusBadge status={recipe.validation.status} />
+            {recipe.source === 'ai' && <span className="badge info">AI考案</span>}
             <span>⏱ {recipe.cookingTime}分</span>
             {recipe.genre && <span>{recipe.genre}</span>}
             <span>{recipe.servings}人前</span>
