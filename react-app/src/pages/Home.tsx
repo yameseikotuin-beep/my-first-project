@@ -4,6 +4,7 @@ import { greeting, photoBg, today, useFoodDb } from '../ui/helpers'
 import { navigate } from '../router'
 import { setSession, toast } from '../store/session'
 import { quickDailyPlan, seedFor } from '../engine/quickPlan'
+import { daysUntil } from '../engine/shopping'
 
 /** 朝・昼・夕を表す3枚の料理写真を横に並べた背景（下側を暗くして文字を読みやすくする） */
 function quickPlanBg() {
@@ -13,27 +14,36 @@ function quickPlanBg() {
   }
 }
 
-const MENU = [
-  { to: 'saved?tab=favorites', ico: '★', title: 'お気に入りレシピ' },
-  { to: 'saved?tab=history', ico: '🕘', title: 'レシピ履歴' },
-  { to: 'plan', ico: '📅', title: '1日の食事プラン' },
-  { to: 'shopping', ico: '🛒', title: '買い物リスト' },
-  { to: 'inventory', ico: '🧊', title: '食材の在庫' },
-  { to: 'profiles', ico: '👤', title: '利用者・目標設定' },
-  { to: 'settings', ico: '⚙️', title: '栄養設定' },
-  { to: 'foods', ico: '📚', title: '食材データベース' },
-  { to: 'account', ico: '☁️', title: 'アカウント・同期' },
-]
+const dishBg = (name: string) => ({
+  backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55)), url("${import.meta.env.BASE_URL}dishes/${name}.jpg")`,
+})
 
 export function Home() {
   const d = useAppData()
   const s = settingsFor(d)
   const p = activeProfile(d)
   const db = useFoodDb()
+  const t = today()
+  const inventory = mine(d, d.inventory)
+  const expiring = inventory.filter((i) => i.expiry && daysUntil(i.expiry, t) <= 2).length
+
+  const features = [
+    { to: 'saved?tab=favorites', ico: '★', title: 'お気に入り', sub: 'また作りたいレシピ', photo: 'salad', count: mine(d, d.favorites).length, unit: '件' },
+    { to: 'saved?tab=history', ico: '🕘', title: 'レシピ履歴', sub: '最近見たレシピ', photo: 'soup', count: mine(d, d.history).length, unit: '件' },
+    { to: 'plan', ico: '📅', title: '食事プラン', sub: '数日分の献立を計画', photo: 'rice', count: mine(d, d.mealPlans).length, unit: '件' },
+    { to: 'shopping', ico: '🛒', title: '買い物リスト', sub: '献立の食材をまとめる', photo: 'fruit-bowl', count: mine(d, d.shoppingLists).length, unit: '件' },
+  ]
+  const settingsMenu = [
+    { to: 'inventory', ico: '🧊', color: '#e3f1fb', title: '食材の在庫', sub: inventory.length > 0 ? `${inventory.length}品を登録中` : '冷蔵庫の食材と期限を管理', alert: expiring > 0 ? `期限間近 ${expiring}` : '' },
+    { to: 'profiles', ico: '👤', color: 'var(--green-soft)', title: '利用者・目標設定', sub: p ? `${p.name}さん（${d.profiles.length}人登録）` : '体重・目標から栄養目標を計算', alert: '' },
+    { to: 'settings', ico: '⚙️', color: '#efeaf8', title: '栄養設定', sub: `1日 ${s.calorieTarget}kcal・PFCの目標`, alert: '' },
+    { to: 'foods', ico: '📚', color: 'var(--orange-soft)', title: '食材データベース', sub: '食品成分表の栄養値を確認', alert: '' },
+    { to: 'account', ico: '☁️', color: '#e8eef6', title: 'アカウント・同期', sub: 'ログインして別の端末と同期', alert: '' },
+  ]
 
   function makeTodayPlan() {
     try {
-      const date = today()
+      const date = t
       const seed = seedFor(date)
       const plan = quickDailyPlan(db, s, p, date, seed, d.activeUserId)
       setSession((ss) => ({ ...ss, planDraft: plan, planSeed: seed }))
@@ -77,12 +87,33 @@ export function Home() {
         </a>
       </div>
 
-      <h2 style={{ marginTop: 22 }}>メニュー</h2>
-      <div className="menu-grid">
-        {MENU.map((m) => (
-          <a key={m.to} className="menu-tile" href={href(m.to)}>
-            <span className="ico" aria-hidden>{m.ico}</span>
-            <strong>{m.title}</strong>
+      <h2 className="home-section">レシピと献立</h2>
+      <div className="feature-grid">
+        {features.map((m) => (
+          <a key={m.to} className="feature-tile" href={href(m.to)}>
+            <span className="feature-photo" style={dishBg(m.photo)}>
+              <span className="feature-ico" aria-hidden>{m.ico}</span>
+              {m.count > 0 && <span className="feature-count">{m.count}{m.unit}</span>}
+            </span>
+            <span className="feature-body">
+              <strong>{m.title}</strong>
+              <span className="feature-sub">{m.sub}</span>
+            </span>
+          </a>
+        ))}
+      </div>
+
+      <h2 className="home-section">管理・設定</h2>
+      <div className="setting-list">
+        {settingsMenu.map((m) => (
+          <a key={m.to} className="setting-row" href={href(m.to)}>
+            <span className="setting-ico" style={{ background: m.color }} aria-hidden>{m.ico}</span>
+            <span className="setting-text">
+              <strong>{m.title}</strong>
+              <span className="setting-sub">{m.sub}</span>
+            </span>
+            {m.alert && <span className="setting-alert">{m.alert}</span>}
+            <span className="setting-chevron" aria-hidden>›</span>
           </a>
         ))}
       </div>

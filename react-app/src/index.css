@@ -240,6 +240,45 @@ details > summary { cursor: pointer; font-weight: 600; }
 }
 @media (min-width: 640px) { .home-banner { min-height: 280px; } .photo-menu { min-height: 190px; } }
 
+/* ===== ホーム: メニュー ===== */
+.home-section { margin: 24px 0 10px; font-size: 1.1rem; }
+.feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (min-width: 640px) { .feature-grid { grid-template-columns: repeat(4, 1fr); gap: 12px; } }
+.feature-tile {
+  display: flex; flex-direction: column; overflow: hidden; text-decoration: none; color: inherit;
+  background: var(--surface); border-radius: 16px; box-shadow: var(--shadow); transition: transform 0.15s ease;
+}
+.feature-tile:active { transform: scale(0.97); }
+.feature-photo {
+  position: relative; display: block; aspect-ratio: 16 / 10; background-color: var(--green-soft);
+  background-size: cover; background-position: center;
+}
+.feature-ico {
+  position: absolute; left: 10px; bottom: -16px; width: 36px; height: 36px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 1.1rem; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+}
+.feature-count {
+  position: absolute; right: 8px; top: 8px; padding: 2px 9px; border-radius: 999px;
+  background: rgba(255,255,255,0.92); color: var(--green-dark); font-size: 0.75rem; font-weight: 700;
+}
+.feature-body { display: flex; flex-direction: column; gap: 2px; padding: 22px 12px 12px; }
+.feature-body strong { font-size: 1rem; }
+.feature-sub { font-size: 0.78rem; color: var(--muted); }
+
+.setting-list { background: var(--surface); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; }
+.setting-row {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px; text-decoration: none; color: inherit;
+  border-top: 1px solid var(--border);
+}
+.setting-row:first-child { border-top: 0; }
+.setting-row:active { background: var(--bg); }
+.setting-ico { flex: none; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-size: 1.25rem; }
+.setting-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.setting-text strong { font-size: 0.98rem; }
+.setting-sub { font-size: 0.78rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.setting-alert { flex: none; padding: 2px 8px; border-radius: 999px; background: var(--red-soft); color: var(--red); font-size: 0.75rem; font-weight: 700; }
+.setting-chevron { flex: none; color: var(--muted); font-size: 1.4rem; line-height: 1; }
+
 /* ===== ホーム: 今日の献立ボタン ===== */
 .quick-plan {
   position: relative; display: flex; align-items: flex-end; gap: 12px; width: 100%; min-height: 170px; margin-top: 12px; padding: 14px 16px;
