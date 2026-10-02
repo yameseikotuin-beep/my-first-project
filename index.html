@@ -1,0 +1,1751 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#2563eb">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="InBody診断">
+<title>InBody × 痛み因果診断アプリ</title>
+<style>
+  :root{
+    --bg:#f4f6f8;
+    --panel:#ffffff;
+    --text:#1f2937;
+    --muted:#6b7280;
+    --border:#e2e8f0;
+    --accent:#2563eb;
+    --accent-dark:#1d4ed8;
+    --safe:#16a34a;
+    --caution:#ca8a04;
+    --warning:#ea580c;
+    --danger:#dc2626;
+    --safe-bg:#ecfdf3;
+    --caution-bg:#fefce8;
+    --warning-bg:#fff7ed;
+    --danger-bg:#fef2f2;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:"Hiragino Sans","Yu Gothic",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    line-height:1.6;
+    padding-bottom:60px;
+    overflow-x:hidden;
+    -webkit-tap-highlight-color:transparent;
+  }
+  header{
+    background:linear-gradient(135deg,#1d4ed8,#2563eb);
+    color:#fff;
+    padding:28px 20px 24px;
+    text-align:center;
+  }
+  header h1{margin:0 0 6px;font-size:1.5rem;}
+  header p{margin:0;opacity:.9;font-size:.9rem;}
+  main{
+    max-width:880px;
+    margin:20px auto;
+    padding:0 16px;
+    width:100%;
+    display:flex;
+    flex-direction:column;
+    gap:20px;
+  }
+  section.panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:20px;
+  }
+  section.panel h2{
+    margin:0 0 4px;
+    font-size:1.05rem;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  section.panel h2 .step{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:24px;height:24px;
+    border-radius:50%;
+    background:var(--accent);
+    color:#fff;
+    font-size:.8rem;
+    flex:none;
+  }
+  .desc{color:var(--muted);font-size:.85rem;margin:0 0 14px;}
+
+  /* drop zone */
+  #dropzone{
+    border:2px dashed var(--border);
+    border-radius:var(--radius);
+    padding:24px;
+    text-align:center;
+    cursor:pointer;
+    transition:.15s;
+    background:#fafbfc;
+  }
+  #dropzone.drag{border-color:var(--accent);background:#eff6ff;}
+  #dropzone p{margin:6px 0;color:var(--muted);font-size:.85rem;}
+  #fileInput{display:none;}
+
+  /* crop / rotate stage */
+  #cropWrap{display:none;margin-top:14px;}
+  .wizard-progress{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    margin-top:10px;
+    padding:10px 12px;
+    background:#eff6ff;
+    border:1px solid #bfdbfe;
+    border-radius:8px;
+  }
+  .wizard-progress span{font-size:.78rem;color:var(--muted);}
+  .wizard-progress strong{font-size:1rem;color:var(--accent-dark);}
+  #cropStage{
+    width:100%;
+    border-radius:8px;
+    overflow:hidden;
+    background:#111827;
+  }
+  #cropCanvas{
+    display:block;
+    width:100%;
+    height:auto;
+    touch-action:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+
+  button{
+    font:inherit;
+    font-size:16px;
+    cursor:pointer;
+    border:none;
+    border-radius:8px;
+    padding:12px 18px;
+    min-height:44px;
+    background:var(--accent);
+    color:#fff;
+    font-weight:600;
+    transition:.15s;
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
+  }
+  button:hover{background:var(--accent-dark);}
+  button:disabled{background:#9ca3af;cursor:not-allowed;}
+  button.secondary{background:#fff;color:var(--accent);border:1px solid var(--accent);}
+  button.secondary:hover{background:#eff6ff;}
+  button.secondary:disabled{background:#f1f5f9;color:#9ca3af;border-color:#d1d5db;cursor:not-allowed;}
+
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px;}
+
+  #ocrProgress{
+    margin-top:12px;
+    height:8px;
+    border-radius:4px;
+    background:var(--border);
+    overflow:hidden;
+    display:none;
+  }
+  #ocrProgress > div{
+    height:100%;
+    width:0%;
+    background:var(--accent);
+    transition:width .2s;
+  }
+  #ocrStatus{font-size:.8rem;color:var(--muted);margin-top:6px;display:none;}
+
+  details#rawTextWrap{margin-top:14px;}
+  details#rawTextWrap summary{cursor:pointer;color:var(--accent);font-size:.85rem;}
+  #rawText{
+    width:100%;
+    min-height:110px;
+    margin-top:8px;
+    font-family:ui-monospace,monospace;
+    font-size:16px;
+    padding:8px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    resize:vertical;
+    box-sizing:border-box;
+  }
+
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+    gap:12px;
+    margin-top:10px;
+  }
+  .limb-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    margin-top:10px;
+  }
+  .limb-grid .trunk-field{
+    grid-column:1 / -1;
+    max-width:calc(50% - 6px);
+    margin:0 auto;
+  }
+  .field label{
+    display:block;
+    font-size:.75rem;
+    color:var(--muted);
+    margin-bottom:4px;
+  }
+  .field input, .field select{
+    width:100%;
+    padding:10px 10px;
+    min-height:42px;
+    border-radius:7px;
+    border:1px solid var(--border);
+    font:inherit;
+    font-size:16px;
+    background:#fff;
+  }
+  .field input:focus, .field select:focus{outline:2px solid var(--accent);outline-offset:1px;}
+
+  fieldset{border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-top:14px;}
+  fieldset legend{padding:0 6px;color:var(--muted);font-size:.8rem;}
+
+  .chips{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{
+    position:relative;
+  }
+  .chip input{position:absolute;opacity:0;width:0;height:0;}
+  .chip span{
+    display:inline-flex;
+    align-items:center;
+    min-height:40px;
+    padding:9px 16px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background:#fff;
+    font-size:.85rem;
+    cursor:pointer;
+    user-select:none;
+    transition:.15s;
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .chip input:checked + span{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:#fff;
+  }
+
+  .side-select{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:.85rem;}
+  .side-select label{display:flex;align-items:center;gap:6px;min-height:32px;cursor:pointer;}
+  .side-select input{width:18px;height:18px;flex:none;}
+
+  input[type=range]{width:100%;height:32px;touch-action:manipulation;}
+  #intensityLabel{font-weight:700;color:var(--accent);}
+
+  #diagnoseBtn{width:100%;padding:14px;font-size:1rem;margin-top:6px;}
+
+  /* results */
+  #results{display:none;}
+  .risk-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:10px 18px;
+    border-radius:999px;
+    font-weight:700;
+    font-size:1rem;
+  }
+  .risk-safe{background:var(--safe-bg);color:var(--safe);}
+  .risk-caution{background:var(--caution-bg);color:var(--caution);}
+  .risk-warning{background:var(--warning-bg);color:var(--warning);}
+  .risk-danger{background:var(--danger-bg);color:var(--danger);}
+
+  .table-scroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:14px;}
+  table#metricsTable{width:100%;min-width:480px;border-collapse:collapse;font-size:.85rem;}
+  table#metricsTable th, table#metricsTable td{
+    text-align:left;
+    padding:8px 10px;
+    border-bottom:1px solid var(--border);
+    white-space:nowrap;
+  }
+  table#metricsTable td:last-child, table#metricsTable th:last-child{white-space:normal;min-width:200px;}
+  table#metricsTable th{color:var(--muted);font-weight:600;font-size:.75rem;text-transform:uppercase;}
+  .tag{
+    display:inline-block;
+    padding:3px 9px;
+    border-radius:999px;
+    font-size:.72rem;
+    font-weight:700;
+  }
+  .tag.safe{background:var(--safe-bg);color:var(--safe);}
+  .tag.caution{background:var(--caution-bg);color:var(--caution);}
+  .tag.warning{background:var(--warning-bg);color:var(--warning);}
+  .tag.danger{background:var(--danger-bg);color:var(--danger);}
+  .tag.na{background:#f1f5f9;color:var(--muted);}
+
+  .balance-row{margin:14px 0;}
+  .balance-label{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 10px;font-size:.78rem;color:var(--muted);margin-bottom:4px;}
+  .balance-bar{
+    display:flex;
+    height:14px;
+    border-radius:7px;
+    overflow:hidden;
+    background:var(--border);
+  }
+  .balance-bar .l, .balance-bar .r{height:100%;}
+  .balance-bar .l{background:#60a5fa;}
+  .balance-bar .r{background:#2563eb;}
+  .balance-mid{width:2px;background:#fff;}
+
+  .cause-card{
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:14px;
+    margin-top:12px;
+    background:#fafbfc;
+  }
+  .cause-card h4{margin:0 0 8px;font-size:.95rem;}
+  .cause-card ul{margin:0;padding-left:18px;font-size:.85rem;}
+  .cause-card ul li{margin-bottom:6px;}
+  .cause-card .none{color:var(--muted);font-size:.85rem;}
+
+  .rec-list{font-size:.85rem;padding-left:18px;}
+  .rec-list li{margin-bottom:6px;}
+
+  .disclaimer{
+    margin-top:18px;
+    font-size:.78rem;
+    color:var(--muted);
+    background:#f8fafc;
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:12px 14px;
+  }
+
+  footer{
+    text-align:center;
+    color:var(--muted);
+    font-size:.75rem;
+    margin-top:30px;
+  }
+
+  @media (max-width:600px){
+    main{padding:0 12px;margin:14px auto;gap:14px;}
+    section.panel{padding:16px;}
+    header{padding:22px 16px 20px;}
+    .grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;}
+    #dropzone{padding:18px 12px;}
+    .row{gap:8px;}
+    .row button{flex:1 1 auto;}
+  }
+  @media (max-width:420px){
+    header h1{font-size:1.15rem;}
+    header p{font-size:.8rem;}
+    .grid{grid-template-columns:1fr 1fr;}
+    .chip span{padding:8px 12px;font-size:.8rem;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>InBody × 痛み因果診断アプリ</h1>
+  <p>InBody計測結果の画像から体の痛みとの関連要因を推定し、数値による危険度を予測します</p>
+</header>
+
+<main>
+
+  <!-- STEP 1: 画像アップロード -->
+  <section class="panel">
+    <h2><span class="step">1</span>InBody結果画像の読み込み</h2>
+    <p class="desc">InBody計測結果シートの写真またはスクリーンショットをアップロードしてください。数値が書かれた範囲を選んで拡大・補正してから読み取ることで、精度が上がります（読み取り精度には限界があるため、必ず内容を確認・修正してください）。</p>
+
+    <div id="dropzone">
+      <p><strong>クリックして画像を選択</strong>、またはドラッグ＆ドロップ</p>
+      <p>JPEG / PNG など（スマホでは撮影も可能）</p>
+      <input type="file" id="fileInput" accept="image/*">
+    </div>
+
+    <div id="cropWrap">
+      <p class="desc" id="cropInstructionNormal" style="margin-top:14px;">画像は指2本でピンチして拡大・縮小、1本指でドラッグして移動できます。数字が見える大きさまで拡大してから、枠を数字だけに合わせてください（角をドラッグでサイズ変更、枠の内側をドラッグで移動）。傾いている場合は回転も使えます。</p>
+
+      <div id="wizardBar" style="display:none;">
+        <div class="wizard-progress">
+          <span id="wizardStepLabel">1 / 11</span>
+          <strong id="wizardFieldName">身長</strong>
+        </div>
+        <p class="desc" id="wizardInstruction" style="margin-top:6px;">身長の数字だけを囲んでください</p>
+      </div>
+
+      <div id="cropStage">
+        <canvas id="cropCanvas"></canvas>
+      </div>
+      <div class="row">
+        <button type="button" class="secondary" id="rotateLeftBtn">↺ 90°回転</button>
+        <button type="button" class="secondary" id="rotateRightBtn">↻ 90°回転</button>
+        <button type="button" class="secondary" id="resetCropBtn">全体表示に戻す</button>
+      </div>
+    </div>
+
+    <div class="row" id="normalOcrRow">
+      <button id="ocrBtn" disabled>選択範囲から数値を読み取る（OCR実行）</button>
+      <button class="secondary" id="wizardStartBtn" disabled>1項目ずつ確実に読み取る</button>
+      <button class="secondary" id="clearImgBtn" disabled>画像をクリア</button>
+    </div>
+
+    <div class="row" id="wizardActionRow" style="display:none;">
+      <button id="wizardReadBtn">この範囲を読み取る</button>
+      <button class="secondary" id="wizardSkipBtn">この項目をスキップ</button>
+      <button class="secondary" id="wizardExitBtn">ウィザードを終了</button>
+    </div>
+
+    <div id="wizardConfirm" style="display:none;">
+      <div class="field">
+        <label for="wizardValueInput">読み取り結果（必要なら修正してください）</label>
+        <input type="number" id="wizardValueInput" step="0.01">
+      </div>
+      <div class="row">
+        <button id="wizardConfirmBtn">この値で確定して次へ</button>
+        <button class="secondary" id="wizardBackBtn">範囲を選び直す</button>
+      </div>
+    </div>
+
+    <div id="ocrProgress"><div></div></div>
+    <div id="ocrStatus"></div>
+
+    <details id="rawTextWrap">
+      <summary>読み取った生テキストを確認する</summary>
+      <textarea id="rawText" placeholder="OCR実行後にここへ読み取り結果が表示されます"></textarea>
+    </details>
+  </section>
+
+  <!-- STEP 2: 計測値フォーム -->
+  <section class="panel">
+    <h2><span class="step">2</span>計測値の確認・入力</h2>
+    <p class="desc">OCRで読み取った値が自動入力されます。誤りがあれば手動で修正してください。空欄の項目は診断から除外されます。</p>
+
+    <div class="grid">
+      <div class="field">
+        <label for="f_gender">性別</label>
+        <select id="f_gender">
+          <option value="male">男性</option>
+          <option value="female">女性</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="f_age">年齢</label>
+        <input type="number" id="f_age" min="1" max="120" placeholder="例: 35">
+      </div>
+      <div class="field">
+        <label for="f_height">身長 (cm)</label>
+        <input type="number" id="f_height" step="0.1" placeholder="例: 165.0">
+      </div>
+      <div class="field">
+        <label for="f_weight">体重 (kg)</label>
+        <input type="number" id="f_weight" step="0.1" placeholder="例: 60.5">
+      </div>
+      <div class="field">
+        <label for="f_bmi">BMI</label>
+        <input type="number" id="f_bmi" step="0.1" placeholder="例: 22.3">
+      </div>
+      <div class="field">
+        <label for="f_pbf">体脂肪率 (%)</label>
+        <input type="number" id="f_pbf" step="0.1" placeholder="例: 24.5">
+      </div>
+      <div class="field">
+        <label for="f_fatmass">体脂肪量 (kg)</label>
+        <input type="number" id="f_fatmass" step="0.1" placeholder="例: 15.0">
+      </div>
+      <div class="field">
+        <label for="f_smm">骨格筋量 (kg)</label>
+        <input type="number" id="f_smm" step="0.1" placeholder="例: 24.0">
+      </div>
+      <div class="field">
+        <label for="f_visceral">内臓脂肪レベル</label>
+        <input type="number" id="f_visceral" step="1" placeholder="例: 8">
+      </div>
+      <div class="field">
+        <label for="f_muscle">筋肉量 (kg)</label>
+        <input type="number" id="f_muscle" step="0.1" placeholder="例: 34.7">
+      </div>
+    </div>
+
+    <fieldset>
+      <legend>部位別筋肉量（kg）— 左右バランス分析に使用</legend>
+      <div class="limb-grid">
+        <div class="field"><label for="f_larm">左腕</label><input type="number" id="f_larm" step="0.1"></div>
+        <div class="field"><label for="f_rarm">右腕</label><input type="number" id="f_rarm" step="0.1"></div>
+        <div class="field trunk-field"><label for="f_trunk">体幹</label><input type="number" id="f_trunk" step="0.1"></div>
+        <div class="field"><label for="f_lleg">左脚</label><input type="number" id="f_lleg" step="0.1"></div>
+        <div class="field"><label for="f_rleg">右脚</label><input type="number" id="f_rleg" step="0.1"></div>
+      </div>
+    </fieldset>
+  </section>
+
+  <!-- STEP 3: 痛みの症状 -->
+  <section class="panel">
+    <h2><span class="step">3</span>痛みの症状</h2>
+    <p class="desc">現在気になる痛み・違和感のある部位を選択してください（複数選択可）。</p>
+
+    <div class="chips" id="painChips">
+      <label class="chip"><input type="checkbox" value="首"><span>首</span></label>
+      <label class="chip"><input type="checkbox" value="肩"><span>肩・肩こり</span></label>
+      <label class="chip"><input type="checkbox" value="腰"><span>腰</span></label>
+      <label class="chip"><input type="checkbox" value="背中"><span>背中</span></label>
+      <label class="chip"><input type="checkbox" value="股関節"><span>股関節</span></label>
+      <label class="chip"><input type="checkbox" value="膝"><span>膝</span></label>
+      <label class="chip"><input type="checkbox" value="足首・足"><span>足首・足</span></label>
+      <label class="chip"><input type="checkbox" value="肘"><span>肘</span></label>
+      <label class="chip"><input type="checkbox" value="手首・手"><span>手首・手</span></label>
+    </div>
+
+    <div class="side-select">
+      <span style="color:var(--muted);font-size:.85rem;">症状が強い側：</span>
+      <label><input type="radio" name="side" value="right"> 右側</label>
+      <label><input type="radio" name="side" value="left"> 左側</label>
+      <label><input type="radio" name="side" value="both" checked> 両側・不明</label>
+    </div>
+
+    <div style="margin-top:16px;">
+      <label style="font-size:.85rem;color:var(--muted);">痛みの強さ：<span id="intensityLabel">5</span> / 10</label>
+      <input type="range" id="painIntensity" min="0" max="10" value="5">
+    </div>
+
+    <div class="field" style="margin-top:12px;max-width:260px;">
+      <label for="painDuration">症状の期間</label>
+      <select id="painDuration">
+        <option value="acute">数日以内（急性）</option>
+        <option value="sub">数週間〜3ヶ月</option>
+        <option value="chronic">3ヶ月以上（慢性）</option>
+      </select>
+    </div>
+  </section>
+
+  <button id="diagnoseBtn">この内容で診断する</button>
+
+  <!-- RESULTS -->
+  <section class="panel" id="results">
+    <h2>診断結果</h2>
+
+    <div id="riskBadgeWrap"></div>
+
+    <h3 style="margin-top:20px;font-size:.95rem;">計測値の評価</h3>
+    <div class="table-scroll">
+      <table id="metricsTable">
+        <thead><tr><th>項目</th><th>値</th><th>評価</th><th>コメント</th></tr></thead>
+        <tbody id="metricsTbody"></tbody>
+      </table>
+    </div>
+
+    <div id="balanceWrap"></div>
+
+    <h3 style="margin-top:24px;font-size:.95rem;">痛みとの関連要因分析</h3>
+    <div id="causeWrap"></div>
+
+    <h3 style="margin-top:24px;font-size:.95rem;">推奨アクション</h3>
+    <ul class="rec-list" id="recList"></ul>
+
+    <div class="disclaimer">
+      本アプリの診断結果は、InBody計測値と一般的な傾向に基づく<strong>参考情報</strong>であり、医学的診断ではありません。強い痛みや長引く症状がある場合は、整形外科・内科などの医療機関を受診してください。画像や入力データはすべてお使いのブラウザ内で処理され、外部サーバーへ送信されることはありません。
+    </div>
+  </section>
+
+</main>
+
+<footer>InBody × 痛み因果診断アプリ &mdash; すべての処理はブラウザ内で完結します</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- Step 1: image + crop/rotate + OCR ---------- */
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const cropWrap = document.getElementById('cropWrap');
+  const cropStage = document.getElementById('cropStage');
+  const cropCanvas = document.getElementById('cropCanvas');
+  const cropCtx = cropCanvas.getContext('2d');
+  const rotateLeftBtn = document.getElementById('rotateLeftBtn');
+  const rotateRightBtn = document.getElementById('rotateRightBtn');
+  const resetCropBtn = document.getElementById('resetCropBtn');
+  const ocrBtn = document.getElementById('ocrBtn');
+  const wizardStartBtn = document.getElementById('wizardStartBtn');
+  const clearImgBtn = document.getElementById('clearImgBtn');
+  const ocrProgress = document.getElementById('ocrProgress');
+  const ocrProgressBar = ocrProgress.querySelector('div');
+  const ocrStatus = document.getElementById('ocrStatus');
+  const rawText = document.getElementById('rawText');
+
+  let originalImage = null;   // 読み込んだ元画像（Image要素）
+  let rotationDeg = 0;        // 0 / 90 / 180 / 270
+  let sourceCanvas = document.createElement('canvas'); // 回転適用後のフル解像度画像（常に画像全体を保持する）
+  let rect = {x:0, y:0, w:0, h:0}; // 切り抜き範囲（cropCanvas 座標系）
+
+  // ピンチズーム・パン用の表示状態。cropCanvas には sourceCanvas の一部を
+  // renderScale 倍（cropCanvas 1px あたり sourceCanvas 何px か）して描画する
+  let baseRenderScale = 1; // 全体表示（フィット）時の renderScale
+  let renderScale = 1;
+  let viewOffsetX = 0; // 現在表示中の範囲の左上（sourceCanvas 座標系）
+  let viewOffsetY = 0;
+  const MAX_ZOOM_MULT = 8; // baseRenderScale の何倍までピンチで拡大できるか
+
+  dropzone.addEventListener('click', () => fileInput.click());
+  dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.classList.remove('drag');
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', e => {
+    if (e.target.files && e.target.files[0]) handleFile(e.target.files[0]);
+  });
+
+  function handleFile(file){
+    if (!file.type.startsWith('image/')) { alert('画像ファイルを選択してください。'); return; }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      originalImage = img;
+      rotationDeg = 0;
+      URL.revokeObjectURL(url);
+      cropWrap.style.display = 'block';
+      buildSourceCanvas();
+      initCropUI();
+      ocrBtn.disabled = false;
+      wizardStartBtn.disabled = false;
+      clearImgBtn.disabled = false;
+    };
+    img.onerror = () => { alert('画像の読み込みに失敗しました。別の画像でお試しください。'); };
+    img.src = url;
+  }
+
+  clearImgBtn.addEventListener('click', () => {
+    originalImage = null;
+    fileInput.value = '';
+    cropWrap.style.display = 'none';
+    ocrBtn.disabled = true;
+    wizardStartBtn.disabled = true;
+    clearImgBtn.disabled = true;
+    rawText.value = '';
+    exitWizardMode();
+  });
+
+  function buildSourceCanvas(){
+    const iw = originalImage.naturalWidth, ih = originalImage.naturalHeight;
+    const swap = rotationDeg % 180 !== 0;
+    sourceCanvas.width = swap ? ih : iw;
+    sourceCanvas.height = swap ? iw : ih;
+    const sctx = sourceCanvas.getContext('2d');
+    sctx.save();
+    sctx.translate(sourceCanvas.width / 2, sourceCanvas.height / 2);
+    sctx.rotate(rotationDeg * Math.PI / 180);
+    sctx.drawImage(originalImage, -iw / 2, -ih / 2);
+    sctx.restore();
+  }
+
+  function initCropUI(){
+    const containerWidth = cropStage.clientWidth || 320;
+    const displayW = Math.min(sourceCanvas.width, containerWidth, 640);
+    const displayH = Math.round(displayW * (sourceCanvas.height / sourceCanvas.width));
+    cropCanvas.width = Math.round(displayW);
+    cropCanvas.height = displayH;
+    resetView();
+    setDefaultRect();
+    drawCropStage();
+  }
+
+  // 表示（ピンチズーム・パン）を全体表示にリセットする。sourceCanvas 自体は変更しない
+  function resetView(){
+    baseRenderScale = cropCanvas.width / sourceCanvas.width;
+    renderScale = baseRenderScale;
+    viewOffsetX = 0;
+    viewOffsetY = 0;
+  }
+
+  function setDefaultRect(){
+    const mx = cropCanvas.width * 0.06;
+    const my = cropCanvas.height * 0.06;
+    rect = { x: mx, y: my, w: cropCanvas.width - mx * 2, h: cropCanvas.height - my * 2 };
+  }
+
+  function drawCropStage(){
+    cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+    const viewW = cropCanvas.width / renderScale;
+    const viewH = cropCanvas.height / renderScale;
+    cropCtx.drawImage(sourceCanvas, viewOffsetX, viewOffsetY, viewW, viewH, 0, 0, cropCanvas.width, cropCanvas.height);
+
+    cropCtx.fillStyle = 'rgba(0,0,0,0.5)';
+    cropCtx.fillRect(0, 0, cropCanvas.width, rect.y);
+    cropCtx.fillRect(0, rect.y + rect.h, cropCanvas.width, cropCanvas.height - (rect.y + rect.h));
+    cropCtx.fillRect(0, rect.y, rect.x, rect.h);
+    cropCtx.fillRect(rect.x + rect.w, rect.y, cropCanvas.width - (rect.x + rect.w), rect.h);
+
+    cropCtx.strokeStyle = '#2563eb';
+    cropCtx.lineWidth = 2;
+    cropCtx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+
+    const hs = 18;
+    cropCtx.fillStyle = '#2563eb';
+    [[rect.x, rect.y], [rect.x + rect.w, rect.y], [rect.x, rect.y + rect.h], [rect.x + rect.w, rect.y + rect.h]]
+      .forEach(([cx, cy]) => cropCtx.fillRect(cx - hs / 2, cy - hs / 2, hs, hs));
+  }
+
+  function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
+
+  function getPos(e){
+    const bcr = cropCanvas.getBoundingClientRect();
+    const scaleX = cropCanvas.width / bcr.width;
+    const scaleY = cropCanvas.height / bcr.height;
+    return { x: (e.clientX - bcr.left) * scaleX, y: (e.clientY - bcr.top) * scaleY };
+  }
+
+  function hitTestCorner(pos){
+    const hs = 24;
+    const corners = [
+      { i: 'tl', x: rect.x, y: rect.y },
+      { i: 'tr', x: rect.x + rect.w, y: rect.y },
+      { i: 'bl', x: rect.x, y: rect.y + rect.h },
+      { i: 'br', x: rect.x + rect.w, y: rect.y + rect.h }
+    ];
+    for (const c of corners) {
+      if (Math.abs(pos.x - c.x) <= hs && Math.abs(pos.y - c.y) <= hs) return c.i;
+    }
+    return null;
+  }
+
+  let dragMode = null, dragCorner = null, dragStart = {x:0,y:0}, rectStart = {x:0,y:0,w:0,h:0};
+  const MIN_RECT = 24;
+
+  // 指2本でのピンチズーム・パン用の状態
+  const activePointers = new Map(); // pointerId -> {x,y}（cropCanvas座標系）
+  let pinchState = null;
+
+  function pinchMetrics(){
+    const pts = Array.from(activePointers.values());
+    const dx = pts[0].x - pts[1].x, dy = pts[0].y - pts[1].y;
+    return { dist: Math.hypot(dx, dy), midX: (pts[0].x + pts[1].x) / 2, midY: (pts[0].y + pts[1].y) / 2 };
+  }
+
+  cropCanvas.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    try { cropCanvas.setPointerCapture(e.pointerId); } catch (err) { /* 一部の環境では失敗しうるが致命的ではない */ }
+    const pos = getPos(e);
+    activePointers.set(e.pointerId, pos);
+
+    if (activePointers.size >= 2) {
+      // 2本目の指が触れたらピンチ操作に切り替え、進行中の枠編集はキャンセルする
+      dragMode = null;
+      const m = pinchMetrics();
+      pinchState = {
+        startDist: Math.max(1, m.dist),
+        startMidX: m.midX, startMidY: m.midY,
+        startRenderScale: renderScale,
+        startOffsetX: viewOffsetX, startOffsetY: viewOffsetY
+      };
+      return;
+    }
+
+    const corner = hitTestCorner(pos);
+    if (corner) {
+      dragMode = 'resize'; dragCorner = corner;
+    } else if (pos.x >= rect.x && pos.x <= rect.x + rect.w && pos.y >= rect.y && pos.y <= rect.y + rect.h) {
+      dragMode = 'move';
+    } else {
+      dragMode = 'new';
+      rect = { x: pos.x, y: pos.y, w: 0, h: 0 };
+    }
+    dragStart = pos;
+    rectStart = { ...rect };
+  });
+
+  cropCanvas.addEventListener('pointermove', e => {
+    if (!activePointers.has(e.pointerId)) return;
+    e.preventDefault();
+    const pos = getPos(e);
+    activePointers.set(e.pointerId, pos);
+
+    if (activePointers.size >= 2 && pinchState) {
+      const m = pinchMetrics();
+      const scaleFactor = m.dist / pinchState.startDist;
+      const newRenderScale = clamp(pinchState.startRenderScale * scaleFactor, baseRenderScale, baseRenderScale * MAX_ZOOM_MULT);
+
+      // ピンチの中心にある画像上の点が、ズーム後も同じ画面位置に留まるようにする
+      const srcX = pinchState.startOffsetX + pinchState.startMidX / pinchState.startRenderScale;
+      const srcY = pinchState.startOffsetY + pinchState.startMidY / pinchState.startRenderScale;
+      let newOffsetX = srcX - m.midX / newRenderScale;
+      let newOffsetY = srcY - m.midY / newRenderScale;
+
+      const viewW = cropCanvas.width / newRenderScale;
+      const viewH = cropCanvas.height / newRenderScale;
+      newOffsetX = clamp(newOffsetX, 0, Math.max(0, sourceCanvas.width - viewW));
+      newOffsetY = clamp(newOffsetY, 0, Math.max(0, sourceCanvas.height - viewH));
+
+      renderScale = newRenderScale;
+      viewOffsetX = newOffsetX;
+      viewOffsetY = newOffsetY;
+      drawCropStage();
+      return;
+    }
+
+    if (!dragMode) return;
+    const dx = pos.x - dragStart.x, dy = pos.y - dragStart.y;
+
+    if (dragMode === 'move') {
+      rect.x = clamp(rectStart.x + dx, 0, cropCanvas.width - rect.w);
+      rect.y = clamp(rectStart.y + dy, 0, cropCanvas.height - rect.h);
+    } else if (dragMode === 'resize') {
+      let { x, y, w, h } = rectStart;
+      if (dragCorner === 'tl') { x = rectStart.x + dx; y = rectStart.y + dy; w = rectStart.w - dx; h = rectStart.h - dy; }
+      if (dragCorner === 'tr') { y = rectStart.y + dy; w = rectStart.w + dx; h = rectStart.h - dy; }
+      if (dragCorner === 'bl') { x = rectStart.x + dx; w = rectStart.w - dx; h = rectStart.h + dy; }
+      if (dragCorner === 'br') { w = rectStart.w + dx; h = rectStart.h + dy; }
+      if (w < MIN_RECT) w = MIN_RECT;
+      if (h < MIN_RECT) h = MIN_RECT;
+      x = clamp(x, 0, cropCanvas.width - MIN_RECT);
+      y = clamp(y, 0, cropCanvas.height - MIN_RECT);
+      w = Math.min(w, cropCanvas.width - x);
+      h = Math.min(h, cropCanvas.height - y);
+      rect = { x, y, w, h };
+    } else if (dragMode === 'new') {
+      const x0 = clamp(Math.min(dragStart.x, pos.x), 0, cropCanvas.width);
+      const y0 = clamp(Math.min(dragStart.y, pos.y), 0, cropCanvas.height);
+      const w0 = Math.abs(pos.x - dragStart.x);
+      const h0 = Math.abs(pos.y - dragStart.y);
+      rect = { x: x0, y: y0, w: Math.min(w0, cropCanvas.width - x0), h: Math.min(h0, cropCanvas.height - y0) };
+    }
+    drawCropStage();
+  });
+
+  ['pointerup', 'pointercancel'].forEach(evt => cropCanvas.addEventListener(evt, e => {
+    const wasPinching = !!pinchState;
+    activePointers.delete(e.pointerId);
+    if (activePointers.size < 2) pinchState = null;
+    if (activePointers.size === 0) {
+      dragMode = null;
+      if (wasPinching) {
+        // ピンチ操作の直後は枠が無関係な場所を指しているため、表示範囲に合わせて引き直す
+        setDefaultRect();
+        drawCropStage();
+      }
+    }
+  }));
+
+  rotateLeftBtn.addEventListener('click', () => {
+    rotationDeg = (rotationDeg + 270) % 360;
+    buildSourceCanvas();
+    initCropUI();
+  });
+  rotateRightBtn.addEventListener('click', () => {
+    rotationDeg = (rotationDeg + 90) % 360;
+    buildSourceCanvas();
+    initCropUI();
+  });
+  resetCropBtn.addEventListener('click', () => {
+    // 表示（ピンチズーム・パン）と選択枠の両方を初期状態に戻す
+    resetView();
+    setDefaultRect();
+    drawCropStage();
+  });
+
+  // 現在の切り抜き枠（画面座標）を、回転後のsourceCanvas上の実ピクセル範囲に変換する
+  function getSourceCropRect(){
+    return {
+      sx: viewOffsetX + rect.x / renderScale,
+      sy: viewOffsetY + rect.y / renderScale,
+      sw: Math.max(1, rect.w / renderScale),
+      sh: Math.max(1, rect.h / renderScale)
+    };
+  }
+
+  /* ---------- crop + preprocess (grayscale / contrast stretch / upscale) ---------- */
+  function extractProcessedCanvas(){
+    const { sx, sy, sw, sh } = getSourceCropRect();
+
+    const targetMinWidth = 1400;
+    let scale = sw < targetMinWidth ? targetMinWidth / sw : 1;
+    // ガイド付き入力では数字1つだけを狭く囲むため、元画像上でも数十px程度しかない範囲になりやすい。
+    // 上限を3倍にしていると、その場合に拡大が全く足りず（例: 幅40px→120px）OCRが
+    // 文字を検出できず「数字を読み取れませんでした」になっていた。上限を引き上げて対応する。
+    scale = Math.min(scale, 10);
+    const outW = Math.max(1, Math.round(sw * scale));
+    const outH = Math.max(1, Math.round(sh * scale));
+
+    const out = document.createElement('canvas');
+    out.width = outW; out.height = outH;
+    const octx = out.getContext('2d');
+    octx.imageSmoothingEnabled = true;
+    octx.imageSmoothingQuality = 'high';
+    octx.drawImage(sourceCanvas, sx, sy, sw, sh, 0, 0, outW, outH);
+
+    const imgData = octx.getImageData(0, 0, outW, outH);
+    const d = imgData.data;
+    const lum = new Float32Array(outW * outH);
+    let min = 255, max = 0;
+    for (let i = 0, p = 0; i < d.length; i += 4, p++) {
+      const l = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      lum[p] = l;
+      if (l < min) min = l;
+      if (l > max) max = l;
+    }
+    const range = Math.max(1, max - min);
+    for (let i = 0, p = 0; i < d.length; i += 4, p++) {
+      const v = clamp((lum[p] - min) * 255 / range, 0, 255);
+      d[i] = d[i + 1] = d[i + 2] = v;
+    }
+    octx.putImageData(imgData, 0, 0);
+    return out;
+  }
+
+  /* ---------- Tesseract worker (reused across runs) ---------- */
+  let workerPromise = null;
+  let currentLogger = null;
+
+  function getWorker(){
+    if (!workerPromise) {
+      workerPromise = Tesseract.createWorker('jpn+eng', 1, {
+        logger: m => { if (currentLogger) currentLogger(m); }
+      }).then(async w => {
+        await w.setParameters({
+          preserve_interword_spaces: '1',
+          user_defined_dpi: '300'
+        });
+        return w;
+      });
+    }
+    return workerPromise;
+  }
+
+  ocrBtn.addEventListener('click', async () => {
+    if (!originalImage) return;
+    if (typeof Tesseract === 'undefined') {
+      alert('OCRライブラリの読み込みに失敗しました。インターネット接続を確認して再読み込みしてください。');
+      return;
+    }
+    ocrBtn.disabled = true;
+    ocrProgress.style.display = 'block';
+    ocrStatus.style.display = 'block';
+    ocrProgressBar.style.width = '0%';
+    ocrStatus.textContent = '準備中…';
+    currentLogger = m => {
+      if (m.status) ocrStatus.textContent = translateStatus(m.status);
+      if (typeof m.progress === 'number') ocrProgressBar.style.width = Math.round(m.progress * 100) + '%';
+    };
+
+    try {
+      const processedCanvas = extractProcessedCanvas();
+      const worker = await getWorker();
+
+      // 選択範囲が画像全体に近い（狭く絞り込んでいない）場合はレイアウト自動解析、
+      // 数値の並び1〜2行程度までしっかり絞り込んでいる場合は単一ブロックとして読む
+      const cropRatio = (rect.w * rect.h) / (cropCanvas.width * cropCanvas.height);
+      await worker.setParameters({
+        tessedit_pageseg_mode: cropRatio < 0.35 ? '6' : '3',
+        tessedit_char_whitelist: '' // ガイド付き入力（数字限定モード）の制限が残っていないようにリセット
+      });
+
+      const { data: { text } } = await worker.recognize(processedCanvas);
+      rawText.value = text || '';
+      document.getElementById('rawTextWrap').open = true;
+      const found = applyParsedMetrics(parseInBodyText(text || ''));
+      ocrStatus.textContent = found > 0
+        ? '読み取り完了。数値をフォームで確認してください。'
+        : '数値を自動抽出できませんでした。「読み取った生テキストを確認する」を開いて、文字が読み取れているか確認してください。範囲を狭めて再実行するか、手動で入力してください。';
+    } catch (err) {
+      console.error(err);
+      ocrStatus.textContent = '読み取りに失敗しました。範囲を選び直すか、手動で数値を入力してください。';
+      workerPromise = null; // 失敗時はワーカーを作り直せるようにする
+    } finally {
+      currentLogger = null;
+      ocrBtn.disabled = false;
+      setTimeout(() => { ocrProgress.style.display = 'none'; }, 800);
+    }
+  });
+
+  /* ---------- ガイド付き入力（1項目ずつ確実に読み取る） ---------- */
+  const WIZARD_FIELDS = [
+    { formId:'f_height',  label:'身長',           instruction:'身長の数字だけを囲んでください（cmは含めなくてOK）', range:[100,230] },
+    { formId:'f_weight',  label:'体重',           instruction:'体重の数字だけを囲んでください', range:[20,300] },
+    { formId:'f_fatmass', label:'体脂肪量',        instruction:'体脂肪量の数字だけを囲んでください（横の基準範囲のカッコは含めなくてOK）', range:[1,150] },
+    { formId:'f_smm',     label:'骨格筋量',        instruction:'骨格筋量の数字だけを囲んでください', range:[5,80] },
+    { formId:'f_visceral',label:'内臓脂肪レベル',   instruction:'内臓脂肪レベルの数字だけを囲んでください', range:[1,30] },
+    { formId:'f_muscle',  label:'筋肉量',          instruction:'筋肉量（Soft Lean Mass）の数字だけを囲んでください', range:[15,55] },
+    { formId:'f_trunk',   label:'体幹の筋肉量',     instruction:'部位別筋肉量の図で、体幹（体の中心部）の数字だけを囲んでください', range:[3,40] },
+    { formId:'f_rarm',    label:'右腕の筋肉量',     instruction:'部位別筋肉量の図で、右腕の数字だけを囲んでください', range:[0.3,10] },
+    { formId:'f_larm',    label:'左腕の筋肉量',     instruction:'部位別筋肉量の図で、左腕の数字だけを囲んでください', range:[0.3,10] },
+    { formId:'f_rleg',    label:'右脚の筋肉量',     instruction:'部位別筋肉量の図で、右脚の数字だけを囲んでください', range:[2,25] },
+    { formId:'f_lleg',    label:'左脚の筋肉量',     instruction:'部位別筋肉量の図で、左脚の数字だけを囲んでください', range:[2,25] }
+  ];
+
+  // 各項目でユーザーが最後に確定した切り抜き位置を、画像全体に対する相対位置（0〜1）で
+  // ブラウザ内（localStorage）に記憶しておく。同じInBody帳票は毎回レイアウトが同じなので、
+  // 次回は前回とだいたい同じ場所に数字があることが多く、枠の初期位置として再利用できる。
+  // 外部には一切送信しない（この端末のブラウザ内に保存されるだけ）。
+  const FIELD_POS_STORAGE_KEY = 'inbodyWizardFieldPositions_v1';
+
+  function loadFieldPositions(){
+    try {
+      return JSON.parse(localStorage.getItem(FIELD_POS_STORAGE_KEY)) || {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function saveFieldPosition(formId){
+    const { sx, sy, sw, sh } = getSourceCropRect();
+    if (!sourceCanvas.width || !sourceCanvas.height) return;
+    const positions = loadFieldPositions();
+    positions[formId] = {
+      fx: sx / sourceCanvas.width,
+      fy: sy / sourceCanvas.height,
+      fw: sw / sourceCanvas.width,
+      fh: sh / sourceCanvas.height
+    };
+    try {
+      localStorage.setItem(FIELD_POS_STORAGE_KEY, JSON.stringify(positions));
+    } catch (e) {
+      // 保存できなくても致命的ではないため無視する（例: プライベートブラウジング等）
+    }
+  }
+
+  // 記憶しておいた相対位置を、現在の（全体表示にリセットされた）cropCanvas上の枠に変換して適用する。
+  // 全体表示時は cropCanvas のピクセル位置がそのまま画像全体に対する割合と一致するため、
+  // 割合 × cropCanvas幅/高さ でそのまま枠の座標になる
+  function applyFieldPosition(formId){
+    const positions = loadFieldPositions();
+    const p = positions[formId];
+    if (!p) return false;
+    const x = clamp(p.fx * cropCanvas.width, 0, cropCanvas.width - MIN_RECT);
+    const y = clamp(p.fy * cropCanvas.height, 0, cropCanvas.height - MIN_RECT);
+    const w = clamp(p.fw * cropCanvas.width, MIN_RECT, cropCanvas.width - x);
+    const h = clamp(p.fh * cropCanvas.height, MIN_RECT, cropCanvas.height - y);
+    rect = { x, y, w, h };
+    return true;
+  }
+
+  const wizardBar = document.getElementById('wizardBar');
+  const cropInstructionNormal = document.getElementById('cropInstructionNormal');
+  const normalOcrRow = document.getElementById('normalOcrRow');
+  const wizardActionRow = document.getElementById('wizardActionRow');
+  const wizardConfirm = document.getElementById('wizardConfirm');
+  const wizardStepLabel = document.getElementById('wizardStepLabel');
+  const wizardFieldName = document.getElementById('wizardFieldName');
+  const wizardInstruction = document.getElementById('wizardInstruction');
+  const wizardValueInput = document.getElementById('wizardValueInput');
+  const wizardReadBtn = document.getElementById('wizardReadBtn');
+  const wizardSkipBtn = document.getElementById('wizardSkipBtn');
+  const wizardExitBtn = document.getElementById('wizardExitBtn');
+  const wizardConfirmBtn = document.getElementById('wizardConfirmBtn');
+  const wizardBackBtn = document.getElementById('wizardBackBtn');
+
+  let wizardActive = false;
+  let wizardIndex = 0;
+
+  function enterWizardMode(){
+    if (!originalImage) return;
+    wizardActive = true;
+    wizardIndex = 0;
+    cropInstructionNormal.style.display = 'none';
+    wizardBar.style.display = 'block';
+    normalOcrRow.style.display = 'none';
+    showWizardStep();
+  }
+
+  function exitWizardMode(){
+    wizardActive = false;
+    cropInstructionNormal.style.display = 'block';
+    wizardBar.style.display = 'none';
+    normalOcrRow.style.display = 'flex';
+    wizardActionRow.style.display = 'none';
+    wizardConfirm.style.display = 'none';
+  }
+
+  function showWizardStep(){
+    const f = WIZARD_FIELDS[wizardIndex];
+    wizardStepLabel.textContent = (wizardIndex + 1) + ' / ' + WIZARD_FIELDS.length;
+    wizardFieldName.textContent = f.label;
+    wizardConfirm.style.display = 'none';
+    wizardActionRow.style.display = 'flex';
+    resetView(); // 一旦全体表示にしてから、記憶した位置（あれば）を反映する
+    const remembered = applyFieldPosition(f.formId);
+    if (!remembered) setDefaultRect();
+    wizardInstruction.textContent = remembered
+      ? f.instruction + '（前回と同じ場所を覚えています。ずれていれば枠を調整してください）'
+      : f.instruction;
+    drawCropStage();
+  }
+
+  function advanceWizard(){
+    if (wizardIndex < WIZARD_FIELDS.length - 1) {
+      wizardIndex++;
+      showWizardStep();
+    } else {
+      exitWizardMode();
+      ocrStatus.style.display = 'block';
+      ocrStatus.textContent = 'ガイド付き入力が完了しました。フォームの内容をご確認ください。';
+    }
+  }
+
+  wizardStartBtn.addEventListener('click', enterWizardMode);
+  wizardExitBtn.addEventListener('click', exitWizardMode);
+  wizardSkipBtn.addEventListener('click', advanceWizard);
+  wizardBackBtn.addEventListener('click', () => {
+    wizardConfirm.style.display = 'none';
+    wizardActionRow.style.display = 'flex';
+  });
+
+  wizardConfirmBtn.addEventListener('click', () => {
+    const f = WIZARD_FIELDS[wizardIndex];
+    if (wizardValueInput.value !== '') {
+      document.getElementById(f.formId).value = wizardValueInput.value;
+    }
+    saveFieldPosition(f.formId); // 次回、この項目の枠の初期位置として再利用する
+    advanceWizard();
+  });
+
+  wizardReadBtn.addEventListener('click', async () => {
+    if (!originalImage) return;
+    if (typeof Tesseract === 'undefined') {
+      alert('OCRライブラリの読み込みに失敗しました。インターネット接続を確認して再読み込みしてください。');
+      return;
+    }
+    const f = WIZARD_FIELDS[wizardIndex];
+    wizardReadBtn.disabled = true;
+    ocrProgress.style.display = 'block';
+    ocrStatus.style.display = 'block';
+    ocrProgressBar.style.width = '0%';
+    ocrStatus.textContent = '準備中…';
+    currentLogger = m => {
+      if (m.status) ocrStatus.textContent = translateStatus(m.status);
+      if (typeof m.progress === 'number') ocrProgressBar.style.width = Math.round(m.progress * 100) + '%';
+    };
+
+    try {
+      const processedCanvas = extractProcessedCanvas();
+      const worker = await getWorker();
+      // 数字とピリオドしか認識しないよう制限し、狭く切り抜いた1項目の読み取り精度を上げる。
+      // PSM7（1行のテキスト）よりPSM8（単一の単語）の方が、余白の少ない孤立した
+      // 数字だけの切り抜きに対して安定して認識できることが多いため優先して試すが、
+      // 帳票のフォントや切り抜き方によっては逆にPSM7の方が読めることがあるため、
+      // PSM8で読み取れなかった場合はPSM7でも試してから諦める
+      await worker.setParameters({
+        tessedit_char_whitelist: '0123456789.',
+        tessedit_pageseg_mode: '8'
+      });
+      let { data: { text } } = await worker.recognize(processedCanvas);
+      let cleaned = (text || '').replace(/[^\d.]/g, ' ');
+      let m = cleaned.match(/\d{1,3}(?:\.\d{1,3})?/);
+      if (!m) {
+        await worker.setParameters({ tessedit_pageseg_mode: '7' });
+        const retry = await worker.recognize(processedCanvas);
+        text = retry.data.text;
+        cleaned = (text || '').replace(/[^\d.]/g, ' ');
+        m = cleaned.match(/\d{1,3}(?:\.\d{1,3})?/);
+      }
+      const value = m ? parseFloat(m[0]) : null;
+
+      wizardValueInput.value = value !== null ? value : '';
+      wizardConfirm.style.display = 'block';
+      wizardActionRow.style.display = 'none';
+
+      if (value === null) {
+        ocrStatus.textContent = '数字を読み取れませんでした。範囲を調整するか、手動で入力してください。';
+      } else if (value < f.range[0] || value > f.range[1]) {
+        ocrStatus.textContent = `読み取り結果（${value}）が想定範囲から外れています。誤読の可能性があるため、内容を確認してください。`;
+      } else {
+        ocrStatus.textContent = '読み取り結果を確認し、問題なければ「この値で確定して次へ」を押してください。';
+      }
+    } catch (err) {
+      console.error(err);
+      ocrStatus.textContent = '読み取りに失敗しました。範囲を選び直すか、手動で入力してください。';
+      workerPromise = null;
+    } finally {
+      currentLogger = null;
+      wizardReadBtn.disabled = false;
+      setTimeout(() => { ocrProgress.style.display = 'none'; }, 800);
+    }
+  });
+
+  function translateStatus(status){
+    const map = {
+      'loading tesseract core': 'OCRエンジンを読み込み中…',
+      'initializing tesseract': 'OCRエンジンを初期化中…',
+      'loading language traineddata': '言語データを読み込み中…',
+      'initializing api': 'API初期化中…',
+      'recognizing text': '文字を認識中…'
+    };
+    return map[status] || status;
+  }
+
+  /* ---------- parsing OCR text into InBody metrics ---------- */
+  function normalize(text){
+    // full-width digits/period -> half-width, strip commas/spaces around numbers
+    let t = text
+      .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+      .replace(/．/g, '.')
+      .replace(/，/g, ',')
+      .replace(/\r/g, '');
+    // 数字・小数点に挟まれた紛らわしい文字はOCRの誤認識とみなして補正する（O→0, l/I→1）
+    t = t.replace(/(?<=[\d.])[oOｏＯ](?=[\d.])/g, '0');
+    t = t.replace(/(?<=[\d.])[lI｜](?=[\d.])/g, '1');
+    // "12 . 3" や "12. 3" のように空白が入った小数点を詰める
+    t = t.replace(/(\d)\s*\.\s*(\d)/g, '$1.$2');
+    // 「26.08.28」のような日付（測定日時・履歴の年.月.日表記）を除去する。
+    // 残しておくと「26.08」のように途中までが小数として誤って数値抽出されてしまうため、
+    // 他の数値抽出処理より前に消しておく
+    t = t.replace(/\d{2,4}\.\d{1,2}\.\d{1,2}(?!\d)/g, ' ');
+    return t;
+  }
+
+  // 日付（26.08.28等）の断片らしき数値を判定する。この帳票の実測値は常に小数点以下1桁までしか
+  // 印字されない（例: 34.7）のに対し、日付の月・日は常に2桁（例: .08 / .28）になるため、
+  // 小数点以下が2桁以上の場合は日付とみなす。また、桁数の関係で整数部だけが数値として切り出され、
+  // その直後に別の「.数字」が続く場合（3分割の日付の1つ目のセグメントなど）も日付とみなす。
+  function isDateFragment(raw, text, endIndex){
+    const dotIdx = raw.indexOf('.');
+    if (dotIdx !== -1 && raw.length - dotIdx - 1 >= 2) return true;
+    if (text[endIndex] === '.' && /\d/.test(text[endIndex + 1] || '')) return true;
+    return false;
+  }
+
+  // 指定パターンの「すべての」出現箇所を調べ、range内かつ小数点付きの値を優先して返す。
+  // 範囲外や不適合な一致はスキップし、次の候補（同じパターンの別出現・次のパターン）を試す。
+  function bestNumberAfter(text, patterns, opts){
+    opts = opts || {};
+    const gap = opts.gap || 40;
+    const range = opts.range || null;
+    for (const p of patterns) {
+      const re = new RegExp(p + '[^\\d\\-]{0,' + gap + '}(\\d{1,3}(?:\\.\\d{1,3})?)', 'gi');
+      let m;
+      let bestInt = null, bestDec = null;
+      while ((m = re.exec(text)) !== null) {
+        const raw = m[1];
+        const after = m.index + m[0].length;
+        if (!isDateFragment(raw, text, after)) {
+          const v = parseFloat(raw);
+          if (!range || (v >= range[0] && v <= range[1])) {
+            const hasDecimal = raw.indexOf('.') !== -1;
+            if (hasDecimal && bestDec === null) bestDec = v;
+            if (!hasDecimal && bestInt === null) bestInt = v;
+          }
+        }
+        if (re.lastIndex === m.index) re.lastIndex++;
+      }
+      if (bestDec !== null) return bestDec;
+      if (bestInt !== null) return bestInt;
+    }
+    return null;
+  }
+
+  // ラベル直後に紛らわしい数字（ゴミ文字由来の断片など）が挟まり、bestNumberAfterの
+  // 「直後の1つだけを見る」方式では範囲外として弾かれ続けてしまう帳票向け。
+  // ラベル出現位置から一定の文字数以内にある数値をすべて走査し、範囲内で最初に見つかったものを採用する。
+  // （windowの境界で数字が途中で切れて誤った値にならないよう、全文に対する位置で判定する）
+  function firstValidNumberInWindow(text, labelPattern, windowSize, range){
+    const re = new RegExp(labelPattern, 'gi');
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      const start = m.index + m[0].length;
+      const end = start + windowSize;
+      const numRe = /\d{1,3}(?:\.\d{1,3})?/g;
+      numRe.lastIndex = start;
+      let nm;
+      while ((nm = numRe.exec(text)) !== null) {
+        if (nm.index >= end) break;
+        if (nm.index + nm[0].length > end) break; // windowの境界で途中で切れる数字は無視
+        const after = nm.index + nm[0].length;
+        if (isDateFragment(nm[0], text, after)) continue;
+        const v = parseFloat(nm[0]);
+        if (!range || (v >= range[0] && v <= range[1])) return v;
+      }
+      if (re.lastIndex === m.index) re.lastIndex++;
+    }
+    return null;
+  }
+
+  // BMI・体脂肪率のように「ラベル→グラフの目盛り→実測値」の順で並ぶ帳票向け。
+  // ラベルは帳票内に複数回登場しうる（チェック欄・目盛り・実測値など）ため、後ろの出現から順に試す。
+  // 目盛り（5個以上の昇順の数値）を検出できた場合のみ、その直後の数値を実測値として信頼する。
+  // 目盛りの後に数値が続いていない（＝実測値がOCRで読み取れなかった）場合は、
+  // 目盛り自体の数値を誤って実測値扱いしないよう、値を返さない。
+  // 戻り値: 数値＝実測値を検出、null＝目盛りチャートは見つかったが実測値が読み取れなかった
+  // （このラベルは目盛り形式の帳票だと確認できたので、単純一致へのフォールバックはすべきでない）、
+  // undefined＝目盛りチャート自体が見つからなかった（＝呼び出し側は単純一致にフォールバックしてよい）
+  function lastNumberAfterScale(text, labelPattern, stopPatterns, maxWindow, range){
+    const re = new RegExp(labelPattern, 'gi');
+    let m;
+    const occurrences = [];
+    while ((m = re.exec(text)) !== null) {
+      occurrences.push(m.index + m[0].length);
+      if (re.lastIndex === m.index) re.lastIndex++;
+    }
+    let sawScale = false;
+    for (let i = occurrences.length - 1; i >= 0; i--) {
+      const start = occurrences[i];
+      let end = Math.min(text.length, start + maxWindow);
+      for (const sp of stopPatterns) {
+        const stopRe = new RegExp(sp, 'i');
+        const sm = text.slice(start, end).match(stopRe);
+        if (sm) end = Math.min(end, start + sm.index);
+      }
+      const windowText = text.slice(start, end);
+      const allNums = [];
+      const numRe = /\d{1,3}(?:\.\d{1,3})?/g;
+      let nm;
+      while ((nm = numRe.exec(windowText)) !== null) {
+        const after = nm.index + nm[0].length;
+        if (!isDateFragment(nm[0], windowText, after)) allNums.push(parseFloat(nm[0]));
+        if (numRe.lastIndex === nm.index) numRe.lastIndex++;
+      }
+      const nums = allNums.filter(v => !range || (v >= range[0] && v <= range[1]));
+
+      let runEnd = -1, runLen = 0, bestRunEnd = -1, bestRunLen = 0;
+      for (let j = 0; j < nums.length; j++) {
+        if (j > 0 && nums[j] >= nums[j - 1]) { runLen++; } else { runLen = 1; }
+        runEnd = j;
+        if (runLen > bestRunLen) { bestRunLen = runLen; bestRunEnd = runEnd; }
+      }
+      if (bestRunLen < 5) continue;              // 目盛りらしき並びが見つからない＝この出現は対象外
+      sawScale = true;
+      if (bestRunEnd >= nums.length - 1) continue; // 目盛りの後に実測値が続いていない
+      return nums[bestRunEnd + 1]; // 目盛りの直後にある値（配列の最後ではない）を採用
+    }
+    return sawScale ? null : undefined;
+  }
+
+  function extractHeightFromCm(text){
+    // 「155cm」のような単位直付きの数値を探す。数値と単位の間に他の数字（IDなど）を
+    // 挟んで誤マッチしないよう、間に入れる文字は数字以外に限定する
+    const m = text.match(/(\d{2,3}(?:\.\d{1,2})?)[^\d]{0,2}cm\b/i);
+    return m ? parseFloat(m[1]) : null;
+  }
+
+  function extractGender(text){
+    if (/女性|Female/i.test(text)) return 'female';
+    if (/男性|Male/i.test(text)) return 'male';
+    return null;
+  }
+
+  function extractAge(text){
+    // まず「年齢」「Age」のラベルが明記されている帳票を試す
+    const labeled = bestNumberAfter(text, ['年齢', 'Age'], { range: [1, 120] });
+    if (labeled !== null) return labeled;
+    // 「身長 年齢 性別 検査日」のようにラベルなしで並ぶヘッダー行向けに、
+    // 性別の単語（男性/女性）の直前にある単独の整数を年齢とみなす
+    const m = text.match(/(\d{1,3})\s*(?:歳|才)?\s*[^\d一-龥]{0,10}(男性|女性|Male|Female)/i);
+    if (m) {
+      const age = parseInt(m[1], 10);
+      if (age >= 1 && age <= 120) return age;
+    }
+    return null;
+  }
+
+  function parseInBodyText(rawTextValue){
+    const text = normalize(rawTextValue);
+    const out = {};
+
+    out.gender = extractGender(text);
+    out.age    = extractAge(text);
+    // 「155cm」のような単位直付き表記の方が、ラベル近接検索よりも誤検出が少ないため優先する
+    // （ヘッダー行でOCRの読み取り順序が乱れ、ラベルの近くにID番号などの無関係な数字が
+    // 来てしまうことがあるため）
+    out.height = extractHeightFromCm(text) ?? bestNumberAfter(text, ['身\\s*長', 'Height'], { range: [100, 230] });
+
+    out.weight = bestNumberAfter(text, [
+      '(?<!Target )(?<!Standard )Weight',
+      '(?<!標準)(?<!目標)(?<!適正)体\\s*重(?!調節)(?!コントロール)'
+    ], { range: [20, 300] });
+
+    out.fatmass = bestNumberAfter(text, ['体脂肪量', 'Body\\s*Fat\\s*Mass'], { range: [1, 150] });
+    out.smm     = bestNumberAfter(text, ['骨格筋量', 'SMM', 'Skeletal\\s*Muscle'], { range: [5, 80] });
+
+    // BMI・体脂肪率は「ラベル→グラフの目盛り→実測値」の帳票が多く、単純な近接一致だと
+    // 目盛りの数値を誤って拾ってしまう。身長・体重・体脂肪量は独立して安定して読み取れているため、
+    // それらが揃っている場合は数式（BMI=体重÷身長²、体脂肪率=体脂肪量÷体重×100）で直接算出し、
+    // OCRでBMI・体脂肪率の文字自体を読み違えるリスクを避ける。算出できない場合のみ帳票から読み取る。
+    if (out.height !== null && out.weight !== null && out.height > 0) {
+      const heightM = out.height / 100;
+      out.bmi = Math.round((out.weight / (heightM * heightM)) * 10) / 10;
+    } else {
+      const bmiFromScale = lastNumberAfterScale(text, 'BMI', ['体脂肪率', 'Percent\\s*Body\\s*Fat'], 250, [10, 60]);
+      out.bmi = bmiFromScale !== undefined ? bmiFromScale
+        : bestNumberAfter(text, ['Body\\s*Mass\\s*Index', 'BMI'], { gap: 60, range: [10, 60] });
+    }
+
+    if (out.fatmass !== null && out.weight !== null && out.weight > 0) {
+      out.pbf = Math.round((out.fatmass / out.weight * 100) * 10) / 10;
+    } else {
+      const pbfFromScale = lastNumberAfterScale(text, '体脂肪率|Percent\\s*Body\\s*Fat', ['内臓脂肪', 'Visceral'], 250, [3, 70]);
+      out.pbf = pbfFromScale !== undefined ? pbfFromScale
+        : bestNumberAfter(text, ['Percent\\s*Body\\s*Fat', '体脂肪率', 'PBF'], { gap: 60, range: [3, 70] });
+    }
+
+    // 内臓脂肪レベルは、ラベル直後の数値よりも「低 10 高」ゲージ直後の数値の方が信頼できる
+    const gaugeMatch = text.match(/低\s*10\s*高[\s\S]{0,100}?(\d{1,2})(?!\d)/);
+    if (gaugeMatch && parseInt(gaugeMatch[1], 10) >= 1 && parseInt(gaugeMatch[1], 10) <= 30) {
+      out.visceral = parseInt(gaugeMatch[1], 10);
+    } else {
+      out.visceral = bestNumberAfter(text, ['内臓脂肪レベル', 'Visceral\\s*Fat\\s*Level'], { range: [1, 30] });
+    }
+
+    // 筋肉量（Soft Lean Mass、骨格筋量とは別の総筋肉量）。グラフの目盛りは通常70%以上から
+    // 始まるため、体重より十分小さい範囲に絞ることで目盛りと混同しにくくしている
+    // 「量」が「重」に誤読される帳票があるため、両方を許容する（「筋肉重」等）
+    out.muscle = firstValidNumberInWindow(text, '(?<!部位別)筋\\s*肉\\s*[量重](?!が)', 60, [15, 55]);
+
+    // 部位別筋肉量（右腕・左腕・体幹・右脚・左脚）は、多くのInBody帳票で
+    // 体のシルエット図に数値だけが配置されテキストラベルが存在しない。
+    // 「右腕」「左腕」等のテキストが見つかっても、それは別表（インピーダンス測定値など）の
+    // ラベルであることが多く、誤った値を拾うリスクが高いため自動抽出の対象からは外している。
+    out.rarm = out.larm = out.trunk = out.rleg = out.lleg = null;
+
+    return out;
+  }
+
+  function applyParsedMetrics(m){
+    const map = {
+      height:'f_height', weight:'f_weight', bmi:'f_bmi', pbf:'f_pbf', fatmass:'f_fatmass',
+      smm:'f_smm', visceral:'f_visceral', muscle:'f_muscle',
+      rarm:'f_rarm', larm:'f_larm', trunk:'f_trunk', rleg:'f_rleg', lleg:'f_lleg'
+    };
+    let found = 0;
+    for (const key in map) {
+      const el = document.getElementById(map[key]);
+      if (m[key] !== null && m[key] !== undefined && !isNaN(m[key])) {
+        el.value = m[key];
+        found++;
+      }
+    }
+    if (m.gender === 'male' || m.gender === 'female') {
+      document.getElementById('f_gender').value = m.gender;
+      found++;
+    }
+    if (m.age !== null && m.age !== undefined && !isNaN(m.age)) {
+      document.getElementById('f_age').value = m.age;
+      found++;
+    }
+    return found;
+  }
+
+  /* ---------- Step 3: pain intensity slider ---------- */
+  const painIntensity = document.getElementById('painIntensity');
+  const intensityLabel = document.getElementById('intensityLabel');
+  painIntensity.addEventListener('input', () => { intensityLabel.textContent = painIntensity.value; });
+
+  /* ---------- Step 4: diagnosis ---------- */
+  const diagnoseBtn = document.getElementById('diagnoseBtn');
+  diagnoseBtn.addEventListener('click', runDiagnosis);
+
+  function num(id){
+    const v = document.getElementById(id).value;
+    return v === '' ? null : parseFloat(v);
+  }
+
+  function evalBMI(bmi){
+    if (bmi === null) return null;
+    if (bmi < 18.5) return {level:'caution', text:'低体重（やせ）'};
+    if (bmi < 23)   return {level:'safe',    text:'標準範囲'};
+    if (bmi < 25)   return {level:'caution', text:'やや過体重'};
+    if (bmi < 30)   return {level:'warning', text:'肥満（1度相当）'};
+    return {level:'danger', text:'肥満（2度以上相当）— 関節への負担が大きい状態'};
+  }
+
+  function evalPBF(pbf, gender){
+    if (pbf === null) return null;
+    if (gender === 'male') {
+      if (pbf < 10) return {level:'caution', text:'低体脂肪率'};
+      if (pbf < 20) return {level:'safe', text:'標準範囲'};
+      if (pbf < 25) return {level:'caution', text:'やや高め'};
+      return {level:'warning', text:'高め（体脂肪過多の傾向）'};
+    } else {
+      if (pbf < 18) return {level:'caution', text:'低体脂肪率'};
+      if (pbf < 28) return {level:'safe', text:'標準範囲'};
+      if (pbf < 33) return {level:'caution', text:'やや高め'};
+      return {level:'warning', text:'高め（体脂肪過多の傾向）'};
+    }
+  }
+
+  function evalVisceral(v){
+    if (v === null) return null;
+    if (v < 10) return {level:'safe', text:'正常範囲'};
+    if (v < 15) return {level:'caution', text:'やや高め・要注意'};
+    return {level:'danger', text:'高値 — 生活習慣病リスクの上昇が懸念される水準'};
+  }
+
+  function evalMuscle(muscle, smm){
+    if (muscle === null) return null;
+    const note = (smm !== null) ? '（骨格筋量とは別の、水分・タンパク質等を含む総筋肉量です）' : '（骨格筋量とは別の総筋肉量です）';
+    return {level:'safe', text:'参考値' + note};
+  }
+
+  function evalSMM(smm, weight, gender){
+    if (smm === null || weight === null || weight === 0) return null;
+    const ratio = (smm / weight) * 100; // 骨格筋率の簡易推定
+    const lowThreshold = gender === 'male' ? 33 : 25;
+    if (ratio < lowThreshold) return {level:'warning', text:'体重に対し筋肉量が少なめ（筋力低下の可能性）'};
+    return {level:'safe', text:'標準的な筋肉量バランス'};
+  }
+
+  function asymmetry(a, b){
+    if (a === null || b === null || a === 0 || b === 0) return null;
+    const avg = (a + b) / 2;
+    const diffPct = Math.abs(a - b) / avg * 100;
+    return { diffPct, weaker: a < b ? 'right' : (b < a ? 'left' : 'even') };
+  }
+
+  function riskRank(level){
+    return {safe:0, caution:1, warning:2, danger:3, na:-1}[level] ?? -1;
+  }
+
+  function runDiagnosis(){
+    const gender = document.getElementById('f_gender').value;
+    const height = num('f_height');
+    const weight = num('f_weight');
+    const bmi = num('f_bmi');
+    const pbf = num('f_pbf');
+    const fatmass = num('f_fatmass');
+    const smm = num('f_smm');
+    const visceral = num('f_visceral');
+    const muscle = num('f_muscle');
+    const rarm = num('f_rarm'), larm = num('f_larm');
+    const trunk = num('f_trunk');
+    const rleg = num('f_rleg'), lleg = num('f_lleg');
+
+    const painAreas = Array.from(document.querySelectorAll('#painChips input:checked')).map(c => c.value);
+    const side = document.querySelector('input[name="side"]:checked').value;
+    const intensity = parseInt(painIntensity.value, 10);
+    const duration = document.getElementById('painDuration').value;
+
+    // ---- metric evaluations ----
+    const evals = [
+      {key:'BMI', value: bmi, unit:'', result: evalBMI(bmi)},
+      {key:'体脂肪率', value: pbf, unit:'%', result: evalPBF(pbf, gender)},
+      {key:'内臓脂肪レベル', value: visceral, unit:'', result: evalVisceral(visceral)},
+      {key:'筋肉量バランス（対体重）', value: smm, unit:'kg', result: evalSMM(smm, weight, gender)},
+      {key:'筋肉量', value: muscle, unit:'kg', result: evalMuscle(muscle, smm)}
+    ];
+
+    // ---- overall risk ----
+    let worst = 'safe';
+    evals.forEach(e => {
+      if (e.result && riskRank(e.result.level) > riskRank(worst)) worst = e.result.level;
+    });
+    if (intensity >= 7 && riskRank(worst) < riskRank('warning')) worst = 'warning';
+
+    // ---- render metrics table ----
+    const tbody = document.getElementById('metricsTbody');
+    tbody.innerHTML = '';
+    evals.forEach(e => {
+      const tr = document.createElement('tr');
+      const valText = e.value === null ? '未入力' : (e.value + (e.unit ? ' ' + e.unit : ''));
+      const tag = e.result
+        ? `<span class="tag ${e.result.level}">${labelForLevel(e.result.level)}</span>`
+        : `<span class="tag na">データなし</span>`;
+      const comment = e.result ? e.result.text : '該当する値が未入力です';
+      tr.innerHTML = `<td>${e.key}</td><td>${valText}</td><td>${tag}</td><td>${comment}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    // ---- risk badge ----
+    const badgeWrap = document.getElementById('riskBadgeWrap');
+    const badgeText = {
+      safe:'総合リスク：低い', caution:'総合リスク：やや注意', warning:'総合リスク：注意が必要', danger:'総合リスク：高い（要受診検討）'
+    }[worst];
+    badgeWrap.innerHTML = `<span class="risk-badge risk-${worst}">${badgeText}</span>`;
+
+    // ---- segmental balance bars ----
+    const balanceWrap = document.getElementById('balanceWrap');
+    balanceWrap.innerHTML = '';
+    const armAsym = asymmetry(rarm, larm);
+    const legAsym = asymmetry(rleg, lleg);
+    if (armAsym || legAsym) {
+      const title = document.createElement('h3');
+      title.style.marginTop = '24px';
+      title.style.fontSize = '.95rem';
+      title.textContent = '左右の筋肉量バランス';
+      balanceWrap.appendChild(title);
+      if (armAsym) balanceWrap.appendChild(renderBalanceRow('腕', rarm, larm, armAsym));
+      if (legAsym) balanceWrap.appendChild(renderBalanceRow('脚', rleg, lleg, legAsym));
+    }
+
+    // ---- cause analysis per pain area ----
+    const causeWrap = document.getElementById('causeWrap');
+    causeWrap.innerHTML = '';
+    if (painAreas.length === 0) {
+      causeWrap.innerHTML = '<p class="desc">痛みの部位が選択されていません。上のステップ3で該当部位を選択すると、関連要因の分析が表示されます。</p>';
+    } else {
+      painAreas.forEach(area => {
+        causeWrap.appendChild(renderCauseCard(area, {
+          bmi, pbf, visceral, smm, weight, gender, trunk,
+          armAsym, legAsym, side, duration, intensity
+        }));
+      });
+    }
+
+    // ---- recommendations ----
+    const recList = document.getElementById('recList');
+    recList.innerHTML = '';
+    buildRecommendations({worst, visceral, bmi, smm, weight, gender, intensity, duration, armAsym, legAsym})
+      .forEach(r => {
+        const li = document.createElement('li');
+        li.textContent = r;
+        recList.appendChild(li);
+      });
+
+    document.getElementById('results').style.display = 'block';
+    document.getElementById('results').scrollIntoView({behavior:'smooth', block:'start'});
+  }
+
+  function labelForLevel(level){
+    return {safe:'安全', caution:'注意', warning:'警告', danger:'危険'}[level] || '不明';
+  }
+
+  function renderBalanceRow(partName, rightVal, leftVal, asym){
+    const div = document.createElement('div');
+    div.className = 'balance-row';
+    const total = rightVal + leftVal;
+    const rPct = total ? (rightVal / total * 100) : 50;
+    const lPct = 100 - rPct;
+    const flagText = asym.diffPct >= 1
+      ? `左右差 ${asym.diffPct.toFixed(1)}%（${asym.weaker === 'right' ? '右' : '左'}が弱い傾向）`
+      : `左右差 ${asym.diffPct.toFixed(1)}%（ほぼ均衡）`;
+    div.innerHTML = `
+      <div class="balance-label"><span>左 ${leftVal}kg</span><span>${partName}：${flagText}</span><span>右 ${rightVal}kg</span></div>
+      <div class="balance-bar"><div class="l" style="width:${lPct}%"></div><div class="r" style="width:${rPct}%"></div></div>
+    `;
+    return div;
+  }
+
+  function renderCauseCard(area, d){
+    const reasons = [];
+
+    const addIf = (cond, text) => { if (cond) reasons.push(text); };
+
+    // 共通：体脂肪率が高いことによる代謝的な影響（脂肪組織はエネルギー貯蔵庫であるだけでなく、
+    // サイトカインやアディポカインなどを分泌する代謝活性のある組織でもある）。
+    // 特定の関節に限らず全身の痛みの感受性に関与しうるため、部位を問わず共通で判定する
+    const pbfHighThreshold = d.gender === 'male' ? 25 : 33;
+    addIf(d.pbf !== null && d.pbf >= pbfHighThreshold,
+      '体脂肪率が高く、脂肪組織から分泌される炎症性サイトカインなどの代謝的な影響により、炎症や痛みを感じやすい状態（痛覚過敏）に関与している可能性があります。');
+
+    // 共通：肥満・内臓脂肪による関節負荷
+    if (['腰','膝','股関節'].includes(area)) {
+      addIf(d.bmi !== null && d.bmi >= 25, 'BMIが高く、体重による関節・腰部への負荷が増加している可能性があります。');
+      addIf(d.visceral !== null && d.visceral >= 10, '内臓脂肪レベルが高めで、全身の代謝負担が姿勢維持筋への負担につながっている可能性があります。');
+    }
+
+    if (area === '腰' || area === '背中') {
+      addIf(d.smm !== null && d.weight !== null && (d.smm / d.weight * 100) < (d.gender === 'male' ? 33 : 25),
+        '体重に対して筋肉量（特に体幹を支える筋力）が少なめで、腰部への負担が増えやすい状態です。');
+      addIf(d.trunk !== null && d.weight !== null && (d.trunk / d.weight * 100) < (d.gender === 'male' ? 16 : 12),
+        `体幹（体を支える中心部）の筋肉量が体重に対して少なめ（目安）で、腰・背中を支える力が不足しやすい状態です。`);
+      addIf(d.legAsym && d.legAsym.diffPct >= 1,
+        `脚の筋肉量に左右差（${d.legAsym.diffPct.toFixed(1)}%）があり、姿勢の傾きが腰への負担を生んでいる可能性があります。`);
+      addIf(d.duration === 'chronic', '症状が慢性化しており、筋力低下や姿勢の崩れが積み重なっている可能性があります。');
+    }
+
+    if (area === '膝') {
+      addIf(d.legAsym && d.legAsym.diffPct >= 1,
+        `左右の脚の筋肉量差（${d.legAsym.diffPct.toFixed(1)}%）があり、弱い側の膝に負担が集中している可能性があります。`);
+      addIf(d.bmi !== null && d.bmi >= 25, '体重増加により膝関節にかかる負荷が大きくなっている可能性があります。');
+      addIf(d.visceral !== null && d.visceral >= 10,
+        '内臓脂肪レベルが高く、腹部の重みで骨盤が前傾しやすい状態です。それに伴い「反り腰→股関節の内旋→O脚への変位」という連鎖が生じやすく、膝への負担が増加している可能性があります。');
+    }
+
+    if (area === '股関節') {
+      addIf(d.legAsym && d.legAsym.diffPct >= 1,
+        `脚の筋肉バランスの左右差（${d.legAsym.diffPct.toFixed(1)}%）が骨盤の傾きや股関節への偏った負荷につながっている可能性があります。`);
+      addIf(d.trunk !== null && d.weight !== null && (d.trunk / d.weight * 100) < (d.gender === 'male' ? 16 : 12),
+        `体幹の筋肉量が体重に対して少なめ（目安）で、骨盤・股関節まわりの安定性が低下しやすい状態です。`);
+    }
+
+    if (area === '肩' || area === '首') {
+      addIf(d.armAsym && d.armAsym.diffPct >= 1,
+        `腕の筋肉量に左右差（${d.armAsym.diffPct.toFixed(1)}%）があり、姿勢の左右非対称性や肩こりの一因となっている可能性があります。`);
+      addIf(d.smm !== null && d.weight !== null && (d.smm / d.weight * 100) < (d.gender === 'male' ? 33 : 25),
+        '上半身を支える筋肉量が少なめで、長時間の姿勢保持による肩・首への負担が生じやすい状態です。');
+    }
+
+    if (area === '首') {
+      addIf(d.visceral !== null && d.visceral >= 10,
+        '内臓脂肪レベルが高く、腹部の重みで骨盤が前傾しやすい状態です。それに伴い「腰椎の過前弯（反り腰）→胸椎の過後弯（猫背）→頭部が前方に突出する姿勢」という連鎖が生じやすく、頸部への負担が増加している可能性があります。');
+    }
+
+    if (area === '肩') {
+      addIf(d.visceral !== null && d.visceral >= 10,
+        '内臓脂肪レベルが高く、腹部の重みで骨盤が前傾しやすい状態です。それに伴い「腰椎の過前弯（反り腰）→胸椎の過後弯（猫背）→巻き肩」という連鎖が生じやすく、肩こりにつながっている可能性があります。');
+    }
+
+    if (area === '足首・足') {
+      addIf(d.bmi !== null && d.bmi >= 25, '体重増加により足首・足部にかかる負荷が大きくなっている可能性があります。');
+      addIf(d.smm !== null && d.weight !== null && (d.smm / d.weight * 100) < (d.gender === 'male' ? 33 : 25),
+        '体重に対して脚を支える筋肉量が少なめで、足首・足部への負担が増えやすい状態です。');
+      addIf(d.legAsym && d.legAsym.diffPct >= 1,
+        `脚の筋肉量の左右差（${d.legAsym.diffPct.toFixed(1)}%）により、片側の足首に負担が偏っている可能性があります。`);
+    }
+
+    if (area === '肘') {
+      addIf(d.armAsym && d.armAsym.diffPct >= 1,
+        `腕の筋肉量の左右差（${d.armAsym.diffPct.toFixed(1)}%）があり、利き手側などへの負担偏在が考えられます。`);
+    }
+
+    if (area === '手首・手') {
+      addIf(d.bmi !== null && d.bmi >= 25, '体重増加により手首・手にかかる負荷が大きくなっている可能性があります。');
+      addIf(d.smm !== null && d.weight !== null && (d.smm / d.weight * 100) < (d.gender === 'male' ? 33 : 25),
+        '体重に対して腕を支える筋肉量が少なめで、手首・手への負担が増えやすい状態です。');
+      addIf(d.armAsym && d.armAsym.diffPct >= 1,
+        `腕の筋肉量の左右差（${d.armAsym.diffPct.toFixed(1)}%）があり、利き手側などへの負担偏在が考えられます。`);
+    }
+
+    const card = document.createElement('div');
+    card.className = 'cause-card';
+    const sideText = {right:'（右側優位）', left:'（左側優位）', both:''}[d.side] || '';
+    if (reasons.length > 0) {
+      card.innerHTML = `<h4>${area}の痛み${sideText}</h4><ul>${reasons.map(r => `<li>${r}</li>`).join('')}</ul>`;
+    } else {
+      card.innerHTML = `<h4>${area}の痛み${sideText}</h4><p class="none">現在の測定データからは、明確に関連する要因は見つかりませんでした。筋骨格系以外の原因（姿勢・使いすぎ・外傷など）も考えられるため、症状が続く場合は医療機関でのご相談をおすすめします。</p>`;
+    }
+    return card;
+  }
+
+  function buildRecommendations(d){
+    const recs = [];
+    if (d.worst === 'danger') {
+      recs.push('総合リスクが高い水準です。できるだけ早めに医療機関（整形外科・内科など）での検査をご検討ください。');
+    } else if (d.worst === 'warning') {
+      recs.push('注意が必要な項目があります。症状が続く・悪化する場合は医療機関の受診をおすすめします。');
+    }
+    if (d.visceral !== null && d.visceral >= 10) {
+      recs.push('内臓脂肪レベルを下げるため、有酸素運動と食事内容の見直しを検討しましょう。');
+    }
+    if (d.bmi !== null && d.bmi >= 25) {
+      recs.push('関節への負担軽減のため、無理のない範囲での体重管理を検討しましょう。');
+    }
+    if ((d.armAsym && d.armAsym.diffPct >= 1) || (d.legAsym && d.legAsym.diffPct >= 1)) {
+      recs.push('左右の筋肉バランスに差があります。弱い側を中心としたバランストレーニングやストレッチが有効な場合があります。');
+    }
+    if (d.smm !== null && d.weight !== null && (d.smm / d.weight * 100) < (d.gender === 'male' ? 33 : 25)) {
+      recs.push('筋肉量を維持・向上させるレジスタンストレーニングを、無理のない範囲で取り入れることを検討しましょう。');
+    }
+    if (d.intensity >= 7) {
+      recs.push('痛みの強さが強めです。自己判断でのトレーニング強化は避け、専門家に相談しながら進めてください。');
+    }
+    if (recs.length === 0) {
+      recs.push('現時点で明確なリスク要因は見つかりませんでした。引き続き定期的な計測と体調管理を続けましょう。');
+    }
+    return recs;
+  }
+
+})();
+</script>
+</body>
+</html>
