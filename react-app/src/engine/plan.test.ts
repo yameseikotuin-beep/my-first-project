@@ -156,3 +156,33 @@ describe('食事プランの目標適合度（回帰テスト）', () => {
     }
   })
 })
+
+describe('今日の献立（ボタンひとつ）', () => {
+  const settings = { userId: null, calorieTarget: 1800, proteinTarget: 135, fatTarget: 40, carbohydrateTarget: 225, pfcRatio: { protein: 30, fat: 20, carbohydrates: 50 }, mealCalories: 600, updatedAt: '' }
+
+  it('3食を作り、目標の90〜110%に収まる', async () => {
+    const { quickDailyPlan } = await import('./quickPlan')
+    const p = quickDailyPlan(db, settings, null, '2026-10-02', 0, null)
+    expect(p.days[0].meals.map((m) => m.mealType)).toEqual(['朝食', '昼食', '夕食'])
+    for (const m of p.days[0].meals) expect(m.recipe).not.toBeNull()
+    for (const a of achievement(p.daily, p.days[0].totals)) {
+      expect(a.percent, a.label).toBeGreaterThanOrEqual(90)
+      expect(a.percent, a.label).toBeLessThanOrEqual(110)
+    }
+  })
+
+  it('作り直すと別の献立になる', async () => {
+    const { quickDailyPlan } = await import('./quickPlan')
+    const names = (v: number) => quickDailyPlan(db, settings, null, '2026-10-02', v, null).days[0].meals.map((m) => m.recipe?.recipeName).join('|')
+    const seen = new Set([0, 1, 2, 3].map(names))
+    expect(seen.size).toBeGreaterThanOrEqual(3)
+  })
+
+  it('利用者のアレルギーを反映する', async () => {
+    const { quickDailyPlan } = await import('./quickPlan')
+    const p = quickDailyPlan(db, settings, profile({ allergens: ['卵', '乳'] }), '2026-10-02', 0, 'p1')
+    for (const m of p.days[0].meals) for (const i of m.recipe?.ingredients ?? []) {
+      expect(db.get(i.foodId)!.allergens.some((a) => a === '卵' || a === '乳'), i.name).toBe(false)
+    }
+  })
+})

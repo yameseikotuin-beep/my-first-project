@@ -1,22 +1,62 @@
 import { useState } from 'react'
 import { ALLERGENS, type Allergen, type Genre, type MealPlan as Plan } from '../types'
 import { activeProfile, mine, settingsFor, update, useAppData } from '../store/store'
-import { putWorking, toast } from '../store/session'
+import { putWorking, setSession, toast, useSession } from '../store/session'
+import { quickDailyPlan } from '../engine/quickPlan'
 import { MEAL_PRESETS, achievement, generateMealPlan, type MealSlotDef } from '../engine/mealplan'
 import { navigate, useRoute } from '../router'
-import { Field, FoodChipsInput, PfcBar, Seg } from '../ui/common'
+import { Field, FoodChipsInput, Seg } from '../ui/common'
 import { fmt0, fmt1, formatDate, today, useFoodDb } from '../ui/helpers'
 import { RecipeCard } from '../ui/RecipeCard'
 
 export function MealPlanPage() {
   const route = useRoute()
   const d = useAppData()
+  const session = useSession()
   const id = route.path[1]
   if (id) {
     const plan = d.mealPlans.find((p) => p.id === id)
     return plan ? <PlanView plan={plan} saved /> : <p>食事プランが見つかりません。</p>
   }
+  if (route.query.get('quick') && session.planDraft) return <QuickPlan plan={session.planDraft} />
   return <PlanBuilder />
+}
+
+/** ホームの「今日の献立をつくる」で作った献立。保存・作り直し・条件を細かく決める画面への移動ができる */
+function QuickPlan({ plan }: { plan: Plan }) {
+  const d = useAppData()
+  const db = useFoodDb()
+  const session = useSession()
+  const saved = d.mealPlans.some((x) => x.id === plan.id)
+
+  function remake() {
+    try {
+      const seed = (session.planSeed ?? 0) + 1
+      const next = quickDailyPlan(db, settingsFor(d), activeProfile(d), plan.days[0].date, seed, d.activeUserId)
+      setSession((ss) => ({ ...ss, planDraft: next, planSeed: seed }))
+      window.scrollTo(0, 0)
+    } catch {
+      toast('作り直せませんでした。もう一度お試しください。')
+    }
+  }
+
+  return (
+    <div>
+      <h1>🍱 {plan.name}</h1>
+      <p className="small muted">あなたの1日の目標（{plan.daily.calories}kcal・P{plan.daily.protein}g・F{plan.daily.fat}g・C{plan.daily.carbohydrates}g）に合わせて3食を作りました。</p>
+      <div className="row" style={{ marginBottom: 12 }}>
+        <button className="btn primary" disabled={saved} onClick={() => { update((dd) => ({ ...dd, mealPlans: [plan, ...dd.mealPlans] })); toast('献立を保存しました') }}>{saved ? '保存済み' : '保存'}</button>
+        <button className="btn" onClick={remake}>別の献立にする</button>
+        <a className="btn ghost" href="#/plan">条件を細かく決める</a>
+      </div>
+      <PlanView plan={plan} saved={false} />
+      {saved && (
+        <div className="row" style={{ marginTop: 12 }}>
+          <button className="btn accent" onClick={() => navigate(`shopping?plan=${plan.id}`)}>この献立で買い物リストを作る</button>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function PlanBuilder() {
@@ -150,10 +190,33 @@ function PlanView({ plan, saved }: { plan: Plan; saved: boolean }) {
         const hasOut = day.meals.some((m) => m.eatingOut)
         return (
           <div key={day.date}>
-            <h2 style={{ marginTop: 16 }}>{day.date}</h2>
-            <div className="card">
-              <h3>1日の合計と目標の比較{hasOut && <span className="tiny muted">（外食分を除く自炊分の合計）</span>}</h3>
-              <table className="compare">
+            <h2 style={{ marginTop: 16 }}>{formatDay(day.date)}</h2>
+            <div className="plan-summary" aria-label="1日の合計と達成率">
+              {ach.map((a) => {
+                const off = Math.abs(a.percent - 100) > 10
+                const label = a.key === 'calories' ? '合計' : a.key === 'protein' ? 'P' : a.key === 'fat' ? 'F' : 'C'
+                return (
+                  <span key={a.key} className={`plan-chip ${off ? 'off' : ''}`}>
+                    {label} <b>{a.key === 'calories' ? `${fmt0(a.actual)}kcal` : `${fmt0(a.actual)}g`}</b> <span>{Math.round(a.percent)}%</span>
+                  </span>
+                )
+              })}
+            </div>
+            {hasOut && <p className="tiny muted">外食分を除く、自炊分の合計です。</p>}
+            {day.meals.map((m, i) => (
+              <div key={i}>
+                <div className="row between small" style={{ margin: '10px 2px 4px' }}>
+                  <b>{m.label}</b>
+                  <span className="muted">目安 {fmt0(m.budget.calories)}kcal</span>
+                </div>
+                {m.eatingOut && <div className="card tight small">🍽 外食: 目安 {fmt0(m.budget.calories)}kcal・P {fmt0(m.budget.protein)}g・F {fmt0(m.budget.fat)}g・C {fmt0(m.budget.carbohydrates)}g 程度を選ぶと目標に近づきます（栄養計算の対象外）。</div>}
+                {m.recipe && <RecipeCard recipe={m.recipe} extra={<button className="btn ghost small" onClick={() => { putWorking(m.recipe!); navigate(`recipe/${m.recipe!.id}`) }}>詳細・調整</button>} />}
+                {!m.eatingOut && !m.recipe && <div className="banner failed small">この食事のレシピを作成できませんでした。{m.error}</div>}
+              </div>
+            ))}
+            <details className="card tight">
+              <summary>1日の目標との比較（詳しく）</summary>
+              <table className="compare compact" style={{ marginTop: 8 }}>
                 <thead><tr><th>項目</th><th>目標</th><th>計算値</th><th>達成率</th><th>過不足</th></tr></thead>
                 <tbody>
                   {ach.map((a) => {
@@ -172,19 +235,7 @@ function PlanView({ plan, saved }: { plan: Plan; saved: boolean }) {
                 </tbody>
               </table>
               <p className="tiny muted" style={{ marginTop: 6 }}>達成率が90〜110%の範囲外の項目は赤で表示しています。</p>
-            </div>
-            {day.meals.map((m, i) => (
-              <div key={i}>
-                <div className="row between small" style={{ margin: '10px 2px 4px' }}>
-                  <b>{m.label}</b>
-                  <span className="muted">配分 {m.share}%（目安 {fmt0(m.budget.calories)}kcal・P{fmt0(m.budget.protein)}g）</span>
-                </div>
-                {m.eatingOut && <div className="card tight small">🍽 外食: 目安 {fmt0(m.budget.calories)}kcal・P {fmt0(m.budget.protein)}g・F {fmt0(m.budget.fat)}g・C {fmt0(m.budget.carbohydrates)}g 程度を選ぶと目標に近づきます（栄養計算の対象外）。</div>}
-                {m.recipe && <RecipeCard recipe={m.recipe} extra={<button className="btn ghost small" onClick={() => { putWorking(m.recipe!); navigate(`recipe/${m.recipe!.id}`) }}>詳細・調整</button>} />}
-                {m.recipe && <div style={{ display: 'none' }}><PfcBar ratio={m.recipe.pfcRatio} /></div>}
-                {!m.eatingOut && !m.recipe && <div className="banner failed small">この食事のレシピを作成できませんでした。{m.error}</div>}
-              </div>
-            ))}
+            </details>
           </div>
         )
       })}
@@ -195,4 +246,10 @@ function PlanView({ plan, saved }: { plan: Plan; saved: boolean }) {
       )}
     </div>
   )
+}
+
+const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土']
+function formatDay(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`)
+  return `${d.getMonth() + 1}月${d.getDate()}日（${WEEKDAYS[d.getDay()]}）`
 }

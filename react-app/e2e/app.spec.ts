@@ -113,7 +113,7 @@ test('利用者の目標設定 → 食事プラン → 在庫 → 買い物リ�
 
   await page.goto('./#/plan')
   await page.getByRole('button', { name: '食事プランを作る' }).click()
-  await expect(page.getByText('1日の合計と目標の比較')).toBeVisible()
+  await expect(page.locator('.plan-summary').first()).toBeVisible()
   // 達成率がすべて90〜110%（範囲外は赤で表示される）
   const rates = await page.locator('.compare tbody tr td:nth-child(4)').allTextContents()
   for (const r of rates) {
@@ -154,4 +154,23 @@ test('スマートフォン幅で横スクロールが発生しない', async ({
     const [scroll, width] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth])
     expect(scroll, `#/${p}`).toBeLessThanOrEqual(width)
   }
+})
+
+test('ホームのボタンひとつで今日の献立を作り、作り直し・保存・買い物リストまでできる', async ({ page }) => {
+  const errors = watchErrors(page)
+  await page.goto('./')
+  await page.getByRole('button', { name: /今日の献立をつくる/ }).click()
+  await expect(page.getByRole('heading', { name: /の献立/ })).toBeVisible()
+  await expect(page.locator('.recipe-card')).toHaveCount(3)
+  const before = await page.locator('.recipe-card h3').allTextContents()
+
+  await page.getByRole('button', { name: '別の献立にする' }).click()
+  await expect.poll(async () => (await page.locator('.recipe-card h3').allTextContents()).join('|')).not.toBe(before.join('|'))
+
+  await page.getByRole('button', { name: '保存', exact: true }).click()
+  await expect(page.getByRole('button', { name: '保存済み' })).toBeVisible()
+  await page.getByRole('button', { name: 'この献立で買い物リストを作る' }).click()
+  await page.getByRole('button', { name: '買い物リストを作る' }).click()
+  await expect(page.locator('.shop-item').first()).toBeVisible()
+  expect(errors).toEqual([])
 })

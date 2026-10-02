@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import type { GenerationRequest, Recipe } from '../types'
+import type { GenerationRequest, MealPlan, Recipe } from '../types'
 import type { GenerationResult } from '../engine/generator'
 
 /** 生成結果など、保存しない一時的な状態（タブを閉じると消える） */
@@ -13,6 +13,10 @@ export interface Session {
   /** 入力フォームの下書き */
   drafts: Record<string, unknown>
   toast: string | null
+  /** ホームの「今日の献立」で作った、まだ保存していない献立 */
+  planDraft?: MealPlan | null
+  /** 「作り直す」で使う、献立の組み合わせの番号 */
+  planSeed?: number
 }
 
 const KEY = 'diet-recipe-maker:session'

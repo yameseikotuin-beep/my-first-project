@@ -47,6 +47,8 @@ export interface MealPlanInput {
   startDate: string
   base: Pick<GenerationRequest, 'genre' | 'maxTime' | 'avoidFoods' | 'avoidAllergens' | 'useFoods' | 'method'>
   userId: string | null
+  /** 作り直すたびに変えると、別の料理の組み合わせになる */
+  variation?: number
 }
 
 /**
@@ -96,7 +98,7 @@ export function generateMealPlan(db: FoodDb, input: MealPlanInput): MealPlan {
         avoidAllergens: input.base.avoidAllergens,
         extraPolicy: 'allow',
         allowedSeasonings: [],
-        variation: d,
+        variation: d + (input.variation ?? 0),
         excludeTemplates: [...used, ...previousTemplates],
         // 800kcalを超える食事は、それに見合う量まで分量の上限を広げる
         portionScale: Math.min(Math.max(budget.calories / 800, 1), 1.5),

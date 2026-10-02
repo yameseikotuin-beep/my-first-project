@@ -1,6 +1,9 @@
 import { activeProfile, mine, settingsFor, useAppData } from '../store/store'
 import { href } from '../router'
-import { greeting, photoBg } from '../ui/helpers'
+import { greeting, photoBg, today, useFoodDb } from '../ui/helpers'
+import { navigate } from '../router'
+import { setSession, toast } from '../store/session'
+import { quickDailyPlan, seedFor } from '../engine/quickPlan'
 
 const MENU = [
   { to: 'saved?tab=favorites', ico: '★', title: 'お気に入りレシピ' },
@@ -18,6 +21,20 @@ export function Home() {
   const d = useAppData()
   const s = settingsFor(d)
   const p = activeProfile(d)
+  const db = useFoodDb()
+
+  function makeTodayPlan() {
+    try {
+      const date = today()
+      const seed = seedFor(date)
+      const plan = quickDailyPlan(db, s, p, date, seed, d.activeUserId)
+      setSession((ss) => ({ ...ss, planDraft: plan, planSeed: seed }))
+      navigate('plan?quick=1')
+    } catch {
+      toast('献立を作れませんでした。もう一度お試しください。')
+    }
+  }
+
   return (
     <div>
       <section className="home-banner" style={photoBg('hero')}>
@@ -31,6 +48,15 @@ export function Home() {
           </a>
         </div>
       </section>
+
+      <button type="button" className="quick-plan" onClick={makeTodayPlan}>
+        <span className="quick-plan-ico" aria-hidden>🍱</span>
+        <span>
+          <b>今日の献立をつくる</b>
+          <span className="quick-plan-sub">ボタンひとつで朝・昼・夕の3食（1日 {s.calorieTarget}kcal）</span>
+        </span>
+        <span className="quick-plan-arrow" aria-hidden>›</span>
+      </button>
 
       <div className="home-hero">
         <a className="photo-menu" href={href('calorie')} style={photoBg('calorie')}>
