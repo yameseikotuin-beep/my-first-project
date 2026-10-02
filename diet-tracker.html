@@ -1,0 +1,3158 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ダイエット食事管理</title>
+
+<!-- PWA (ホーム画面への追加) 対応 -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2f9e6e">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="食事管理">
+
+<!-- クラウド同期用 Firebase SDK（compat版）。読み込みに失敗しても以下のスクリプトが
+     フォールバックしてローカル(localStorage)のみのモードで動作します。 -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<style>
+  :root {
+    --bg: #f4f6f5;
+    --card: #ffffff;
+    --text: #1f2a24;
+    --muted: #6b7a72;
+    --border: #e1e6e3;
+    --primary: #2f9e6e;
+    --primary-dark: #227a54;
+    --accent: #ff8a5c;
+    --danger: #e5484d;
+    --over: #e5484d;
+    --under: #2f9e6e;
+    --radius: 14px;
+    --shadow: 0 2px 10px rgba(0,0,0,0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121714;
+      --card: #1a211c;
+      --text: #eef2ef;
+      --muted: #93a39a;
+      --border: #2a332c;
+      --primary: #3db97f;
+      --primary-dark: #2f9e6e;
+      --accent: #ff9a6b;
+      --shadow: 0 2px 10px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", system-ui, sans-serif;
+    padding-bottom: 40px;
+  }
+  header {
+    padding: 20px 16px 12px;
+    text-align: center;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 1.4rem;
+    letter-spacing: 0.02em;
+  }
+  header p {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 0 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px;
+  }
+  .card h2 {
+    margin: 0 0 12px;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .date-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .date-nav button {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: var(--text);
+    cursor: pointer;
+    font-size: 1rem;
+  }
+  .date-nav input[type="date"] {
+    flex: 1;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.95rem;
+    text-align: center;
+  }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    text-align: center;
+  }
+  .summary-grid div.stat {
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 10px 4px;
+  }
+  .summary-grid .label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-bottom: 2px;
+  }
+  .summary-grid .value {
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+  .progress-wrap {
+    margin-top: 14px;
+  }
+  .progress-bar-bg {
+    background: var(--bg);
+    border-radius: 999px;
+    height: 14px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+    transition: width 0.3s ease;
+  }
+  .progress-bar-fill.over {
+    background: linear-gradient(90deg, var(--danger), #c0392b);
+  }
+  .progress-caption {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  form.meal-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  form.meal-form .full { grid-column: 1 / -1; }
+  form.meal-form label {
+    font-size: 0.75rem;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 4px;
+  }
+  form.meal-form .field-hint {
+    font-size: 0.68rem;
+    color: var(--muted);
+    margin: 4px 0 0;
+    line-height: 1.4;
+  }
+  .field-guide {
+    margin-top: 6px;
+  }
+  .field-guide summary {
+    font-size: 0.72rem;
+    color: var(--primary);
+    cursor: pointer;
+    font-weight: 600;
+    list-style: none;
+  }
+  .field-guide summary::-webkit-details-marker { display: none; }
+  .field-guide summary::before {
+    content: "▸ ";
+  }
+  .field-guide[open] summary::before {
+    content: "▾ ";
+  }
+  .field-guide table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 6px;
+    font-size: 0.68rem;
+  }
+  .field-guide th, .field-guide td {
+    text-align: left;
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .field-guide th {
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .manual-card summary {
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    list-style: none;
+  }
+  .manual-card summary::-webkit-details-marker { display: none; }
+  .manual-card summary::after {
+    content: "展開 ▾";
+    margin-left: auto;
+    font-size: 0.7rem;
+    font-weight: 400;
+    color: var(--muted);
+  }
+  .manual-card[open] summary::after { content: "閉じる ▴"; }
+  .manual-body {
+    margin-top: 14px;
+    font-size: 0.85rem;
+    line-height: 1.7;
+    color: var(--text);
+  }
+  .manual-body h4 {
+    margin: 14px 0 4px;
+    font-size: 0.85rem;
+    color: var(--primary);
+  }
+  .manual-body h4:first-child { margin-top: 0; }
+  .manual-body p { margin: 4px 0; }
+  .manual-body ul, .manual-body ol {
+    margin: 4px 0 4px 1.2em;
+    padding: 0;
+  }
+  .manual-body li { margin-bottom: 4px; }
+  .manual-inline { margin-bottom: 14px; }
+  .manual-inline summary {
+    font-size: 0.78rem;
+    color: var(--primary);
+    cursor: pointer;
+    font-weight: 600;
+    list-style: none;
+  }
+  .manual-inline summary::-webkit-details-marker { display: none; }
+  .manual-inline summary::before { content: "▸ "; }
+  .manual-inline[open] summary::before { content: "▾ "; }
+  .manual-inline .manual-body {
+    margin-top: 8px;
+    font-size: 0.76rem;
+  }
+  .nutrient-details { margin: 0; }
+  .nutrient-details-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .favorites-bar { margin-bottom: 14px; }
+  .favorites-label {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .favorites-chips {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .favorite-chip {
+    display: flex;
+    align-items: stretch;
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .favorite-select {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 8px 10px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    white-space: nowrap;
+    text-align: left;
+  }
+  .favorite-select .fav-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .favorite-select .fav-cal {
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+  .favorite-del {
+    border: none;
+    border-left: 1px solid var(--border);
+    background: none;
+    color: var(--danger);
+    cursor: pointer;
+    padding: 0 8px;
+    font-size: 0.85rem;
+  }
+  .photo-capture { margin-bottom: 14px; }
+  .bulk-text-entry { margin-bottom: 14px; }
+  .bulk-text-entry label {
+    font-size: 0.75rem;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 4px;
+  }
+  .bulk-text-entry textarea {
+    width: 100%;
+    padding: 9px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.95rem;
+    font-family: inherit;
+    resize: vertical;
+    margin-bottom: 8px;
+  }
+  .bulk-item {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 8px;
+    background: var(--bg);
+  }
+  .bulk-item-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .bulk-item-row input[type="checkbox"] { width: auto; flex: 0 0 auto; }
+  .bulk-item-row select, .bulk-item-row input[type="text"] {
+    padding: 8px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 0.88rem;
+  }
+  .bulk-item-row select { flex: 0 0 78px; }
+  .bulk-item-row input[type="text"] { flex: 1; min-width: 0; }
+  .bulk-item-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .bulk-item-grid label, .bulk-item .nutrient-details-grid label {
+    font-size: 0.62rem;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 2px;
+  }
+  .bulk-item-grid input, .bulk-item .nutrient-details-grid input {
+    width: 100%;
+    padding: 6px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 0.82rem;
+  }
+  .bulk-item .nutrient-details-grid { margin-top: 0; }
+  .photo-preview {
+    width: 100%;
+    max-height: 260px;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    display: block;
+    margin-bottom: 10px;
+  }
+  .photo-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .photo-actions .primary-btn { margin-top: 0; }
+  .ghost-btn {
+    padding: 11px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 0.9rem;
+    white-space: nowrap;
+  }
+  .ghost-btn:hover { background: var(--bg); }
+  .inline-calc {
+    display: flex;
+    gap: 8px;
+  }
+  .inline-calc input { flex: 1; }
+  .inline-calc .ghost-btn { white-space: nowrap; }
+  .advice-box {
+    margin-top: 12px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+  }
+  .advice-box .advice-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 2px;
+  }
+  .advice-box p {
+    margin: 0 0 10px;
+    font-size: 0.85rem;
+    line-height: 1.6;
+  }
+  .advice-box p:last-child { margin-bottom: 0; }
+  form.meal-form input, form.meal-form select {
+    width: 100%;
+    padding: 9px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.95rem;
+  }
+  form.meal-form button {
+    grid-column: 1 / -1;
+    padding: 11px;
+    border: none;
+    border-radius: 10px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+  form.meal-form button:hover { background: var(--primary-dark); }
+  form.meal-form button.ghost-btn {
+    background: var(--card);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  form.meal-form button.ghost-btn:hover { background: var(--bg); }
+
+  .meal-group h3 {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 14px 0 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .meal-group:first-of-type h3 { margin-top: 0; }
+  .meal-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 6px;
+    background: var(--bg);
+  }
+  .meal-item .info { flex: 1; min-width: 0; }
+  .meal-item .name { font-weight: 600; font-size: 0.9rem; }
+  .meal-item .macro { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+  .meal-item .kcal { font-weight: 700; margin-left: 10px; white-space: nowrap; }
+  .meal-item .del {
+    margin-left: 10px;
+    background: none;
+    border: none;
+    color: var(--danger);
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 2px 6px;
+  }
+  .empty-msg {
+    color: var(--muted);
+    font-size: 0.85rem;
+    text-align: center;
+    padding: 16px 0;
+  }
+  .settings-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .settings-row label { font-size: 0.85rem; color: var(--muted); }
+  .settings-row input {
+    width: 110px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+  }
+  .settings-row button {
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--primary);
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  canvas {
+    width: 100%;
+    height: 160px;
+    display: block;
+  }
+  .weight-form {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .weight-form input {
+    flex: 1;
+    min-width: 90px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+  }
+  .weight-form button {
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: none;
+    background: var(--primary);
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .weight-list-title {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin: 16px 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .weight-list {
+    max-height: 260px;
+    overflow-y: auto;
+  }
+  .weight-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 6px;
+    background: var(--bg);
+  }
+  .weight-item .date { font-size: 0.85rem; }
+  .weight-item .date .today-tag {
+    font-size: 0.68rem;
+    color: var(--primary);
+    margin-left: 6px;
+  }
+  .weight-item .weight-value { font-weight: 700; margin-left: 10px; white-space: nowrap; }
+  .weight-item .diff {
+    font-size: 0.72rem;
+    margin-left: 8px;
+    white-space: nowrap;
+  }
+  .weight-item .diff.down { color: var(--primary); }
+  .weight-item .diff.up { color: var(--danger); }
+  .weight-item .del {
+    margin-left: 10px;
+    background: none;
+    border: none;
+    color: var(--danger);
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 2px 6px;
+  }
+  .tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .tabs button {
+    flex: 1;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 0.8rem;
+  }
+  .tabs button.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+  }
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.7rem;
+    margin-top: 20px;
+  }
+  .profile-bar {
+    max-width: 720px;
+    margin: 12px auto 0;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .profile-bar .profile-label {
+    font-size: 0.78rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .profile-bar select {
+    flex: 1;
+    min-width: 120px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 0.9rem;
+  }
+  .profile-bar button {
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+  .profile-bar button:hover { background: var(--bg); }
+  .profile-bar input[type="email"], .profile-bar input[type="password"] {
+    flex: 1;
+    min-width: 140px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 0.9rem;
+  }
+  .cloud-bar { margin-top: 6px; }
+  .sync-status {
+    font-size: 0.72rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .auth-message {
+    max-width: 720px;
+    margin: 4px auto 0;
+    padding: 0 16px;
+    font-size: 0.72rem;
+    color: var(--danger);
+    min-height: 1em;
+  }
+  .primary-btn {
+    width: 100%;
+    padding: 11px;
+    border: none;
+    border-radius: 10px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+  .primary-btn:hover { background: var(--primary-dark); }
+  .calc-result {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--border);
+  }
+  .calc-result .summary-grid { grid-template-columns: repeat(3, 1fr); }
+  .pfc-target-line {
+    text-align: center;
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  .target-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+  }
+  .target-form .field label {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .target-form .field input {
+    width: 100px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>🥗 ダイエット食事管理</h1>
+  <p>毎日の食事とカロリーを記録して、目標に近づこう</p>
+</header>
+
+<div class="profile-bar" id="profileBar">
+  <span class="profile-label">👤 プロフィール（このブラウザのみ）</span>
+  <select id="profileSelect"></select>
+  <button id="addProfileBtn">+ 新規</button>
+  <button id="renameProfileBtn">名前変更</button>
+  <button id="deleteProfileBtn">削除</button>
+</div>
+
+<div class="profile-bar cloud-bar" id="cloudNotConfigured" style="display:none;">
+  <span class="profile-label">☁️ クラウド同期は未設定です（別端末との同期にはFirebase設定が必要。README参照）</span>
+</div>
+
+<div class="profile-bar cloud-bar" id="cloudLoggedOut" style="display:none;">
+  <span class="profile-label">☁️ クラウド同期</span>
+  <input type="email" id="authEmail" placeholder="メールアドレス" autocomplete="username">
+  <input type="password" id="authPassword" placeholder="パスワード(6文字以上)" autocomplete="current-password">
+  <button id="authLoginBtn">ログイン</button>
+  <button id="authSignupBtn">新規登録</button>
+</div>
+
+<div class="profile-bar cloud-bar" id="cloudLoggedIn" style="display:none;">
+  <span class="profile-label">☁️ ログイン中: <strong id="cloudUserEmail"></strong></span>
+  <span class="sync-status" id="syncStatus"></span>
+  <button id="authLogoutBtn">ログアウト</button>
+</div>
+
+<div class="auth-message" id="authMessage"></div>
+
+<main>
+  <section class="card">
+    <details class="manual-card">
+      <summary><span>📖 アプリの使い方</span></summary>
+      <div class="manual-body">
+        <h4>👤 プロフィール</h4>
+        <p>同じブラウザを複数人で使う場合、プロフィールを分けて記録できます（データは互いに混ざりません）。「+ 新規」で追加、「名前変更」「削除」も可能です。ログイン中はこの代わりにアカウントがプロフィールとして使われます。</p>
+
+        <h4>☁️ クラウド同期</h4>
+        <p>メールアドレスとパスワードでログインすると、記録がクラウド（Firestore）に保存され、別の端末・ブラウザから同じアカウントでログインすれば同じデータにアクセスできます。ログインしない場合は、このブラウザ内（localStorage）のみに保存されます。</p>
+
+        <h4>🧍 パーソナルデータ・目標設定</h4>
+        <p>性別・年齢・身長・体重・活動レベル・目標（減量/維持/増量）・変化スピードを入力して「自動計算する」を押すと、BMR/TDEEから目標カロリーとPFC（たんぱく質/脂質/炭水化物）が算出されます。「この設定を反映する」を押すと下の「目標値」に反映されます。年齢・身長・体重を保存すると、初期設定が完了したとみなされ、「パーソナルデータ・目標設定」「目標値」「AI写真解析の設定」の3つの欄はページ下部（体重記録の下）に自動的に移動します。内容はいつでもそこから確認・変更できます。</p>
+
+        <h4>🎯 目標値</h4>
+        <p>自動計算した後も、カロリー・PFCの各値を直接編集して保存できます。</p>
+
+        <h4>日付の移動</h4>
+        <p>「‹」「›」ボタンや日付欄、「今日」ボタンで表示する日を切り替え、過去の記録を確認・編集できます。</p>
+
+        <h4>📊 本日のサマリー</h4>
+        <p>選択した日の目標カロリーに対する摂取量・残りと、PFCの合計・目標PFCとの比較を表示します。運動を記録した日は、消費カロリーが「残り」に自動的に反映されます。食物繊維・糖質・塩分を入力した記録がある日は、その合計もあわせて表示されます。「🤖 今日の食事をAIに評価してもらう」を押すと、その日の食事内容をAIが評価し、一言アドバイスを表示します。</p>
+
+        <h4>➕ 食事を記録</h4>
+        <p>写真からのAI解析・食品名と分量からのAI計算・手動入力の3通りで記録できます。詳しくは「食事を記録」欄内の「食事記録の方法を見る」をご覧ください。「詳細な栄養素を追加」を開くと、食物繊維・糖質・塩分も記録できます（任意項目、AI解析・計算でも自動入力されます）。</p>
+
+        <h4>⭐ お気に入り</h4>
+        <p>食事記録フォームの「☆ この内容をお気に入りに登録」で、よく食べるものを保存できます。登録したお気に入りはフォーム上部にチップとして表示され、タップすると内容がフォームに自動入力されます（記録の確定には別途「記録を追加」を押してください）。同じ名前で登録し直すと内容が上書きされます。</p>
+
+        <h4>🍽️ 次の食事のおすすめ</h4>
+        <p>「食事を記録」欄の「🤖 次の食事のおすすめを見る」を押すと、その日の残りカロリー・PFCと、すでに記録した食事内容を踏まえて、AIが次の食事の提案をしてくれます。食事を追加・削除したり日付を移動すると、内容が古くならないよう提案は自動的にリセットされます。</p>
+
+        <h4>🏃 運動記録</h4>
+        <p>運動内容・時間(分)を入力し、消費カロリーを手動入力するか「🤖 推定」でAIに概算してもらえます（パーソナルデータの体重が設定されていると、より精度の高い推定になります）。記録した消費カロリーは、その日の「本日のサマリー」の残りカロリーに自動的に加算されます。</p>
+
+        <h4>🍽️ 記録一覧・📈 グラフ</h4>
+        <p>その日の記録一覧（削除も可能）と、直近14日間のカロリー推移グラフを確認できます。</p>
+
+        <h4>⚖️ 体重記録</h4>
+        <p>体重を記録すると、グラフと日別の数値一覧（前回との増減つき）の両方で確認できます。パーソナルデータで目標体重を設定していると、直近の記録から変化ペースを計算し、「あと何日・いつ頃に目標体重へ到達しそうか」の予測も表示されます。</p>
+      </div>
+    </details>
+  </section>
+
+  <div id="setupSection">
+  <section class="card">
+    <h2>🧍 パーソナルデータ・目標設定</h2>
+    <form class="meal-form" id="personalForm">
+      <div>
+        <label>性別</label>
+        <select id="pGender">
+          <option value="male">男性</option>
+          <option value="female">女性</option>
+        </select>
+      </div>
+      <div>
+        <label>年齢</label>
+        <input type="number" id="pAge" min="10" max="100" step="1" placeholder="例: 30">
+      </div>
+      <div>
+        <label>身長 (cm)</label>
+        <input type="number" id="pHeight" min="100" max="250" step="0.1" placeholder="例: 165">
+      </div>
+      <div>
+        <label>現在体重 (kg)</label>
+        <input type="number" id="pWeight" min="20" max="300" step="0.1" placeholder="例: 65">
+      </div>
+      <div>
+        <label>目標体重 (kg)</label>
+        <input type="number" id="pTargetWeight" min="20" max="300" step="0.1" placeholder="例: 60">
+      </div>
+      <div>
+        <label>活動レベル</label>
+        <select id="pActivity">
+          <option value="1.2">デスクワーク中心・運動なし</option>
+          <option value="1.375">軽い運動（週1〜3日）</option>
+          <option value="1.55" selected>中程度の運動（週3〜5日）</option>
+          <option value="1.725">激しい運動（週6〜7日）</option>
+          <option value="1.9">非常に激しい運動・肉体労働</option>
+        </select>
+      </div>
+      <div>
+        <label>目標</label>
+        <select id="pGoal">
+          <option value="lose">減量</option>
+          <option value="maintain">維持</option>
+          <option value="gain">増量</option>
+        </select>
+      </div>
+      <div>
+        <label>変化スピード（週あたり）</label>
+        <select id="pPace">
+          <option value="0.25">緩やか (0.25kg/週)</option>
+          <option value="0.5" selected>標準 (0.5kg/週)</option>
+          <option value="0.75">積極的 (0.75kg/週)</option>
+        </select>
+      </div>
+      <div>
+        <label>たんぱく質 (g / 体重1kgあたり)</label>
+        <input type="number" id="pProteinPerKg" min="0.5" max="4" step="0.1" value="1.8">
+        <p class="field-hint">迷ったら1.8のままでOK（ダイエット向けの標準値。体重×この値=たんぱく質g）</p>
+        <details class="field-guide">
+          <summary>目安を見る</summary>
+          <table>
+            <tr><th>目的</th><th>係数</th></tr>
+            <tr><td>運動しない・健康維持</td><td>1.0〜1.2</td></tr>
+            <tr><td>軽い運動習慣</td><td>1.2〜1.6</td></tr>
+            <tr><td>ダイエット（筋肉を落とさず減量）</td><td>1.6〜2.2</td></tr>
+            <tr><td>筋トレ・増量</td><td>1.6〜2.2</td></tr>
+          </table>
+        </details>
+      </div>
+      <div>
+        <label>脂質の割合（総カロリーの%）</label>
+        <input type="number" id="pFatPct" min="10" max="50" step="1" value="25">
+        <p class="field-hint">迷ったら25%のままでOK（標準的な配分。残りは自動で炭水化物になります）</p>
+        <details class="field-guide">
+          <summary>目安を見る</summary>
+          <table>
+            <tr><th>割合</th><th>特徴</th></tr>
+            <tr><td>20%</td><td>やや低め。炭水化物を多く確保したい人向け</td></tr>
+            <tr><td>25%（デフォルト）</td><td>標準的でバランスが良い</td></tr>
+            <tr><td>30〜35%</td><td>脂質多め・炭水化物控えめにしたい人向け</td></tr>
+          </table>
+        </details>
+      </div>
+      <button type="submit">自動計算する</button>
+    </form>
+
+    <div class="calc-result" id="calcResult" style="display:none;">
+      <div class="summary-grid">
+        <div class="stat"><div class="label">基礎代謝(BMR)</div><div class="value" id="calcBMR">-</div></div>
+        <div class="stat"><div class="label">消費カロリー(TDEE)</div><div class="value" id="calcTDEE">-</div></div>
+        <div class="stat"><div class="label">目標カロリー</div><div class="value" id="calcTargetCal">-</div></div>
+      </div>
+      <div class="summary-grid" style="margin-top:10px;">
+        <div class="stat"><div class="label">たんぱく質</div><div class="value" id="calcProtein">-</div></div>
+        <div class="stat"><div class="label">脂質</div><div class="value" id="calcFat">-</div></div>
+        <div class="stat"><div class="label">炭水化物</div><div class="value" id="calcCarbs">-</div></div>
+      </div>
+      <button id="applyCalc" class="primary-btn">この設定を反映する</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>🎯 目標値（手動調整も可能）</h2>
+    <div class="target-form">
+      <div class="field"><label>カロリー (kcal)</label><input type="number" id="targetCalories" min="0" step="10"></div>
+      <div class="field"><label>たんぱく質 (g)</label><input type="number" id="targetProtein" min="0" step="1"></div>
+      <div class="field"><label>脂質 (g)</label><input type="number" id="targetFat" min="0" step="1"></div>
+      <div class="field"><label>炭水化物 (g)</label><input type="number" id="targetCarbs" min="0" step="1"></div>
+      <button id="saveTarget">保存</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>🤖 AI写真解析の設定</h2>
+
+    <details class="manual-inline">
+      <summary>APIキーの取得・保存の手順を見る</summary>
+      <div class="manual-body">
+        <h4>① APIキーを取得する</h4>
+        <p><strong>必ずSafariやChromeなど通常のブラウザで開いてください。</strong>LINEなどのアプリ内で開いたページ（アプリ内ブラウザ）からだと、Googleのアカウント操作（プロジェクト作成やAPIキー発行）が正しく動作せず、原因の分かりにくいエラーになることがあります。</p>
+        <ol>
+          <li><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>を開く</li>
+          <li>お持ちのGoogleアカウントでログインする</li>
+          <li>「APIキーを作成」（Create API key）をクリックする</li>
+          <li>プロジェクトを選ぶ画面が出たら、既存のプロジェクトでも「Default Gemini Project」のような自動作成のものでもよい</li>
+          <li>作成が終わると文字列（例: <code>AIzaSy...</code>）が表示されるので、コピーアイコンでコピーする</li>
+        </ol>
+        <p><strong>「このプロジェクトでキーを作成する権限がありません」と出る場合：</strong>選択されたプロジェクトに対する権限が足りないことが原因です。プロジェクトを選ぶ画面で、既存のプロジェクトではなく<strong>「新しいプロジェクトでキーを作成」</strong>（Create API key in new project）を選び直してください。それでも出る場合は、会社・学校のGoogle Workspaceアカウントでは組織のポリシーにより作成が禁止されていることがあるため、個人のGmailアカウントでログインし直して試してください。</p>
+        <p><strong>「APIキーを作成できません（Google Cloudプロジェクトを作成できませんでした）」と出る場合：</strong>まずLINEなどのアプリ内ブラウザで開いていないか確認し、開いている場合はSafari/Chromeで開き直してください（個人アカウントでもこれだけで解決することがあります）。それでも直らない場合は、AI Studio側での自動プロジェクト作成に失敗しているので、以下の手順で先にプロジェクトを作ってください。</p>
+        <ol>
+          <li>同じGoogleアカウントで<a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener noreferrer">Google Cloud Console のプロジェクト作成画面</a>を開く</li>
+          <li>プロジェクト名を入力し「作成」を押す（ここで出たエラーが本当の原因を教えてくれます。電話番号確認や利用規約への同意を求められることがあります）</li>
+          <li>作成できたら、AI Studioの「新しいキーを作成する」画面に戻り、「インポートしたプロジェクトを選択」で今作成したプロジェクトを選び「キーを作成」を押す</li>
+        </ol>
+        <p>会社・学校のアカウントで上記もできない場合は、組織の管理者による許可が必要か、個人のGmailアカウントに切り替えて試してください。</p>
+        <h4>② このアプリに保存する</h4>
+        <ol>
+          <li>コピーしたキーを、下の「Gemini APIキー」欄に貼り付ける</li>
+          <li>「保存」ボタンを押す</li>
+          <li>うまく動くか不安なときは「🔍 診断する」ボタンを押すと、キーが有効か・使えるモデルがあるかをその場で確認できる</li>
+        </ol>
+        <p>保存したキーはこのブラウザだけに残り、写真解析・食品名からの計算・1日の評価機能を使うときにだけGoogleのAPIへ直接送信されます。リポジトリやサーバーには一切保存されません。</p>
+        <p>「モデルが見つかりません」「混雑しています」のようなエラーが出ても、アプリ側で自動的に別のモデルに切り替えて再試行するので、多くの場合そのままもう一度ボタンを押せば解決します。</p>
+
+        <h4>③ 解析時にエラーが出たら</h4>
+        <ul>
+          <li><strong>「AIモデルが混雑しています」</strong>：Google側が混み合っている状態です。多くは自動で別のモデルに切り替わりますが、直らない場合は1〜2分待ってから「AIで解析して自動入力」をもう一度押してください。</li>
+          <li><strong>「リクエストが多すぎます」</strong>：無料枠の利用回数上限に達している可能性があります。少し時間をおく（数分〜1時間程度）か、翌日改めて試してください。</li>
+          <li><strong>「APIキーが無効か、権限がありません」</strong>：キーの入力ミス、コピー漏れ、キーの削除・失効が考えられます。「🔍 診断する」で状態を確認し、必要なら①の手順でキーを再取得し、保存し直してください。</li>
+          <li><strong>「モデルが見つかりません」</strong>：通常は自動で別のモデルに切り替わって解決します。繰り返し出る場合はブラウザのキャッシュが古い可能性があるので、ページを再読み込み（キャッシュの再取得）してから試してください。</li>
+          <li><strong>「リクエストが不正です」</strong>：画像が壊れている、または大きすぎる可能性があります。別の写真で試すか、手動入力に切り替えてください。</li>
+          <li>どのエラーでも、まず「🔍 診断する」ボタンを押すとキーの有効性やエラー内容をその場で確認できます。解決しない場合は、写真解析・食品名計算を使わず「③ 手動入力」で記録してください。</li>
+        </ul>
+      </div>
+    </details>
+
+    <div class="target-form">
+      <div class="field" style="flex:1;min-width:220px;">
+        <label>Gemini APIキー</label>
+        <input type="password" id="geminiApiKey" placeholder="AIzaSy..." style="width:100%;">
+      </div>
+      <button id="saveGeminiKey">保存</button>
+      <button id="diagnoseGeminiKey" class="ghost-btn">🔍 診断する</button>
+    </div>
+    <p class="field-hint" id="geminiKeyStatus">
+      <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>で無料のAPIキーを取得できます。キーはこのブラウザにのみ保存され、写真解析のときだけGoogleのAPIへ直接送信されます（サーバーやリポジトリには保存されません）。
+    </p>
+    <p class="field-hint" id="diagnoseResult"></p>
+  </section>
+  </div>
+
+  <section class="card">
+    <div class="date-nav">
+      <button id="prevDay">‹</button>
+      <input type="date" id="datePicker">
+      <button id="nextDay">›</button>
+      <button id="todayBtn">今日</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>📊 本日のサマリー</h2>
+    <div class="summary-grid">
+      <div class="stat"><div class="label">目標</div><div class="value" id="sumTarget">0</div></div>
+      <div class="stat"><div class="label">摂取</div><div class="value" id="sumIntake">0</div></div>
+      <div class="stat"><div class="label">残り</div><div class="value" id="sumRemain">0</div></div>
+      <div class="stat"><div class="label">P/F/C</div><div class="value" id="sumPFC" style="font-size:0.8rem">0/0/0</div></div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar" style="width:0%"></div></div>
+      <div class="progress-caption"><span id="progressPct">0%</span><span id="progressNote"></span></div>
+    </div>
+    <div class="pfc-target-line" id="sumPFCTargetLine"></div>
+    <div class="pfc-target-line" id="sumExtraNutrients"></div>
+
+    <button type="button" id="dailyAdviceBtn" class="primary-btn">🤖 今日の食事をAIに評価してもらう</button>
+    <p class="field-hint" id="dailyAdviceStatus"></p>
+    <div class="advice-box" id="dailyAdviceBox" style="display:none;">
+      <div class="advice-label">📝 評価</div>
+      <p id="dailyAdviceEvaluation"></p>
+      <div class="advice-label">💡 一言アドバイス</div>
+      <p id="dailyAdviceText"></p>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>➕ 食事を記録</h2>
+    <p class="field-hint">1回の「記録を追加」で1品分が記録されます。複数の料理を食べた場合は、記録を追加した後にもう一度入力し、1品ずつ追加してください。</p>
+
+    <details class="manual-inline">
+      <summary>食事記録の方法を見る</summary>
+      <div class="manual-body">
+        <p>「記録を追加」を押すごとに1品分が食事リストに追加されます。定食のように複数の料理をまとめて食べた場合も、まとめて1件にするのではなく、料理ごとに①〜④のいずれかの方法で1品ずつ記録してください（例: ごはん、味噌汁、焼き魚をそれぞれ記録）。ただし③のまとめてテキスト入力を使えば、複数の料理を一度に記録できます。分けて記録すると、後から食事リストで料理ごとの内容を確認・修正しやすくなります。</p>
+
+        <h4>① 写真から記録</h4>
+        <p>「📷 写真から記録する」で写真を選択・撮影し、「🤖 AIで解析して自動入力」を押すと、Gemini AIが料理名・カロリー・PFCを推定して自動入力します。事前に上の「🤖 AI写真解析の設定」でAPIキーを保存しておく必要があります。</p>
+
+        <h4>② 食品名+分量から計算</h4>
+        <p>food名と分量（g）を入力し「🤖 計算」を押すと、AIがその分量に応じた栄養価を推定して自動入力します。①と同じAPIキーを使います。</p>
+        <p>「鶏むね肉」のような単一の食材だけでなく、「カレーライス」「親子丼」「サラダチキンサンド」のような複数の材料からなる完成した料理名でも計算できます。</p>
+        <p><strong>入力例:</strong></p>
+        <ul>
+          <li>food名「カレーライス」、分量「350」</li>
+          <li>food名「鶏むね肉」、分量「150」</li>
+          <li>food名「親子丼」、分量「500」</li>
+        </ul>
+
+        <h4>③ まとめてテキストで記録</h4>
+        <p>「今日食べたものをまとめて入力」欄に、1日分の食事を自由な文章で入力し「🤖 AIでまとめて解析」を押すと、AIが食事ごとに分割して食事タイプ・料理名・カロリー・PFC・食物繊維・糖質・塩分をまとめて推定します。内容がリスト表示されるので、不要な項目はチェックを外し、必要なら数値を修正してから「選択した内容をまとめて記録する」を押すと、一度にすべて記録されます。①②と同じAPIキーを使います。</p>
+        <p><strong>入力例:</strong> 「朝はご飯と味噌汁と焼き鮭、昼はコンビニのサラダチキンサンドとコーヒー、夜は特に食べていません」</p>
+
+        <h4>④ 手動入力</h4>
+        <p>カロリー・food名・PFCの各欄に直接入力します。PFCは任意項目です（空欄でも記録できます）。「詳細な栄養素を追加」を開くと、食物繊維・糖質・塩分も入力できます。</p>
+
+        <p>①②③はいずれもAIによる推定値です。内容を確認し、必要に応じて数値を修正してから記録を確定してください。</p>
+      </div>
+    </details>
+
+    <div class="favorites-bar" id="favoritesBar" style="display:none;">
+      <div class="favorites-label">⭐ お気に入りから記録</div>
+      <div class="favorites-chips" id="favoritesChips"></div>
+    </div>
+
+    <div class="photo-capture">
+      <input type="file" id="mealPhotoInput" accept="image/*" style="display:none;">
+      <button type="button" id="choosePhotoBtn" class="primary-btn">📷 写真から記録する</button>
+      <div id="photoPreviewWrap" style="display:none;">
+        <img id="photoPreview" class="photo-preview" alt="選択した写真のプレビュー">
+        <div class="photo-actions">
+          <button type="button" id="analyzePhotoBtn" class="primary-btn">🤖 AIで解析して自動入力</button>
+          <button type="button" id="clearPhotoBtn" class="ghost-btn">✕ 写真を削除</button>
+        </div>
+      </div>
+      <p class="field-hint" id="analyzeStatus"></p>
+    </div>
+
+    <div class="bulk-text-entry">
+      <label for="bulkMealText">📝 今日食べたものをまとめて入力</label>
+      <textarea id="bulkMealText" rows="2" placeholder="例: 朝はご飯と味噌汁と焼き鮭、昼はコンビニのサラダチキンサンドとコーヒー、夜は特に食べていません"></textarea>
+      <button type="button" id="bulkParseBtn" class="primary-btn">🤖 AIでまとめて解析</button>
+      <p class="field-hint" id="bulkParseStatus"></p>
+      <div id="bulkPreviewWrap" style="display:none;">
+        <p class="field-hint">内容を確認し、不要な項目はチェックを外し、必要なら数値を修正してから記録してください。</p>
+        <div id="bulkPreviewList"></div>
+        <div class="photo-actions">
+          <button type="button" id="bulkConfirmBtn" class="primary-btn">選択した内容をまとめて記録する</button>
+          <button type="button" id="bulkCancelBtn" class="ghost-btn">✕ キャンセル</button>
+        </div>
+      </div>
+    </div>
+
+    <p class="field-hint" style="margin: 10px 0 -4px;">または、以下に直接入力：</p>
+
+    <form class="meal-form" id="mealForm">
+      <div>
+        <label>食事タイプ</label>
+        <select id="mealType">
+          <option value="朝食">朝食</option>
+          <option value="昼食">昼食</option>
+          <option value="夕食">夕食</option>
+          <option value="間食">間食</option>
+        </select>
+      </div>
+      <div>
+        <label>カロリー (kcal)</label>
+        <input type="number" id="mealCalories" min="0" step="1" required placeholder="例: 450">
+      </div>
+      <div class="full">
+        <label>food名</label>
+        <input type="text" id="mealName" required placeholder="例: 鶏胸肉サラダ">
+      </div>
+      <div class="full">
+        <label>分量 (g)（食品名とあわせてAI自動計算に使用・任意）</label>
+        <div class="inline-calc">
+          <input type="number" id="mealGrams" min="0" step="1" placeholder="例: 150">
+          <button type="button" id="calcFromNameBtn" class="ghost-btn">🤖 計算</button>
+        </div>
+        <p class="field-hint" id="calcFromNameStatus"></p>
+      </div>
+      <div>
+        <label>たんぱく質 (g)</label>
+        <input type="number" id="mealProtein" min="0" step="0.1" placeholder="任意">
+      </div>
+      <div>
+        <label>脂質 (g)</label>
+        <input type="number" id="mealFat" min="0" step="0.1" placeholder="任意">
+      </div>
+      <div class="full">
+        <label>炭水化物 (g)</label>
+        <input type="number" id="mealCarbs" min="0" step="0.1" placeholder="任意">
+      </div>
+      <details class="full manual-inline nutrient-details">
+        <summary>詳細な栄養素を追加（食物繊維・糖質・塩分、任意）</summary>
+        <div class="nutrient-details-grid">
+          <div>
+            <label>食物繊維 (g)</label>
+            <input type="number" id="mealFiber" min="0" step="0.1" placeholder="任意">
+          </div>
+          <div>
+            <label>糖質 (g)</label>
+            <input type="number" id="mealSugar" min="0" step="0.1" placeholder="任意">
+          </div>
+          <div>
+            <label>塩分 (g)</label>
+            <input type="number" id="mealSalt" min="0" step="0.1" placeholder="任意">
+          </div>
+        </div>
+      </details>
+      <button type="submit">記録を追加</button>
+      <button type="button" id="saveFavoriteBtn" class="ghost-btn" style="width:100%;">☆ この内容をお気に入りに登録</button>
+    </form>
+
+    <button type="button" id="nextMealBtn" class="primary-btn">🤖 次の食事のおすすめを見る</button>
+    <p class="field-hint" id="nextMealStatus"></p>
+    <div class="advice-box" id="nextMealBox" style="display:none;">
+      <div class="advice-label">🍽️ 次の食事のおすすめ</div>
+      <p id="nextMealText"></p>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>🍽️ 記録一覧</h2>
+    <div id="mealList"></div>
+  </section>
+
+  <section class="card">
+    <h2>🏃 運動記録</h2>
+    <form class="meal-form" id="exerciseForm">
+      <div class="full">
+        <label>運動内容</label>
+        <input type="text" id="exerciseName" required placeholder="例: ランニング、ウォーキング">
+      </div>
+      <div>
+        <label>時間 (分)</label>
+        <input type="number" id="exerciseMinutes" min="0" step="1" placeholder="例: 30">
+      </div>
+      <div>
+        <label>消費カロリー (kcal)</label>
+        <div class="inline-calc">
+          <input type="number" id="exerciseCalories" min="0" step="1" placeholder="例: 200">
+          <button type="button" id="calcExerciseBtn" class="ghost-btn">🤖 推定</button>
+        </div>
+      </div>
+      <p class="field-hint full" id="exerciseCalcStatus"></p>
+      <button type="submit">運動を記録</button>
+    </form>
+    <div id="exerciseList"></div>
+  </section>
+
+  <section class="card">
+    <h2>📈 カロリー推移（直近14日）</h2>
+    <canvas id="calorieChart" width="600" height="160"></canvas>
+  </section>
+
+  <section class="card">
+    <h2>⚖️ 体重記録</h2>
+    <div class="advice-box" id="goalPredictionBox" style="display:none;">
+      <div class="advice-label">🎯 目標体重までの予測</div>
+      <p id="goalPredictionText"></p>
+    </div>
+    <p class="field-hint" id="goalPredictionHint"></p>
+    <div class="weight-form">
+      <input type="date" id="weightDate">
+      <input type="number" id="weightValue" min="0" step="0.1" placeholder="体重 (kg)">
+      <button id="addWeight">追加</button>
+    </div>
+    <canvas id="weightChart" width="600" height="160"></canvas>
+    <h3 class="weight-list-title">記録一覧</h3>
+    <div id="weightList" class="weight-list"></div>
+  </section>
+</main>
+
+<footer>ログインしていない場合、データはこのブラウザ内（localStorage）のみに保存されます。ログインするとクラウド（Firestore）に保存され、別の端末・ブラウザからも同じデータにアクセスできます。</footer>
+
+<script>
+(function() {
+  "use strict";
+
+  var LEGACY_STORAGE_KEY = "dietTracker.v1";
+  var PROFILES_KEY = "dietTracker.profiles";
+  var ACTIVE_PROFILE_KEY = "dietTracker.activeProfileId";
+
+  function genId() {
+    return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+  }
+
+  function dataKey(profileId) {
+    return "dietTracker.data." + profileId;
+  }
+
+  function saveProfiles(list) {
+    try {
+      localStorage.setItem(PROFILES_KEY, JSON.stringify(list));
+    } catch (e) {}
+  }
+
+  function migrateLegacyProfile() {
+    var legacy = null;
+    try {
+      var raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+      if (raw) legacy = JSON.parse(raw);
+    } catch (e) {}
+    var id = genId();
+    var list = [{ id: id, name: "マイプロフィール" }];
+    saveProfiles(list);
+    localStorage.setItem(ACTIVE_PROFILE_KEY, id);
+    if (legacy) {
+      try {
+        localStorage.setItem(dataKey(id), JSON.stringify(legacy));
+        localStorage.removeItem(LEGACY_STORAGE_KEY);
+      } catch (e) {}
+    }
+    return list;
+  }
+
+  function loadProfiles() {
+    var list = [];
+    try {
+      var raw = localStorage.getItem(PROFILES_KEY);
+      if (raw) list = JSON.parse(raw) || [];
+    } catch (e) {
+      list = [];
+    }
+    if (!list.length) list = migrateLegacyProfile();
+    return list;
+  }
+
+  var profiles = loadProfiles();
+  var activeProfileId = localStorage.getItem(ACTIVE_PROFILE_KEY);
+  if (!activeProfileId || !profiles.some(function(p) { return p.id === activeProfileId; })) {
+    activeProfileId = profiles[0].id;
+    localStorage.setItem(ACTIVE_PROFILE_KEY, activeProfileId);
+  }
+
+  function defaultState() {
+    return {
+      targetCalories: 1800,
+      targetProtein: 0,
+      targetFat: 0,
+      targetCarbs: 0,
+      personal: {
+        gender: "male",
+        age: "",
+        height: "",
+        weight: "",
+        targetWeight: "",
+        activity: "1.55",
+        goal: "maintain",
+        pace: "0.5",
+        proteinPerKg: 1.8,
+        fatPct: 25
+      },
+      meals: [],
+      weights: [],
+      favorites: [],
+      exercises: []
+    };
+  }
+
+  function mergeState(parsed) {
+    var data = defaultState();
+    if (parsed) {
+      data.targetCalories = parsed.targetCalories != null ? parsed.targetCalories : data.targetCalories;
+      data.targetProtein = parsed.targetProtein != null ? parsed.targetProtein : data.targetProtein;
+      data.targetFat = parsed.targetFat != null ? parsed.targetFat : data.targetFat;
+      data.targetCarbs = parsed.targetCarbs != null ? parsed.targetCarbs : data.targetCarbs;
+      data.personal = Object.assign({}, data.personal, parsed.personal || {});
+      data.meals = parsed.meals || [];
+      data.weights = parsed.weights || [];
+      data.favorites = parsed.favorites || [];
+      data.exercises = parsed.exercises || [];
+    }
+    return data;
+  }
+
+  function loadData(profileId) {
+    var parsed = null;
+    try {
+      var raw = localStorage.getItem(dataKey(profileId));
+      if (raw) parsed = JSON.parse(raw);
+    } catch (e) {}
+    return mergeState(parsed);
+  }
+
+  // --- クラウド同期 (Firebase Auth + Firestore) ---
+  // 別端末・ブラウザから同じデータにアクセスするには、下記 firebaseConfig に
+  // 自分の Firebase プロジェクトの設定値を入力してください（README参照）。
+  var firebaseConfig = {
+    apiKey: "AIzaSyARz75plvKG5YfpZG1iEKP96xis_GNTxuw",
+    authDomain: "diet-tracker-a8956.firebaseapp.com",
+    projectId: "diet-tracker-a8956",
+    storageBucket: "diet-tracker-a8956.firebasestorage.app",
+    messagingSenderId: "812705401786",
+    appId: "1:812705401786:web:b1bcad37e4df521955ab83"
+  };
+
+  var firebaseEnabled = false;
+  var auth = null;
+  var db = null;
+  try {
+    if (typeof firebase !== "undefined" && firebaseConfig.apiKey && firebaseConfig.apiKey.indexOf("YOUR_") !== 0) {
+      firebase.initializeApp(firebaseConfig);
+      auth = firebase.auth();
+      db = firebase.firestore();
+      firebaseEnabled = true;
+    }
+  } catch (e) {
+    firebaseEnabled = false;
+  }
+
+  var cloudUser = null;
+  var unsubscribeCloud = null;
+
+  function saveData() {
+    if (cloudUser && db) {
+      setSyncStatus("🔄 保存中...");
+      db.collection("users").doc(cloudUser.uid).set(state)
+        .then(function() { setSyncStatus("✅ 同期済み"); })
+        .catch(function() { setSyncStatus("⚠️ 保存に失敗しました"); });
+      return;
+    }
+    try {
+      localStorage.setItem(dataKey(activeProfileId), JSON.stringify(state));
+    } catch (e) {}
+  }
+
+  var state = loadData(activeProfileId);
+  var lastCalc = null;
+
+  function todayStr() {
+    var d = new Date();
+    return formatDate(d);
+  }
+
+  function formatDate(d) {
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, "0");
+    var day = String(d.getDate()).padStart(2, "0");
+    return y + "-" + m + "-" + day;
+  }
+
+  function addDays(dateStr, delta) {
+    var d = new Date(dateStr + "T00:00:00");
+    d.setDate(d.getDate() + delta);
+    return formatDate(d);
+  }
+
+  var selectedDate = todayStr();
+
+  var el = {
+    profileBar: document.getElementById("profileBar"),
+    profileSelect: document.getElementById("profileSelect"),
+    addProfileBtn: document.getElementById("addProfileBtn"),
+    renameProfileBtn: document.getElementById("renameProfileBtn"),
+    deleteProfileBtn: document.getElementById("deleteProfileBtn"),
+    cloudNotConfigured: document.getElementById("cloudNotConfigured"),
+    cloudLoggedOut: document.getElementById("cloudLoggedOut"),
+    cloudLoggedIn: document.getElementById("cloudLoggedIn"),
+    authEmail: document.getElementById("authEmail"),
+    authPassword: document.getElementById("authPassword"),
+    authLoginBtn: document.getElementById("authLoginBtn"),
+    authSignupBtn: document.getElementById("authSignupBtn"),
+    authLogoutBtn: document.getElementById("authLogoutBtn"),
+    authMessage: document.getElementById("authMessage"),
+    cloudUserEmail: document.getElementById("cloudUserEmail"),
+    syncStatus: document.getElementById("syncStatus"),
+    setupSection: document.getElementById("setupSection"),
+    personalForm: document.getElementById("personalForm"),
+    pGender: document.getElementById("pGender"),
+    pAge: document.getElementById("pAge"),
+    pHeight: document.getElementById("pHeight"),
+    pWeight: document.getElementById("pWeight"),
+    pTargetWeight: document.getElementById("pTargetWeight"),
+    pActivity: document.getElementById("pActivity"),
+    pGoal: document.getElementById("pGoal"),
+    pPace: document.getElementById("pPace"),
+    pProteinPerKg: document.getElementById("pProteinPerKg"),
+    pFatPct: document.getElementById("pFatPct"),
+    calcResult: document.getElementById("calcResult"),
+    calcBMR: document.getElementById("calcBMR"),
+    calcTDEE: document.getElementById("calcTDEE"),
+    calcTargetCal: document.getElementById("calcTargetCal"),
+    calcProtein: document.getElementById("calcProtein"),
+    calcFat: document.getElementById("calcFat"),
+    calcCarbs: document.getElementById("calcCarbs"),
+    applyCalc: document.getElementById("applyCalc"),
+    targetCalories: document.getElementById("targetCalories"),
+    targetProtein: document.getElementById("targetProtein"),
+    targetFat: document.getElementById("targetFat"),
+    targetCarbs: document.getElementById("targetCarbs"),
+    saveTarget: document.getElementById("saveTarget"),
+    sumPFCTargetLine: document.getElementById("sumPFCTargetLine"),
+    sumExtraNutrients: document.getElementById("sumExtraNutrients"),
+    dailyAdviceBtn: document.getElementById("dailyAdviceBtn"),
+    dailyAdviceStatus: document.getElementById("dailyAdviceStatus"),
+    dailyAdviceBox: document.getElementById("dailyAdviceBox"),
+    dailyAdviceEvaluation: document.getElementById("dailyAdviceEvaluation"),
+    dailyAdviceText: document.getElementById("dailyAdviceText"),
+    datePicker: document.getElementById("datePicker"),
+    prevDay: document.getElementById("prevDay"),
+    nextDay: document.getElementById("nextDay"),
+    todayBtn: document.getElementById("todayBtn"),
+    sumTarget: document.getElementById("sumTarget"),
+    sumIntake: document.getElementById("sumIntake"),
+    sumRemain: document.getElementById("sumRemain"),
+    sumPFC: document.getElementById("sumPFC"),
+    progressBar: document.getElementById("progressBar"),
+    progressPct: document.getElementById("progressPct"),
+    progressNote: document.getElementById("progressNote"),
+    mealForm: document.getElementById("mealForm"),
+    mealType: document.getElementById("mealType"),
+    mealCalories: document.getElementById("mealCalories"),
+    mealName: document.getElementById("mealName"),
+    mealProtein: document.getElementById("mealProtein"),
+    mealFat: document.getElementById("mealFat"),
+    mealCarbs: document.getElementById("mealCarbs"),
+    mealFiber: document.getElementById("mealFiber"),
+    mealSugar: document.getElementById("mealSugar"),
+    mealSalt: document.getElementById("mealSalt"),
+    exerciseForm: document.getElementById("exerciseForm"),
+    exerciseName: document.getElementById("exerciseName"),
+    exerciseMinutes: document.getElementById("exerciseMinutes"),
+    exerciseCalories: document.getElementById("exerciseCalories"),
+    calcExerciseBtn: document.getElementById("calcExerciseBtn"),
+    exerciseCalcStatus: document.getElementById("exerciseCalcStatus"),
+    exerciseList: document.getElementById("exerciseList"),
+    mealGrams: document.getElementById("mealGrams"),
+    calcFromNameBtn: document.getElementById("calcFromNameBtn"),
+    calcFromNameStatus: document.getElementById("calcFromNameStatus"),
+    mealList: document.getElementById("mealList"),
+    geminiApiKey: document.getElementById("geminiApiKey"),
+    saveGeminiKey: document.getElementById("saveGeminiKey"),
+    geminiKeyStatus: document.getElementById("geminiKeyStatus"),
+    diagnoseGeminiKey: document.getElementById("diagnoseGeminiKey"),
+    diagnoseResult: document.getElementById("diagnoseResult"),
+    mealPhotoInput: document.getElementById("mealPhotoInput"),
+    choosePhotoBtn: document.getElementById("choosePhotoBtn"),
+    photoPreviewWrap: document.getElementById("photoPreviewWrap"),
+    photoPreview: document.getElementById("photoPreview"),
+    analyzePhotoBtn: document.getElementById("analyzePhotoBtn"),
+    clearPhotoBtn: document.getElementById("clearPhotoBtn"),
+    analyzeStatus: document.getElementById("analyzeStatus"),
+    bulkMealText: document.getElementById("bulkMealText"),
+    bulkParseBtn: document.getElementById("bulkParseBtn"),
+    bulkParseStatus: document.getElementById("bulkParseStatus"),
+    bulkPreviewWrap: document.getElementById("bulkPreviewWrap"),
+    bulkPreviewList: document.getElementById("bulkPreviewList"),
+    bulkConfirmBtn: document.getElementById("bulkConfirmBtn"),
+    bulkCancelBtn: document.getElementById("bulkCancelBtn"),
+    calorieChart: document.getElementById("calorieChart"),
+    weightDate: document.getElementById("weightDate"),
+    weightValue: document.getElementById("weightValue"),
+    addWeight: document.getElementById("addWeight"),
+    weightChart: document.getElementById("weightChart"),
+    weightList: document.getElementById("weightList"),
+    favoritesBar: document.getElementById("favoritesBar"),
+    favoritesChips: document.getElementById("favoritesChips"),
+    saveFavoriteBtn: document.getElementById("saveFavoriteBtn"),
+    nextMealBtn: document.getElementById("nextMealBtn"),
+    nextMealStatus: document.getElementById("nextMealStatus"),
+    nextMealBox: document.getElementById("nextMealBox"),
+    nextMealText: document.getElementById("nextMealText"),
+    goalPredictionBox: document.getElementById("goalPredictionBox"),
+    goalPredictionText: document.getElementById("goalPredictionText"),
+    goalPredictionHint: document.getElementById("goalPredictionHint")
+  };
+
+  function fillFormsFromState() {
+    var p = state.personal;
+    el.pGender.value = p.gender;
+    el.pAge.value = p.age;
+    el.pHeight.value = p.height;
+    el.pWeight.value = p.weight;
+    el.pTargetWeight.value = p.targetWeight;
+    el.pActivity.value = p.activity;
+    el.pGoal.value = p.goal;
+    el.pPace.value = p.pace;
+    el.pProteinPerKg.value = p.proteinPerKg;
+    el.pFatPct.value = p.fatPct;
+
+    el.targetCalories.value = state.targetCalories || "";
+    el.targetProtein.value = state.targetProtein || "";
+    el.targetFat.value = state.targetFat || "";
+    el.targetCarbs.value = state.targetCarbs || "";
+  }
+
+  function resetCalcPreview() {
+    lastCalc = null;
+    el.calcResult.style.display = "none";
+  }
+
+  function renderProfileSelect() {
+    el.profileSelect.innerHTML = profiles.map(function(p) {
+      return '<option value="' + p.id + '">' + escapeHtml(p.name) + '</option>';
+    }).join("");
+    el.profileSelect.value = activeProfileId;
+  }
+
+  function switchToProfile(id) {
+    activeProfileId = id;
+    localStorage.setItem(ACTIVE_PROFILE_KEY, activeProfileId);
+    state = loadData(activeProfileId);
+    fillFormsFromState();
+    resetCalcPreview();
+    render();
+  }
+
+  el.profileSelect.addEventListener("change", function() {
+    switchToProfile(el.profileSelect.value);
+  });
+
+  el.addProfileBtn.addEventListener("click", function() {
+    var name = prompt("新しいプロフィール名を入力してください", "");
+    if (!name) return;
+    name = name.trim();
+    if (!name) return;
+    var id = genId();
+    profiles.push({ id: id, name: name });
+    saveProfiles(profiles);
+    renderProfileSelect();
+    switchToProfile(id);
+  });
+
+  el.renameProfileBtn.addEventListener("click", function() {
+    var current = profiles.filter(function(p) { return p.id === activeProfileId; })[0];
+    if (!current) return;
+    var name = prompt("プロフィール名を変更", current.name);
+    if (!name) return;
+    name = name.trim();
+    if (!name) return;
+    current.name = name;
+    saveProfiles(profiles);
+    renderProfileSelect();
+  });
+
+  el.deleteProfileBtn.addEventListener("click", function() {
+    if (profiles.length <= 1) {
+      alert("最後の1つのプロフィールは削除できません");
+      return;
+    }
+    var current = profiles.filter(function(p) { return p.id === activeProfileId; })[0];
+    if (!current) return;
+    if (!confirm('プロフィール「' + current.name + '」とそのデータを削除しますか？この操作は取り消せません。')) return;
+    try { localStorage.removeItem(dataKey(activeProfileId)); } catch (e) {}
+    profiles = profiles.filter(function(p) { return p.id !== activeProfileId; });
+    saveProfiles(profiles);
+    renderProfileSelect();
+    switchToProfile(profiles[0].id);
+  });
+
+  function setSyncStatus(text) {
+    if (el.syncStatus) el.syncStatus.textContent = text || "";
+  }
+
+  function showAuthMessage(msg, isError) {
+    el.authMessage.textContent = msg || "";
+    el.authMessage.style.color = isError ? "var(--danger)" : "var(--muted)";
+  }
+
+  function authErrorMessage(err) {
+    var map = {
+      "auth/email-already-in-use": "このメールアドレスは既に登録されています",
+      "auth/invalid-email": "メールアドレスの形式が正しくありません",
+      "auth/weak-password": "パスワードは6文字以上にしてください",
+      "auth/user-not-found": "ユーザーが見つかりません",
+      "auth/wrong-password": "パスワードが違います",
+      "auth/invalid-credential": "メールアドレスまたはパスワードが正しくありません",
+      "auth/too-many-requests": "試行回数が多すぎます。しばらくしてから再試行してください"
+    };
+    return (err && map[err.code]) || ("エラー: " + (err && err.message));
+  }
+
+  function updateCloudUI() {
+    if (!firebaseEnabled) {
+      el.cloudNotConfigured.style.display = "flex";
+      el.cloudLoggedOut.style.display = "none";
+      el.cloudLoggedIn.style.display = "none";
+      el.profileBar.style.display = "flex";
+      return;
+    }
+    el.cloudNotConfigured.style.display = "none";
+    if (cloudUser) {
+      el.cloudLoggedOut.style.display = "none";
+      el.cloudLoggedIn.style.display = "flex";
+      el.cloudUserEmail.textContent = cloudUser.email;
+      el.profileBar.style.display = "none";
+    } else {
+      el.cloudLoggedOut.style.display = "flex";
+      el.cloudLoggedIn.style.display = "none";
+      el.profileBar.style.display = "flex";
+    }
+  }
+
+  function subscribeToCloudData(uid) {
+    var docRef = db.collection("users").doc(uid);
+    unsubscribeCloud = docRef.onSnapshot(function(doc) {
+      if (doc.exists) {
+        state = mergeState(doc.data());
+      } else {
+        state = defaultState();
+        docRef.set(state).catch(function() { setSyncStatus("⚠️ 同期エラー"); });
+      }
+      fillFormsFromState();
+      render();
+      setSyncStatus("✅ 同期済み");
+    }, function(err) {
+      setSyncStatus("⚠️ 同期エラー: " + err.message);
+    });
+  }
+
+  if (firebaseEnabled) {
+    el.authSignupBtn.addEventListener("click", function() {
+      var email = el.authEmail.value.trim();
+      var pw = el.authPassword.value;
+      if (!email || !pw) { showAuthMessage("メールアドレスとパスワードを入力してください", true); return; }
+      showAuthMessage("");
+      auth.createUserWithEmailAndPassword(email, pw).catch(function(err) {
+        showAuthMessage(authErrorMessage(err), true);
+      });
+    });
+
+    el.authLoginBtn.addEventListener("click", function() {
+      var email = el.authEmail.value.trim();
+      var pw = el.authPassword.value;
+      if (!email || !pw) { showAuthMessage("メールアドレスとパスワードを入力してください", true); return; }
+      showAuthMessage("");
+      auth.signInWithEmailAndPassword(email, pw).catch(function(err) {
+        showAuthMessage(authErrorMessage(err), true);
+      });
+    });
+
+    el.authLogoutBtn.addEventListener("click", function() {
+      auth.signOut();
+    });
+
+    auth.onAuthStateChanged(function(user) {
+      if (unsubscribeCloud) { unsubscribeCloud(); unsubscribeCloud = null; }
+      cloudUser = user;
+      updateCloudUI();
+      showAuthMessage("");
+      el.authEmail.value = "";
+      el.authPassword.value = "";
+      if (user) {
+        setSyncStatus("🔄 同期中...");
+        resetCalcPreview();
+        subscribeToCloudData(user.uid);
+      } else {
+        state = loadData(activeProfileId);
+        fillFormsFromState();
+        resetCalcPreview();
+        render();
+      }
+    });
+  }
+
+  function init() {
+    updateCloudUI();
+    renderProfileSelect();
+    fillFormsFromState();
+    resetCalcPreview();
+    el.datePicker.value = selectedDate;
+    el.weightDate.value = todayStr();
+    render();
+  }
+
+  function calcBMR(gender, weight, height, age) {
+    var base = 10 * weight + 6.25 * height - 5 * age;
+    return gender === "male" ? base + 5 : base - 161;
+  }
+
+  function readPersonalForm() {
+    return {
+      gender: el.pGender.value,
+      age: parseFloat(el.pAge.value),
+      height: parseFloat(el.pHeight.value),
+      weight: parseFloat(el.pWeight.value),
+      targetWeight: el.pTargetWeight.value,
+      activity: el.pActivity.value,
+      goal: el.pGoal.value,
+      pace: el.pPace.value,
+      proteinPerKg: parseFloat(el.pProteinPerKg.value) || 1.8,
+      fatPct: parseFloat(el.pFatPct.value) || 25
+    };
+  }
+
+  el.personalForm.addEventListener("submit", function(e) {
+    e.preventDefault();
+    var p = readPersonalForm();
+
+    state.personal = {
+      gender: p.gender,
+      age: el.pAge.value,
+      height: el.pHeight.value,
+      weight: el.pWeight.value,
+      targetWeight: p.targetWeight,
+      activity: p.activity,
+      goal: p.goal,
+      pace: p.pace,
+      proteinPerKg: p.proteinPerKg,
+      fatPct: p.fatPct
+    };
+    saveData();
+    renderGoalPrediction();
+    repositionSetupSection();
+
+    if (!p.age || !p.height || !p.weight) {
+      alert("年齢・身長・現在体重を入力してください");
+      return;
+    }
+
+    var bmr = calcBMR(p.gender, p.weight, p.height, p.age);
+    var tdee = bmr * parseFloat(p.activity);
+
+    var dailyDelta = 0;
+    var pace = parseFloat(p.pace);
+    if (p.goal === "lose") dailyDelta = -(pace * 7200 / 7);
+    else if (p.goal === "gain") dailyDelta = (pace * 7200 / 7);
+
+    var targetCal = Math.round(tdee + dailyDelta);
+    var floor = Math.round(bmr * 0.8);
+    if (targetCal < floor) targetCal = floor;
+
+    var proteinG = Math.round(p.weight * p.proteinPerKg);
+    var fatG = Math.round((targetCal * (p.fatPct / 100)) / 9);
+    var carbsCal = targetCal - (proteinG * 4) - (fatG * 9);
+    var carbsG = Math.max(0, Math.round(carbsCal / 4));
+
+    lastCalc = {
+      bmr: Math.round(bmr),
+      tdee: Math.round(tdee),
+      targetCal: targetCal,
+      proteinG: proteinG,
+      fatG: fatG,
+      carbsG: carbsG
+    };
+
+    el.calcBMR.textContent = lastCalc.bmr;
+    el.calcTDEE.textContent = lastCalc.tdee;
+    el.calcTargetCal.textContent = lastCalc.targetCal;
+    el.calcProtein.textContent = lastCalc.proteinG + "g";
+    el.calcFat.textContent = lastCalc.fatG + "g";
+    el.calcCarbs.textContent = lastCalc.carbsG + "g";
+    el.calcResult.style.display = "block";
+  });
+
+  el.applyCalc.addEventListener("click", function() {
+    if (!lastCalc) return;
+    state.targetCalories = lastCalc.targetCal;
+    state.targetProtein = lastCalc.proteinG;
+    state.targetFat = lastCalc.fatG;
+    state.targetCarbs = lastCalc.carbsG;
+    saveData();
+    el.targetCalories.value = state.targetCalories;
+    el.targetProtein.value = state.targetProtein;
+    el.targetFat.value = state.targetFat;
+    el.targetCarbs.value = state.targetCarbs;
+    render();
+  });
+
+  el.saveTarget.addEventListener("click", function() {
+    var v = parseFloat(el.targetCalories.value);
+    state.targetCalories = isNaN(v) ? 0 : v;
+    var p = parseFloat(el.targetProtein.value);
+    state.targetProtein = isNaN(p) ? 0 : p;
+    var f = parseFloat(el.targetFat.value);
+    state.targetFat = isNaN(f) ? 0 : f;
+    var c = parseFloat(el.targetCarbs.value);
+    state.targetCarbs = isNaN(c) ? 0 : c;
+    saveData();
+    render();
+  });
+
+  el.datePicker.addEventListener("change", function() {
+    selectedDate = el.datePicker.value || todayStr();
+    resetDailyAdvice();
+    resetNextMealSuggestion();
+    render();
+  });
+
+  el.prevDay.addEventListener("click", function() {
+    selectedDate = addDays(selectedDate, -1);
+    el.datePicker.value = selectedDate;
+    resetDailyAdvice();
+    resetNextMealSuggestion();
+    render();
+  });
+
+  el.nextDay.addEventListener("click", function() {
+    selectedDate = addDays(selectedDate, 1);
+    el.datePicker.value = selectedDate;
+    resetDailyAdvice();
+    resetNextMealSuggestion();
+    render();
+  });
+
+  el.todayBtn.addEventListener("click", function() {
+    selectedDate = todayStr();
+    el.datePicker.value = selectedDate;
+    resetDailyAdvice();
+    resetNextMealSuggestion();
+    render();
+  });
+
+  // --- AI写真解析 (Google Gemini) ---
+  var GEMINI_KEY_STORAGE = "dietTracker.geminiApiKey";
+  var GEMINI_MODEL_STORAGE = "dietTracker.geminiModel";
+  // Pro系モデルは有料プラン専用（無料枠が0）のことが多いため、
+  // 無料枠での利用を前提にFlash系モデルのみを候補にする。
+  var GEMINI_FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"];
+  // モデル一覧APIには載っていてもgenerateContentが404になることがある
+  // 廃止済み/非対応モデル名。候補から明示的に除外する。
+  var GEMINI_DEAD_MODELS = [
+    "gemini-1.5-flash", "gemini-1.5-flash-latest",
+    "gemini-1.5-pro", "gemini-1.5-pro-latest",
+    "gemini-pro-latest", "gemini-1.0-pro", "gemini-1.0-pro-latest", "gemini-1.0-pro-vision-latest"
+  ];
+  var GEMINI_PROMPT = "あなたは栄養士です。この画像に写っている食事の内容を分析してください。" +
+    "料理名（日本語、簡潔に）、推定カロリー(kcal)、たんぱく質(g)、脂質(g)、炭水化物(g)、食物繊維(g)、糖質(g)、塩分相当量(g)を推定して返してください。" +
+    "複数の料理が写っている場合は画像全体の合計値を返してください。分量は写真から判断できる一般的な1人前として推定し、" +
+    "不明な場合は標準的な量と仮定してください。数値は妥当な範囲でよいので必ず概算を返してください。";
+
+  var currentPhotoBase64 = null;
+  var currentPhotoMime = null;
+
+  function getGeminiKey() {
+    try { return localStorage.getItem(GEMINI_KEY_STORAGE) || ""; } catch (e) { return ""; }
+  }
+
+  function saveGeminiKeyToStorage(key) {
+    try {
+      if (key) localStorage.setItem(GEMINI_KEY_STORAGE, key);
+      else localStorage.removeItem(GEMINI_KEY_STORAGE);
+    } catch (e) {}
+  }
+
+  function getStoredGeminiModel() {
+    try { return localStorage.getItem(GEMINI_MODEL_STORAGE) || ""; } catch (e) { return ""; }
+  }
+
+  function saveGeminiModel(model) {
+    try { localStorage.setItem(GEMINI_MODEL_STORAGE, model); } catch (e) {}
+  }
+
+  function setAnalyzeStatus(text, isError) {
+    el.analyzeStatus.textContent = text || "";
+    el.analyzeStatus.style.color = isError ? "var(--danger)" : "var(--muted)";
+  }
+
+  el.geminiApiKey.value = getGeminiKey();
+
+  el.saveGeminiKey.addEventListener("click", function() {
+    var key = el.geminiApiKey.value.trim();
+    saveGeminiKeyToStorage(key);
+    saveGeminiModel("");
+    var note = key
+      ? "✅ 保存しました。写真から記録するボタンを使えます。"
+      : "APIキーを削除しました。";
+    el.geminiKeyStatus.innerHTML = note + ' <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>で無料のAPIキーを取得できます。キーはこのブラウザにのみ保存され、写真解析のときだけGoogleのAPIへ直接送信されます（サーバーやリポジトリには保存されません）。';
+    el.diagnoseResult.textContent = "";
+  });
+
+  function setDiagnoseResult(text, isError) {
+    el.diagnoseResult.textContent = text || "";
+    el.diagnoseResult.style.color = isError ? "var(--danger)" : "var(--muted)";
+  }
+
+  el.diagnoseGeminiKey.addEventListener("click", function() {
+    var apiKey = getGeminiKey();
+    if (!apiKey) {
+      setDiagnoseResult("先にAPIキーを入力して「保存」を押してください", true);
+      return;
+    }
+    el.diagnoseGeminiKey.disabled = true;
+    setDiagnoseResult("🔄 診断中...");
+
+    listGeminiModels(apiKey).then(function(resp) {
+      var models = (resp && resp.models) || [];
+      var usable = models.filter(function(m) {
+        return m.supportedGenerationMethods && m.supportedGenerationMethods.indexOf("generateContent") !== -1;
+      });
+      if (usable.length === 0) {
+        setDiagnoseResult("⚠️ APIキーは応答しましたが、画像/テキスト生成に使えるモデルがありませんでした。Google CloudでGenerative Language APIが有効か確認してください。", true);
+        return;
+      }
+      var names = usable.slice(0, 5).map(function(m) { return m.name.replace(/^models\//, ""); }).join(", ");
+      setDiagnoseResult("✅ APIキーは正常です。利用可能なモデル " + usable.length + "件（例: " + names + "）。上のボタンをもう一度試してください。");
+    }).catch(function(err) {
+      setDiagnoseResult("⚠️ " + (err && err.message ? err.message : "診断に失敗しました"), true);
+    }).finally(function() {
+      el.diagnoseGeminiKey.disabled = false;
+    });
+  });
+
+  function resetPhotoState() {
+    currentPhotoBase64 = null;
+    currentPhotoMime = null;
+    el.mealPhotoInput.value = "";
+    el.photoPreviewWrap.style.display = "none";
+    el.choosePhotoBtn.style.display = "block";
+    setAnalyzeStatus("");
+  }
+
+  el.choosePhotoBtn.addEventListener("click", function() {
+    el.mealPhotoInput.click();
+  });
+
+  el.mealPhotoInput.addEventListener("change", function() {
+    var file = el.mealPhotoInput.files && el.mealPhotoInput.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var img = new Image();
+      img.onload = function() {
+        var maxDim = 1024;
+        var w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w >= h) { h = Math.round(h * maxDim / w); w = maxDim; }
+          else { w = Math.round(w * maxDim / h); h = maxDim; }
+        }
+        var canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        var dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+        currentPhotoBase64 = dataUrl.split(",")[1];
+        currentPhotoMime = "image/jpeg";
+        el.photoPreview.src = dataUrl;
+        el.photoPreviewWrap.style.display = "block";
+        el.choosePhotoBtn.style.display = "none";
+        setAnalyzeStatus("");
+      };
+      img.onerror = function() {
+        setAnalyzeStatus("画像を読み込めませんでした", true);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  el.clearPhotoBtn.addEventListener("click", function() {
+    resetPhotoState();
+  });
+
+  function mapGeminiError(status, msg) {
+    if (status === 400) return "リクエストが不正です（APIキーや画像を確認してください）" + (msg ? ": " + msg : "");
+    if (status === 403) return "APIキーが無効か、権限がありません" + (msg ? ": " + msg : "");
+    if (status === 404) return "モデルが見つかりません（APIキーの有効化状況を確認してください）" + (msg ? ": " + msg : "");
+    if (status === 429) return "リクエストが多すぎます。しばらく待ってから再試行してください" + (msg ? ": " + msg : "");
+    if (status === 503) return "AIモデルが混雑しています。しばらく時間をおいて再度お試しください" + (msg ? ": " + msg : "");
+    return msg || ("エラー (HTTP " + status + ")");
+  }
+
+  var NUTRITION_SCHEMA_WITH_NAME = {
+    type: "OBJECT",
+    properties: {
+      name: { type: "STRING" },
+      calories: { type: "NUMBER" },
+      protein: { type: "NUMBER" },
+      fat: { type: "NUMBER" },
+      carbs: { type: "NUMBER" },
+      fiber: { type: "NUMBER" },
+      sugar: { type: "NUMBER" },
+      salt: { type: "NUMBER" }
+    },
+    required: ["name", "calories", "protein", "fat", "carbs", "fiber", "sugar", "salt"]
+  };
+
+  var NUTRITION_SCHEMA = {
+    type: "OBJECT",
+    properties: {
+      calories: { type: "NUMBER" },
+      protein: { type: "NUMBER" },
+      fat: { type: "NUMBER" },
+      carbs: { type: "NUMBER" },
+      fiber: { type: "NUMBER" },
+      sugar: { type: "NUMBER" },
+      salt: { type: "NUMBER" }
+    },
+    required: ["calories", "protein", "fat", "carbs", "fiber", "sugar", "salt"]
+  };
+
+  function round1(x) {
+    return Math.round(x * 10) / 10;
+  }
+
+  function callGeminiJSONWithModel(apiKey, model, parts, schema) {
+    var url = "https://generativelanguage.googleapis.com/v1beta/models/" + model +
+      ":generateContent?key=" + encodeURIComponent(apiKey);
+    var body = {
+      contents: [{ parts: parts }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: schema
+      }
+    };
+    return fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    }).then(function(res) {
+      if (!res.ok) {
+        return res.json().catch(function() { return null; }).then(function(errBody) {
+          var msg = errBody && errBody.error && errBody.error.message;
+          var err = new Error(mapGeminiError(res.status, msg));
+          if (res.status === 404) err.code = "MODEL_NOT_FOUND";
+          if (res.status === 503) err.code = "MODEL_OVERLOADED";
+          if (res.status === 429) err.code = "MODEL_QUOTA_EXCEEDED";
+          throw err;
+        });
+      }
+      return res.json();
+    }).then(function(data) {
+      var candidate = data.candidates && data.candidates[0];
+      var text = candidate && candidate.content && candidate.content.parts &&
+        candidate.content.parts[0] && candidate.content.parts[0].text;
+      if (!text) throw new Error("AIからの応答を読み取れませんでした");
+      var parsed;
+      try {
+        parsed = JSON.parse(text);
+      } catch (e) {
+        throw new Error("AIの応答を解析できませんでした");
+      }
+      return parsed;
+    });
+  }
+
+  function listGeminiModels(apiKey) {
+    var url = "https://generativelanguage.googleapis.com/v1beta/models?key=" + encodeURIComponent(apiKey);
+    return fetch(url).then(function(res) {
+      if (!res.ok) {
+        return res.json().catch(function() { return null; }).then(function(errBody) {
+          var msg = errBody && errBody.error && errBody.error.message;
+          throw new Error(mapGeminiError(res.status, msg));
+        });
+      }
+      return res.json();
+    });
+  }
+
+  function sortedFlashGeminiModelNames(modelsResponse) {
+    var models = (modelsResponse && modelsResponse.models) || [];
+    var usable = models.filter(function(m) {
+      return m.supportedGenerationMethods && m.supportedGenerationMethods.indexOf("generateContent") !== -1;
+    });
+    var flash = usable.filter(function(m) { return /flash/i.test(m.name); });
+    var pool = flash.length ? flash : usable;
+    pool.sort(function(a, b) { return b.name.localeCompare(a.name); });
+    return pool
+      .map(function(m) { return m.name.replace(/^models\//, ""); })
+      .filter(function(name) { return GEMINI_DEAD_MODELS.indexOf(name) === -1; });
+  }
+
+  var GEMINI_RETRYABLE_CODES = ["MODEL_NOT_FOUND", "MODEL_OVERLOADED", "MODEL_QUOTA_EXCEEDED"];
+
+  function isRetryableGeminiError(err) {
+    return !!(err && err.code && GEMINI_RETRYABLE_CODES.indexOf(err.code) !== -1);
+  }
+
+  function tryGeminiModelsInSequence(apiKey, models, parts, schema, idx) {
+    idx = idx || 0;
+    if (idx >= models.length) {
+      return Promise.reject(new Error("利用可能なAIモデルが見つかりませんでした。APIキーやAPIの有効化状況を確認してください。"));
+    }
+    return callGeminiJSONWithModel(apiKey, models[idx], parts, schema).then(function(result) {
+      saveGeminiModel(models[idx]);
+      return result;
+    }).catch(function(err) {
+      if (isRetryableGeminiError(err) && idx + 1 < models.length) {
+        return tryGeminiModelsInSequence(apiKey, models, parts, schema, idx + 1);
+      }
+      throw err;
+    });
+  }
+
+  function callGeminiJSON(apiKey, parts, schema) {
+    var stored = getStoredGeminiModel();
+    if (stored && GEMINI_DEAD_MODELS.indexOf(stored) !== -1) stored = "";
+    var firstModel = stored || GEMINI_FALLBACK_MODELS[0];
+    return callGeminiJSONWithModel(apiKey, firstModel, parts, schema).then(function(result) {
+      if (!stored) saveGeminiModel(firstModel);
+      return result;
+    }).catch(function(err) {
+      if (!isRetryableGeminiError(err)) throw err;
+
+      // まず固定の候補リスト（現在のモデルを除く）を順に試す
+      var staticCandidates = GEMINI_FALLBACK_MODELS.filter(function(m) { return m !== firstModel; });
+      return tryGeminiModelsInSequence(apiKey, staticCandidates, parts, schema, 0).catch(function(staticErr) {
+        // 固定候補が全滅した場合、モデル一覧APIで実際に使えるモデルを調べて
+        // まだ試していないFlash系モデルがあれば試す
+        var alreadyTried = [firstModel].concat(staticCandidates);
+        return Promise.resolve().then(function() {
+          return listGeminiModels(apiKey);
+        }).then(function(resp) {
+          var discovered = sortedFlashGeminiModelNames(resp).filter(function(name) {
+            return alreadyTried.indexOf(name) === -1;
+          });
+          if (!discovered.length) throw staticErr;
+          return tryGeminiModelsInSequence(apiKey, discovered, parts, schema, 0);
+        }, function() {
+          throw staticErr;
+        });
+      });
+    });
+  }
+
+  function callGeminiVision(apiKey, base64Data, mimeType) {
+    var parts = [
+      { text: GEMINI_PROMPT },
+      { inline_data: { mime_type: mimeType, data: base64Data } }
+    ];
+    return callGeminiJSON(apiKey, parts, NUTRITION_SCHEMA_WITH_NAME);
+  }
+
+  function callGeminiTextEstimate(apiKey, name, grams) {
+    var prompt = "以下の食品の栄養価を推定してください。食品名: " + name + "。分量: " + grams + "g。" +
+      "食品名は「鶏むね肉」のような単一の食材の場合も、「カレーライス」「親子丼」のような" +
+      "複数の材料からなる完成した料理の場合もあります。いずれの場合も、指定された分量" +
+      "（完成した料理の場合は料理全体の総重量）に相当するカロリー(kcal)、たんぱく質(g)、" +
+      "脂質(g)、炭水化物(g)、食物繊維(g)、糖質(g)、塩分相当量(g)を、一般的な栄養データに基づいて推定してください。";
+    return callGeminiJSON(apiKey, [{ text: prompt }], NUTRITION_SCHEMA);
+  }
+
+  var BULK_MEAL_SCHEMA = {
+    type: "ARRAY",
+    items: {
+      type: "OBJECT",
+      properties: {
+        mealType: { type: "STRING", enum: ["朝食", "昼食", "夕食", "間食"] },
+        name: { type: "STRING" },
+        calories: { type: "NUMBER" },
+        protein: { type: "NUMBER" },
+        fat: { type: "NUMBER" },
+        carbs: { type: "NUMBER" },
+        fiber: { type: "NUMBER" },
+        sugar: { type: "NUMBER" },
+        salt: { type: "NUMBER" }
+      },
+      required: ["mealType", "name", "calories", "protein", "fat", "carbs", "fiber", "sugar", "salt"]
+    }
+  };
+
+  function callGeminiBulkParse(apiKey, text) {
+    var prompt = "あなたは栄養士です。以下はユーザーが自由な文章で入力した、ある1日の食事内容です。" +
+      "文章に含まれる食事を1品ずつすべて抽出し、それぞれについて食事タイプ（朝食・昼食・夕食・間食のいずれか。" +
+      "文脈から判断し、不明な場合は間食としてください）、料理名、カロリー(kcal)、たんぱく質(g)、脂質(g)、" +
+      "炭水化物(g)、食物繊維(g)、糖質(g)、塩分相当量(g)を、一般的な栄養データに基づいて推定してください。" +
+      "「特に食べていません」のように食事がなかった旨の記述は結果に含めないでください。\n\n入力文: " + text;
+    return callGeminiJSON(apiKey, [{ text: prompt }], BULK_MEAL_SCHEMA);
+  }
+
+  var EXERCISE_SCHEMA = {
+    type: "OBJECT",
+    properties: {
+      calories: { type: "NUMBER" }
+    },
+    required: ["calories"]
+  };
+
+  function callGeminiExerciseEstimate(apiKey, name, minutes) {
+    var weight = parseFloat(state.personal.weight);
+    var prompt = "以下の運動による消費カロリーを推定してください。運動内容: " + name + "。時間: " + minutes + "分。" +
+      (weight ? "体重: " + weight + "kg。" : "") +
+      "一般的な運動強度を仮定し、妥当な範囲でよいので消費カロリー(kcal)を概算で返してください。";
+    return callGeminiJSON(apiKey, [{ text: prompt }], EXERCISE_SCHEMA);
+  }
+
+  var DAILY_ADVICE_SCHEMA = {
+    type: "OBJECT",
+    properties: {
+      evaluation: { type: "STRING" },
+      advice: { type: "STRING" }
+    },
+    required: ["evaluation", "advice"]
+  };
+
+  function callGeminiDailyAdvice(apiKey, summaryText) {
+    var prompt = "あなたは優しく前向きな栄養士です。以下はある人の1日の食事記録です。" +
+      "目標と実績を踏まえて、今日の食事内容を2〜3文程度で評価してください。" +
+      "咎めるような言い方は避け、良かった点があれば褒めつつ、改善点があれば優しく伝えてください。" +
+      "また、明日以降に活かせる具体的な一言アドバイスも別途考えてください。\n\n" + summaryText;
+    return callGeminiJSON(apiKey, [{ text: prompt }], DAILY_ADVICE_SCHEMA);
+  }
+
+  function buildDailySummaryText() {
+    var meals = mealsForDate(selectedDate);
+    var intake = meals.reduce(function(s, m) { return s + m.calories; }, 0);
+    var protein = meals.reduce(function(s, m) { return s + m.protein; }, 0);
+    var fat = meals.reduce(function(s, m) { return s + m.fat; }, 0);
+    var carbs = meals.reduce(function(s, m) { return s + m.carbs; }, 0);
+    var fiber = meals.reduce(function(s, m) { return s + (m.fiber || 0); }, 0);
+    var sugar = meals.reduce(function(s, m) { return s + (m.sugar || 0); }, 0);
+    var salt = meals.reduce(function(s, m) { return s + (m.salt || 0); }, 0);
+    var exercises = exercisesForDate(selectedDate);
+    var burned = exercises.reduce(function(s, ex) { return s + ex.calories; }, 0);
+
+    var lines = [];
+    lines.push("日付: " + selectedDate);
+    lines.push("目標カロリー: " + (state.targetCalories || 0) + "kcal");
+    lines.push("摂取カロリー: " + intake + "kcal");
+    if (state.targetProtein || state.targetFat || state.targetCarbs) {
+      lines.push("目標PFC: たんぱく質" + (state.targetProtein || 0) + "g / 脂質" + (state.targetFat || 0) + "g / 炭水化物" + (state.targetCarbs || 0) + "g");
+    }
+    lines.push("実績PFC: たんぱく質" + round1(protein) + "g / 脂質" + round1(fat) + "g / 炭水化物" + round1(carbs) + "g");
+    if (fiber || sugar || salt) {
+      lines.push("その他の栄養素: 食物繊維" + round1(fiber) + "g / 糖質" + round1(sugar) + "g / 塩分" + round1(salt) + "g");
+    }
+    if (burned > 0) {
+      lines.push("運動による消費カロリー: " + burned + "kcal");
+    }
+    lines.push("食事内容:");
+    MEAL_ORDER.forEach(function(type) {
+      meals.filter(function(m) { return m.type === type; }).forEach(function(m) {
+        lines.push("- " + type + ": " + m.name + " (" + m.calories + "kcal)");
+      });
+    });
+    return lines.join("\n");
+  }
+
+  function resetDailyAdvice() {
+    el.dailyAdviceBox.style.display = "none";
+    el.dailyAdviceEvaluation.textContent = "";
+    el.dailyAdviceText.textContent = "";
+    el.dailyAdviceStatus.textContent = "";
+  }
+
+  el.dailyAdviceBtn.addEventListener("click", function() {
+    var apiKey = getGeminiKey();
+    if (!apiKey) {
+      el.dailyAdviceStatus.textContent = "先に「AI写真解析の設定」でGemini APIキーを保存してください";
+      el.dailyAdviceStatus.style.color = "var(--danger)";
+      return;
+    }
+    if (mealsForDate(selectedDate).length === 0) {
+      el.dailyAdviceStatus.textContent = "この日はまだ食事が記録されていません";
+      el.dailyAdviceStatus.style.color = "var(--danger)";
+      return;
+    }
+
+    el.dailyAdviceBtn.disabled = true;
+    el.dailyAdviceStatus.textContent = "🔄 評価中...";
+    el.dailyAdviceStatus.style.color = "var(--muted)";
+
+    callGeminiDailyAdvice(apiKey, buildDailySummaryText()).then(function(result) {
+      el.dailyAdviceEvaluation.textContent = result.evaluation || "";
+      el.dailyAdviceText.textContent = result.advice || "";
+      el.dailyAdviceBox.style.display = "block";
+      el.dailyAdviceStatus.textContent = "";
+    }).catch(function(err) {
+      el.dailyAdviceStatus.textContent = "⚠️ " + (err && err.message ? err.message : "評価に失敗しました");
+      el.dailyAdviceStatus.style.color = "var(--danger)";
+    }).finally(function() {
+      el.dailyAdviceBtn.disabled = false;
+    });
+  });
+
+  var NEXT_MEAL_SCHEMA = {
+    type: "OBJECT",
+    properties: {
+      suggestion: { type: "STRING" }
+    },
+    required: ["suggestion"]
+  };
+
+  function callGeminiNextMealSuggestion(apiKey, summaryText) {
+    var prompt = "あなたは栄養士です。以下はある人の今日ここまでの食事記録と、1日の目標に対する残りの摂取可能量です。" +
+      "この情報を踏まえて、次の食事におすすめの内容を2〜3文程度で提案してください。" +
+      "具体的な料理例を1〜2個挙げ、残りカロリーを大きく超えないよう配慮してください。" +
+      "すでに目標を超えている場合は、無理に我慢させず、次の食事を軽めにする程度の優しい提案にしてください。\n\n" + summaryText;
+    return callGeminiJSON(apiKey, [{ text: prompt }], NEXT_MEAL_SCHEMA);
+  }
+
+  function buildNextMealSummaryText() {
+    var meals = mealsForDate(selectedDate);
+    var intake = meals.reduce(function(s, m) { return s + m.calories; }, 0);
+    var protein = meals.reduce(function(s, m) { return s + m.protein; }, 0);
+    var fat = meals.reduce(function(s, m) { return s + m.fat; }, 0);
+    var carbs = meals.reduce(function(s, m) { return s + m.carbs; }, 0);
+    var burned = exercisesForDate(selectedDate).reduce(function(s, ex) { return s + ex.calories; }, 0);
+    var effectiveTarget = (state.targetCalories || 0) + burned;
+    var remainCal = effectiveTarget - intake;
+
+    var lines = [];
+    lines.push("残り摂取可能カロリー: " + remainCal + "kcal" + (remainCal < 0 ? "（すでに目標を超過しています）" : ""));
+    if (state.targetProtein || state.targetFat || state.targetCarbs) {
+      var remainProtein = (state.targetProtein || 0) - protein;
+      var remainFat = (state.targetFat || 0) - fat;
+      var remainCarbs = (state.targetCarbs || 0) - carbs;
+      lines.push("残りのPFC目安: たんぱく質" + round1(remainProtein) + "g / 脂質" + round1(remainFat) + "g / 炭水化物" + round1(remainCarbs) + "g");
+    }
+    var recordedTypes = [];
+    MEAL_ORDER.forEach(function(type) {
+      if (meals.some(function(m) { return m.type === type; })) recordedTypes.push(type);
+    });
+    lines.push("本日すでに記録した食事: " + (recordedTypes.length ? recordedTypes.join("、") : "まだありません"));
+    return lines.join("\n");
+  }
+
+  function resetNextMealSuggestion() {
+    el.nextMealBox.style.display = "none";
+    el.nextMealText.textContent = "";
+    el.nextMealStatus.textContent = "";
+  }
+
+  el.nextMealBtn.addEventListener("click", function() {
+    var apiKey = getGeminiKey();
+    if (!apiKey) {
+      el.nextMealStatus.textContent = "先に「AI写真解析の設定」でGemini APIキーを保存してください";
+      el.nextMealStatus.style.color = "var(--danger)";
+      return;
+    }
+    if (!state.targetCalories) {
+      el.nextMealStatus.textContent = "先に「目標値」でカロリーを設定してください";
+      el.nextMealStatus.style.color = "var(--danger)";
+      return;
+    }
+
+    el.nextMealBtn.disabled = true;
+    el.nextMealStatus.textContent = "🔄 考え中...";
+    el.nextMealStatus.style.color = "var(--muted)";
+
+    callGeminiNextMealSuggestion(apiKey, buildNextMealSummaryText()).then(function(result) {
+      el.nextMealText.textContent = result.suggestion || "";
+      el.nextMealBox.style.display = "block";
+      el.nextMealStatus.textContent = "";
+    }).catch(function(err) {
+      el.nextMealStatus.textContent = "⚠️ " + (err && err.message ? err.message : "提案の取得に失敗しました");
+      el.nextMealStatus.style.color = "var(--danger)";
+    }).finally(function() {
+      el.nextMealBtn.disabled = false;
+    });
+  });
+
+  el.analyzePhotoBtn.addEventListener("click", function() {
+    var apiKey = getGeminiKey();
+    if (!apiKey) {
+      setAnalyzeStatus("先に上の「AI写真解析の設定」でGemini APIキーを保存してください", true);
+      return;
+    }
+    if (!currentPhotoBase64) return;
+
+    el.analyzePhotoBtn.disabled = true;
+    setAnalyzeStatus("🔄 解析中...（数秒かかります）");
+
+    callGeminiVision(apiKey, currentPhotoBase64, currentPhotoMime).then(function(result) {
+      if (result.name) el.mealName.value = result.name;
+      if (result.calories != null && !isNaN(result.calories)) el.mealCalories.value = Math.round(result.calories);
+      if (result.protein != null && !isNaN(result.protein)) el.mealProtein.value = round1(result.protein);
+      if (result.fat != null && !isNaN(result.fat)) el.mealFat.value = round1(result.fat);
+      if (result.carbs != null && !isNaN(result.carbs)) el.mealCarbs.value = round1(result.carbs);
+      if (result.fiber != null && !isNaN(result.fiber)) el.mealFiber.value = round1(result.fiber);
+      if (result.sugar != null && !isNaN(result.sugar)) el.mealSugar.value = round1(result.sugar);
+      if (result.salt != null && !isNaN(result.salt)) el.mealSalt.value = round1(result.salt);
+      setAnalyzeStatus("✅ 解析結果を入力しました。内容を確認して「記録を追加」を押してください");
+    }).catch(function(err) {
+      setAnalyzeStatus("⚠️ " + (err && err.message ? err.message : "解析に失敗しました"), true);
+    }).finally(function() {
+      el.analyzePhotoBtn.disabled = false;
+    });
+  });
+
+  function setCalcFromNameStatus(text, isError) {
+    el.calcFromNameStatus.textContent = text || "";
+    el.calcFromNameStatus.style.color = isError ? "var(--danger)" : "var(--muted)";
+  }
+
+  el.calcFromNameBtn.addEventListener("click", function() {
+    var apiKey = getGeminiKey();
+    var name = el.mealName.value.trim();
+    var grams = parseFloat(el.mealGrams.value);
+
+    if (!apiKey) {
+      setCalcFromNameStatus("先に上の「AI写真解析の設定」でGemini APIキーを保存してください", true);
+      return;
+    }
+    if (!name) {
+      setCalcFromNameStatus("food名を入力してください", true);
+      return;
+    }
+    if (!grams || grams <= 0) {
+      setCalcFromNameStatus("分量(g)を入力してください", true);
+      return;
+    }
+
+    el.calcFromNameBtn.disabled = true;
+    setCalcFromNameStatus("🔄 計算中...");
+
+    callGeminiTextEstimate(apiKey, name, grams).then(function(result) {
+      if (result.calories != null && !isNaN(result.calories)) el.mealCalories.value = Math.round(result.calories);
+      if (result.protein != null && !isNaN(result.protein)) el.mealProtein.value = round1(result.protein);
+      if (result.fat != null && !isNaN(result.fat)) el.mealFat.value = round1(result.fat);
+      if (result.carbs != null && !isNaN(result.carbs)) el.mealCarbs.value = round1(result.carbs);
+      if (result.fiber != null && !isNaN(result.fiber)) el.mealFiber.value = round1(result.fiber);
+      if (result.sugar != null && !isNaN(result.sugar)) el.mealSugar.value = round1(result.sugar);
+      if (result.salt != null && !isNaN(result.salt)) el.mealSalt.value = round1(result.salt);
+      setCalcFromNameStatus("✅ 計算結果を入力しました。内容を確認して「記録を追加」を押してください");
+    }).catch(function(err) {
+      setCalcFromNameStatus("⚠️ " + (err && err.message ? err.message : "計算に失敗しました"), true);
+    }).finally(function() {
+      el.calcFromNameBtn.disabled = false;
+    });
+  });
+
+  el.mealForm.addEventListener("submit", function(e) {
+    e.preventDefault();
+    var meal = {
+      id: Date.now() + "-" + Math.random().toString(36).slice(2, 8),
+      date: selectedDate,
+      type: el.mealType.value,
+      name: el.mealName.value.trim(),
+      calories: parseFloat(el.mealCalories.value) || 0,
+      protein: parseFloat(el.mealProtein.value) || 0,
+      fat: parseFloat(el.mealFat.value) || 0,
+      carbs: parseFloat(el.mealCarbs.value) || 0,
+      fiber: parseFloat(el.mealFiber.value) || 0,
+      sugar: parseFloat(el.mealSugar.value) || 0,
+      salt: parseFloat(el.mealSalt.value) || 0
+    };
+    if (!meal.name) return;
+    state.meals.push(meal);
+    saveData();
+    var lastMealType = el.mealType.value;
+    el.mealForm.reset();
+    el.mealType.value = lastMealType;
+    resetPhotoState();
+    setCalcFromNameStatus("");
+    resetDailyAdvice();
+    resetNextMealSuggestion();
+    render();
+  });
+
+  var bulkParsedCount = 0;
+
+  function setBulkParseStatus(text, isError) {
+    el.bulkParseStatus.textContent = text || "";
+    el.bulkParseStatus.style.color = isError ? "var(--danger)" : "var(--muted)";
+  }
+
+  function renderBulkPreview(items) {
+    bulkParsedCount = items.length;
+    if (!items.length) {
+      el.bulkPreviewWrap.style.display = "none";
+      el.bulkPreviewList.innerHTML = "";
+      return;
+    }
+    el.bulkPreviewList.innerHTML = items.map(function(item, i) {
+      var typeSelectOptions = MEAL_ORDER.map(function(t) {
+        return '<option value="' + t + '"' + (t === item.mealType ? " selected" : "") + '>' + t + '</option>';
+      }).join("");
+      return (
+        '<div class="bulk-item">' +
+          '<div class="bulk-item-row">' +
+            '<input type="checkbox" id="bulk-include-' + i + '" checked>' +
+            '<select id="bulk-type-' + i + '">' + typeSelectOptions + '</select>' +
+            '<input type="text" id="bulk-name-' + i + '" value="' + escapeHtml(item.name || "") + '">' +
+          '</div>' +
+          '<div class="bulk-item-grid">' +
+            '<div><label>カロリー(kcal)</label><input type="number" id="bulk-calories-' + i + '" value="' + (item.calories || 0) + '"></div>' +
+            '<div><label>たんぱく質(g)</label><input type="number" step="0.1" id="bulk-protein-' + i + '" value="' + (item.protein || 0) + '"></div>' +
+            '<div><label>脂質(g)</label><input type="number" step="0.1" id="bulk-fat-' + i + '" value="' + (item.fat || 0) + '"></div>' +
+            '<div><label>炭水化物(g)</label><input type="number" step="0.1" id="bulk-carbs-' + i + '" value="' + (item.carbs || 0) + '"></div>' +
+          '</div>' +
+          '<div class="nutrient-details-grid">' +
+            '<div><label>食物繊維(g)</label><input type="number" step="0.1" id="bulk-fiber-' + i + '" value="' + (item.fiber || 0) + '"></div>' +
+            '<div><label>糖質(g)</label><input type="number" step="0.1" id="bulk-sugar-' + i + '" value="' + (item.sugar || 0) + '"></div>' +
+            '<div><label>塩分(g)</label><input type="number" step="0.1" id="bulk-salt-' + i + '" value="' + (item.salt || 0) + '"></div>' +
+          '</div>' +
+        '</div>'
+      );
+    }).join("");
+    el.bulkPreviewWrap.style.display = "block";
+  }
+
+  el.bulkParseBtn.addEventListener("click", function() {
+    var apiKey = getGeminiKey();
+    if (!apiKey) {
+      setBulkParseStatus("先に「AI写真解析の設定」でGemini APIキーを保存してください", true);
+      return;
+    }
+    var text = el.bulkMealText.value.trim();
+    if (!text) {
+      setBulkParseStatus("食事の内容を入力してください", true);
+      return;
+    }
+    el.bulkParseBtn.disabled = true;
+    setBulkParseStatus("🔄 解析中...");
+    callGeminiBulkParse(apiKey, text).then(function(items) {
+      items = Array.isArray(items) ? items : [];
+      if (!items.length) {
+        setBulkParseStatus("食事を検出できませんでした。内容を確認してもう一度お試しください", true);
+        renderBulkPreview([]);
+        return;
+      }
+      renderBulkPreview(items);
+      setBulkParseStatus("✅ " + items.length + "件の食事を検出しました。内容を確認して記録してください");
+    }).catch(function(err) {
+      setBulkParseStatus("⚠️ " + (err && err.message ? err.message : "解析に失敗しました"), true);
+    }).finally(function() {
+      el.bulkParseBtn.disabled = false;
+    });
+  });
+
+  el.bulkConfirmBtn.addEventListener("click", function() {
+    var added = 0;
+    for (var i = 0; i < bulkParsedCount; i++) {
+      var includeEl = document.getElementById("bulk-include-" + i);
+      if (!includeEl || !includeEl.checked) continue;
+      var nameEl = document.getElementById("bulk-name-" + i);
+      var name = nameEl ? nameEl.value.trim() : "";
+      if (!name) continue;
+      var meal = {
+        id: Date.now() + "-" + Math.random().toString(36).slice(2, 8) + "-" + i,
+        date: selectedDate,
+        type: document.getElementById("bulk-type-" + i).value,
+        name: name,
+        calories: parseFloat(document.getElementById("bulk-calories-" + i).value) || 0,
+        protein: parseFloat(document.getElementById("bulk-protein-" + i).value) || 0,
+        fat: parseFloat(document.getElementById("bulk-fat-" + i).value) || 0,
+        carbs: parseFloat(document.getElementById("bulk-carbs-" + i).value) || 0,
+        fiber: parseFloat(document.getElementById("bulk-fiber-" + i).value) || 0,
+        sugar: parseFloat(document.getElementById("bulk-sugar-" + i).value) || 0,
+        salt: parseFloat(document.getElementById("bulk-salt-" + i).value) || 0
+      };
+      state.meals.push(meal);
+      added++;
+    }
+    if (added === 0) {
+      setBulkParseStatus("記録する項目が選択されていません", true);
+      return;
+    }
+    saveData();
+    el.bulkMealText.value = "";
+    renderBulkPreview([]);
+    setBulkParseStatus("✅ " + added + "件の食事を記録しました");
+    resetDailyAdvice();
+    resetNextMealSuggestion();
+    render();
+  });
+
+  el.bulkCancelBtn.addEventListener("click", function() {
+    renderBulkPreview([]);
+    setBulkParseStatus("");
+  });
+
+  function deleteMeal(id) {
+    state.meals = state.meals.filter(function(m) { return m.id !== id; });
+    saveData();
+    resetDailyAdvice();
+    resetNextMealSuggestion();
+    render();
+  }
+
+  el.saveFavoriteBtn.addEventListener("click", function() {
+    var name = el.mealName.value.trim();
+    var calories = parseFloat(el.mealCalories.value) || 0;
+    if (!name || !calories) {
+      alert("food名とカロリーを入力してから登録してください");
+      return;
+    }
+    var favorite = {
+      id: Date.now() + "-" + Math.random().toString(36).slice(2, 8),
+      name: name,
+      calories: calories,
+      protein: parseFloat(el.mealProtein.value) || 0,
+      fat: parseFloat(el.mealFat.value) || 0,
+      carbs: parseFloat(el.mealCarbs.value) || 0,
+      fiber: parseFloat(el.mealFiber.value) || 0,
+      sugar: parseFloat(el.mealSugar.value) || 0,
+      salt: parseFloat(el.mealSalt.value) || 0
+    };
+    var existingIdx = state.favorites.findIndex(function(f) { return f.name === name; });
+    if (existingIdx !== -1) {
+      favorite.id = state.favorites[existingIdx].id;
+      state.favorites[existingIdx] = favorite;
+    } else {
+      state.favorites.push(favorite);
+    }
+    saveData();
+    render();
+  });
+
+  function selectFavorite(id) {
+    var favorite = state.favorites.filter(function(f) { return f.id === id; })[0];
+    if (!favorite) return;
+    el.mealName.value = favorite.name;
+    el.mealCalories.value = favorite.calories;
+    el.mealProtein.value = favorite.protein || "";
+    el.mealFat.value = favorite.fat || "";
+    el.mealCarbs.value = favorite.carbs || "";
+    el.mealFiber.value = favorite.fiber || "";
+    el.mealSugar.value = favorite.sugar || "";
+    el.mealSalt.value = favorite.salt || "";
+  }
+
+  function deleteFavorite(id) {
+    state.favorites = state.favorites.filter(function(f) { return f.id !== id; });
+    saveData();
+    render();
+  }
+
+  function renderFavorites() {
+    if (!state.favorites.length) {
+      el.favoritesBar.style.display = "none";
+      return;
+    }
+    el.favoritesBar.style.display = "block";
+    el.favoritesChips.innerHTML = state.favorites.map(function(f) {
+      return '<div class="favorite-chip">' +
+        '<button type="button" class="favorite-select" data-id="' + f.id + '">' +
+        '<span class="fav-name">' + escapeHtml(f.name) + '</span>' +
+        '<span class="fav-cal">' + f.calories + 'kcal</span>' +
+        '</button>' +
+        '<button type="button" class="favorite-del" data-id="' + f.id + '" title="削除">✕</button>' +
+        '</div>';
+    }).join("");
+
+    el.favoritesChips.querySelectorAll(".favorite-select").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        selectFavorite(btn.getAttribute("data-id"));
+      });
+    });
+    el.favoritesChips.querySelectorAll(".favorite-del").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        deleteFavorite(btn.getAttribute("data-id"));
+      });
+    });
+  }
+
+  function setExerciseCalcStatus(text, isError) {
+    el.exerciseCalcStatus.textContent = text || "";
+    el.exerciseCalcStatus.style.color = isError ? "var(--danger)" : "var(--muted)";
+  }
+
+  el.calcExerciseBtn.addEventListener("click", function() {
+    var apiKey = getGeminiKey();
+    var name = el.exerciseName.value.trim();
+    var minutes = parseFloat(el.exerciseMinutes.value);
+
+    if (!apiKey) {
+      setExerciseCalcStatus("先に上の「AI写真解析の設定」でGemini APIキーを保存してください", true);
+      return;
+    }
+    if (!name) {
+      setExerciseCalcStatus("運動内容を入力してください", true);
+      return;
+    }
+    if (!minutes || minutes <= 0) {
+      setExerciseCalcStatus("時間(分)を入力してください", true);
+      return;
+    }
+
+    el.calcExerciseBtn.disabled = true;
+    setExerciseCalcStatus("🔄 推定中...");
+
+    callGeminiExerciseEstimate(apiKey, name, minutes).then(function(result) {
+      if (result.calories != null && !isNaN(result.calories)) el.exerciseCalories.value = Math.round(result.calories);
+      setExerciseCalcStatus("✅ 推定結果を入力しました。内容を確認して「運動を記録」を押してください");
+    }).catch(function(err) {
+      setExerciseCalcStatus("⚠️ " + (err && err.message ? err.message : "推定に失敗しました"), true);
+    }).finally(function() {
+      el.calcExerciseBtn.disabled = false;
+    });
+  });
+
+  el.exerciseForm.addEventListener("submit", function(e) {
+    e.preventDefault();
+    var name = el.exerciseName.value.trim();
+    if (!name) return;
+    var exercise = {
+      id: Date.now() + "-" + Math.random().toString(36).slice(2, 8),
+      date: selectedDate,
+      name: name,
+      minutes: parseFloat(el.exerciseMinutes.value) || 0,
+      calories: parseFloat(el.exerciseCalories.value) || 0
+    };
+    state.exercises.push(exercise);
+    saveData();
+    el.exerciseForm.reset();
+    setExerciseCalcStatus("");
+    resetDailyAdvice();
+    resetNextMealSuggestion();
+    render();
+  });
+
+  function deleteExercise(id) {
+    state.exercises = state.exercises.filter(function(ex) { return ex.id !== id; });
+    saveData();
+    resetDailyAdvice();
+    resetNextMealSuggestion();
+    render();
+  }
+
+  function renderExerciseList() {
+    var exercises = exercisesForDate(selectedDate);
+    if (exercises.length === 0) {
+      el.exerciseList.innerHTML = '<div class="empty-msg">この日の運動記録はまだありません</div>';
+      return;
+    }
+    var html = exercises.map(function(ex) {
+      return '<div class="meal-item">' +
+        '<div class="info"><div class="name">' + escapeHtml(ex.name) + '</div>' +
+        (ex.minutes ? '<div class="macro">' + ex.minutes + '分</div>' : '') +
+        '</div>' +
+        '<div class="kcal">-' + ex.calories + ' kcal</div>' +
+        '<button class="del" data-id="' + ex.id + '" title="削除">✕</button>' +
+        '</div>';
+    }).join("");
+    el.exerciseList.innerHTML = html;
+
+    el.exerciseList.querySelectorAll(".del").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        deleteExercise(btn.getAttribute("data-id"));
+      });
+    });
+  }
+
+  el.addWeight.addEventListener("click", function() {
+    var date = el.weightDate.value || todayStr();
+    var val = parseFloat(el.weightValue.value);
+    if (isNaN(val) || val <= 0) return;
+    state.weights = state.weights.filter(function(w) { return w.date !== date; });
+    state.weights.push({ date: date, weight: val });
+    state.weights.sort(function(a, b) { return a.date.localeCompare(b.date); });
+    saveData();
+    el.weightValue.value = "";
+    render();
+  });
+
+  var MEAL_ORDER = ["朝食", "昼食", "夕食", "間食"];
+
+  function render() {
+    renderSummary();
+    renderMealList();
+    renderExerciseList();
+    renderCalorieChart();
+    renderWeightChart();
+    renderWeightList();
+    renderFavorites();
+    renderGoalPrediction();
+    repositionSetupSection();
+  }
+
+  function isPersonalSetupComplete() {
+    var p = state.personal;
+    return !!(p && p.age && p.height && p.weight);
+  }
+
+  function repositionSetupSection() {
+    var mainEl = el.setupSection && el.setupSection.parentNode;
+    if (!el.setupSection || !mainEl) return;
+    if (isPersonalSetupComplete()) {
+      if (mainEl.lastElementChild !== el.setupSection) {
+        mainEl.appendChild(el.setupSection);
+      }
+    } else if (mainEl.children[1] !== el.setupSection) {
+      mainEl.insertBefore(el.setupSection, mainEl.children[1] || null);
+    }
+  }
+
+  function mealsForDate(dateStr) {
+    return state.meals.filter(function(m) { return m.date === dateStr; });
+  }
+
+  function exercisesForDate(dateStr) {
+    return state.exercises.filter(function(ex) { return ex.date === dateStr; });
+  }
+
+  function renderSummary() {
+    var meals = mealsForDate(selectedDate);
+    var intake = meals.reduce(function(s, m) { return s + m.calories; }, 0);
+    var target = state.targetCalories || 0;
+    var exerciseBurned = exercisesForDate(selectedDate).reduce(function(s, ex) { return s + ex.calories; }, 0);
+    var effectiveTarget = target + exerciseBurned;
+    var remain = effectiveTarget - intake;
+    var protein = meals.reduce(function(s, m) { return s + m.protein; }, 0);
+    var fat = meals.reduce(function(s, m) { return s + m.fat; }, 0);
+    var carbs = meals.reduce(function(s, m) { return s + m.carbs; }, 0);
+    var fiber = meals.reduce(function(s, m) { return s + (m.fiber || 0); }, 0);
+    var sugar = meals.reduce(function(s, m) { return s + (m.sugar || 0); }, 0);
+    var salt = meals.reduce(function(s, m) { return s + (m.salt || 0); }, 0);
+
+    el.sumTarget.textContent = target;
+    el.sumIntake.textContent = intake;
+    el.sumRemain.textContent = remain;
+    el.sumRemain.style.color = remain < 0 ? "var(--over)" : "var(--text)";
+    el.sumPFC.textContent = protein.toFixed(0) + "/" + fat.toFixed(0) + "/" + carbs.toFixed(0);
+
+    var pct = effectiveTarget > 0 ? Math.min(100, (intake / effectiveTarget) * 100) : 0;
+    el.progressBar.style.width = pct + "%";
+    el.progressBar.classList.toggle("over", intake > effectiveTarget && effectiveTarget > 0);
+    el.progressPct.textContent = Math.round(pct) + "%";
+    var exerciseNote = exerciseBurned > 0 ? "（運動 +" + exerciseBurned + "kcal 反映済み）" : "";
+    el.progressNote.textContent = target > 0
+      ? (remain >= 0 ? "あと " + remain + " kcal 摂取可能" + exerciseNote : (-remain) + " kcal オーバー" + exerciseNote)
+      : "目標カロリーを設定してください";
+
+    var targetProtein = state.targetProtein || 0;
+    var targetFat = state.targetFat || 0;
+    var targetCarbs = state.targetCarbs || 0;
+    el.sumPFCTargetLine.textContent = (targetProtein || targetFat || targetCarbs)
+      ? "目標 P/F/C: " + targetProtein + "/" + targetFat + "/" + targetCarbs + " g"
+      : "";
+
+    el.sumExtraNutrients.textContent = (fiber || sugar || salt)
+      ? "食物繊維 " + round1(fiber) + "g ・ 糖質 " + round1(sugar) + "g ・ 塩分 " + round1(salt) + "g"
+      : "";
+  }
+
+  function renderMealList() {
+    var meals = mealsForDate(selectedDate);
+    if (meals.length === 0) {
+      el.mealList.innerHTML = '<div class="empty-msg">この日の記録はまだありません</div>';
+      return;
+    }
+    var byType = {};
+    MEAL_ORDER.forEach(function(t) { byType[t] = []; });
+    meals.forEach(function(m) {
+      if (!byType[m.type]) byType[m.type] = [];
+      byType[m.type].push(m);
+    });
+
+    var html = "";
+    MEAL_ORDER.forEach(function(type) {
+      var list = byType[type];
+      if (!list || list.length === 0) return;
+      html += '<div class="meal-group"><h3>' + escapeHtml(type) + '</h3>';
+      list.forEach(function(m) {
+        var macro = [];
+        if (m.protein) macro.push("P " + m.protein + "g");
+        if (m.fat) macro.push("F " + m.fat + "g");
+        if (m.carbs) macro.push("C " + m.carbs + "g");
+        if (m.fiber) macro.push("食物繊維 " + m.fiber + "g");
+        if (m.sugar) macro.push("糖質 " + m.sugar + "g");
+        if (m.salt) macro.push("塩分 " + m.salt + "g");
+        html += '<div class="meal-item">' +
+          '<div class="info"><div class="name">' + escapeHtml(m.name) + '</div>' +
+          (macro.length ? '<div class="macro">' + macro.join(" / ") + '</div>' : '') +
+          '</div>' +
+          '<div class="kcal">' + m.calories + ' kcal</div>' +
+          '<button class="del" data-id="' + m.id + '" title="削除">✕</button>' +
+          '</div>';
+      });
+      html += "</div>";
+    });
+    el.mealList.innerHTML = html;
+
+    el.mealList.querySelectorAll(".del").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        deleteMeal(btn.getAttribute("data-id"));
+      });
+    });
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, function(c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function lastNDays(n, endDateStr) {
+    var days = [];
+    for (var i = n - 1; i >= 0; i--) {
+      days.push(addDays(endDateStr, -i));
+    }
+    return days;
+  }
+
+  function renderCalorieChart() {
+    var canvas = el.calorieChart;
+    var ctx = canvas.getContext("2d");
+    var W = canvas.width, H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+
+    var days = lastNDays(14, selectedDate);
+    var target = state.targetCalories || 0;
+    var totals = days.map(function(d) {
+      return mealsForDate(d).reduce(function(s, m) { return s + m.calories; }, 0);
+    });
+
+    var maxVal = Math.max(target, Math.max.apply(null, totals.concat([1]))) * 1.15;
+    var padding = { top: 10, right: 10, bottom: 26, left: 10 };
+    var chartW = W - padding.left - padding.right;
+    var chartH = H - padding.top - padding.bottom;
+    var barGap = 6;
+    var barW = (chartW / days.length) - barGap;
+
+    var styles = getComputedStyle(document.documentElement);
+    var primary = styles.getPropertyValue("--primary").trim() || "#2f9e6e";
+    var over = styles.getPropertyValue("--over").trim() || "#e5484d";
+    var muted = styles.getPropertyValue("--muted").trim() || "#888";
+
+    if (target > 0) {
+      var ty = padding.top + chartH - (target / maxVal) * chartH;
+      ctx.strokeStyle = muted;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 3]);
+      ctx.beginPath();
+      ctx.moveTo(padding.left, ty);
+      ctx.lineTo(W - padding.right, ty);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.lineWidth = 1;
+
+      ctx.fillStyle = muted;
+      ctx.font = "9px sans-serif";
+      ctx.textAlign = "end";
+      ctx.fillText("目標 " + target + "kcal", W - padding.right, ty - 3);
+    }
+
+    days.forEach(function(d, i) {
+      var val = totals[i];
+      var barH = maxVal > 0 ? (val / maxVal) * chartH : 0;
+      var x = padding.left + i * (barW + barGap);
+      var y = padding.top + chartH - barH;
+      ctx.fillStyle = (target > 0 && val > target) ? over : primary;
+      ctx.fillRect(x, y, barW, barH);
+
+      ctx.fillStyle = muted;
+      ctx.font = "9px sans-serif";
+      ctx.textAlign = "center";
+      var label = d.slice(5).replace("-", "/");
+      ctx.fillText(label, x + barW / 2, H - 10);
+    });
+  }
+
+  function renderWeightChart() {
+    var canvas = el.weightChart;
+    var ctx = canvas.getContext("2d");
+    var W = canvas.width, H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+
+    var weights = state.weights.slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+    if (weights.length === 0) {
+      var muted0 = getComputedStyle(document.documentElement).getPropertyValue("--muted").trim();
+      ctx.fillStyle = muted0 || "#888";
+      ctx.font = "13px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("体重データがまだありません", W / 2, H / 2);
+      return;
+    }
+    var recent = weights.slice(-30);
+    var vals = recent.map(function(w) { return w.weight; });
+    var minV = Math.min.apply(null, vals);
+    var maxV = Math.max.apply(null, vals);
+    if (minV === maxV) { minV -= 1; maxV += 1; }
+    var padV = (maxV - minV) * 0.15;
+    minV -= padV; maxV += padV;
+
+    var padding = { top: 14, right: 14, bottom: 26, left: 14 };
+    var chartW = W - padding.left - padding.right;
+    var chartH = H - padding.top - padding.bottom;
+
+    var styles = getComputedStyle(document.documentElement);
+    var primary = styles.getPropertyValue("--primary").trim() || "#2f9e6e";
+    var muted = styles.getPropertyValue("--muted").trim() || "#888";
+
+    ctx.strokeStyle = primary;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    recent.forEach(function(w, i) {
+      var x = padding.left + (recent.length === 1 ? chartW / 2 : (i / (recent.length - 1)) * chartW);
+      var y = padding.top + chartH - ((w.weight - minV) / (maxV - minV)) * chartH;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    ctx.fillStyle = primary;
+    recent.forEach(function(w, i) {
+      var x = padding.left + (recent.length === 1 ? chartW / 2 : (i / (recent.length - 1)) * chartW);
+      var y = padding.top + chartH - ((w.weight - minV) / (maxV - minV)) * chartH;
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    ctx.fillStyle = muted;
+    ctx.font = "9px sans-serif";
+    ctx.textAlign = "start";
+    ctx.fillText(recent[0].date.slice(5), padding.left, H - 10);
+    ctx.textAlign = "end";
+    ctx.fillText(recent[recent.length - 1].date.slice(5), W - padding.right, H - 10);
+
+    ctx.textAlign = "start";
+    ctx.fillText(maxV.toFixed(1) + "kg", padding.left, padding.top + 8);
+    ctx.fillText(minV.toFixed(1) + "kg", padding.left, padding.top + chartH - 2);
+  }
+
+  var WEEKDAY_JP = ["日", "月", "火", "水", "木", "金", "土"];
+
+  function formatDateLabel(dateStr) {
+    var d = new Date(dateStr + "T00:00:00");
+    return (d.getMonth() + 1) + "/" + d.getDate() + "（" + WEEKDAY_JP[d.getDay()] + "）";
+  }
+
+  function deleteWeight(date) {
+    state.weights = state.weights.filter(function(w) { return w.date !== date; });
+    saveData();
+    render();
+  }
+
+  function renderWeightList() {
+    var weights = state.weights.slice().sort(function(a, b) { return b.date.localeCompare(a.date); });
+    if (weights.length === 0) {
+      el.weightList.innerHTML = '<div class="empty-msg">体重の記録はまだありません</div>';
+      return;
+    }
+    var today = todayStr();
+    var html = weights.map(function(w, idx) {
+      var prev = weights[idx + 1];
+      var diffHtml = "";
+      if (prev) {
+        var diff = w.weight - prev.weight;
+        if (Math.abs(diff) >= 0.05) {
+          var cls = diff > 0 ? "up" : "down";
+          var sign = diff > 0 ? "+" : "";
+          diffHtml = '<span class="diff ' + cls + '">' + sign + diff.toFixed(1) + "kg</span>";
+        }
+      }
+      var todayTag = w.date === today ? '<span class="today-tag">今日</span>' : "";
+      return '<div class="weight-item">' +
+        '<div class="date">' + formatDateLabel(w.date) + todayTag + "</div>" +
+        '<div style="display:flex;align-items:center;">' +
+        '<span class="weight-value">' + w.weight.toFixed(1) + " kg</span>" +
+        diffHtml +
+        '<button class="del" data-date="' + w.date + '" title="削除">✕</button>' +
+        "</div>" +
+        "</div>";
+    }).join("");
+    el.weightList.innerHTML = html;
+
+    el.weightList.querySelectorAll(".del").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        deleteWeight(btn.getAttribute("data-date"));
+      });
+    });
+  }
+
+  function computeWeightTrend() {
+    var sorted = state.weights.slice().sort(function(a, b) { return a.date.localeCompare(b.date); });
+    if (sorted.length < 2) return null;
+    var recent = sorted.slice(-30);
+    var baseTime = new Date(recent[0].date + "T00:00:00").getTime();
+    var points = recent.map(function(w) {
+      var days = (new Date(w.date + "T00:00:00").getTime() - baseTime) / 86400000;
+      return { x: days, y: w.weight };
+    });
+    var n = points.length;
+    var sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+    points.forEach(function(p) {
+      sumX += p.x; sumY += p.y; sumXY += p.x * p.y; sumXX += p.x * p.x;
+    });
+    var denom = n * sumXX - sumX * sumX;
+    if (denom === 0) return null;
+    var slope = (n * sumXY - sumX * sumY) / denom;
+    var latest = sorted[sorted.length - 1];
+    return { slope: slope, latestWeight: latest.weight };
+  }
+
+  function renderGoalPrediction() {
+    var targetWeight = parseFloat(state.personal.targetWeight);
+    if (!targetWeight || targetWeight <= 0) {
+      el.goalPredictionBox.style.display = "none";
+      el.goalPredictionHint.textContent = "パーソナルデータで目標体重を設定すると、到達予測が表示されます";
+      return;
+    }
+    if (state.weights.length < 2) {
+      el.goalPredictionBox.style.display = "none";
+      el.goalPredictionHint.textContent = "体重を2日分以上記録すると、目標体重までの到達予測が表示されます";
+      return;
+    }
+
+    var trend = computeWeightTrend();
+    el.goalPredictionHint.textContent = "";
+
+    var diff = targetWeight - trend.latestWeight;
+    if (Math.abs(diff) < 0.1) {
+      el.goalPredictionBox.style.display = "block";
+      el.goalPredictionText.textContent = "🎉 目標体重（" + targetWeight + "kg）にほぼ到達しています！";
+      return;
+    }
+
+    var weeklyRate = trend.slope * 7;
+    var onTrack = trend.slope !== 0 && (diff > 0) === (trend.slope > 0);
+
+    if (!onTrack) {
+      el.goalPredictionBox.style.display = "block";
+      el.goalPredictionText.textContent = "現在の体重は " + trend.latestWeight.toFixed(1) + "kg、目標は " + targetWeight +
+        "kg です。直近の記録では目標に向けたペースが見られません。食事内容を見直してみましょう。";
+      return;
+    }
+
+    var daysNeeded = diff / trend.slope;
+    if (!isFinite(daysNeeded) || daysNeeded <= 0 || daysNeeded > 3650) {
+      el.goalPredictionBox.style.display = "block";
+      el.goalPredictionText.textContent = "現在の体重は " + trend.latestWeight.toFixed(1) + "kg、目標は " + targetWeight + "kg です。";
+      return;
+    }
+
+    var roundedDays = Math.round(daysNeeded);
+    var predDate = addDays(todayStr(), roundedDays);
+    var predLabel = predDate.slice(5).replace("-", "/");
+    var trendWord = trend.slope < 0 ? "減少" : "増加";
+
+    el.goalPredictionBox.style.display = "block";
+    el.goalPredictionText.textContent = "現在 " + trend.latestWeight.toFixed(1) + "kg → 目標 " + targetWeight + "kg（あと " +
+      Math.abs(diff).toFixed(1) + "kg）。週あたり約" + Math.abs(weeklyRate).toFixed(2) + "kg" + trendWord +
+      "のペースなら、あと約" + roundedDays + "日（" + predLabel + "頃）で到達予想です。";
+  }
+
+  init();
+
+  window.addEventListener("resize", function() {
+    var dpr = 1;
+    render();
+  });
+})();
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function() {
+    navigator.serviceWorker.register("sw.js").catch(function() {
+      // オフライン対応が使えないだけなので、アプリ本体には影響させない
+    });
+  });
+}
+</script>
+</body>
+</html>
