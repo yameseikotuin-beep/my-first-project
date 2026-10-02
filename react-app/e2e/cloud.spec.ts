@@ -168,7 +168,7 @@ test('料理写真風の画像を生成して表示する', async ({ page }) => 
   await page.goto('./#/calorie')
   await page.getByRole('button', { name: 'レシピを考える' }).click()
   await page.locator('.recipe-card').first().click()
-  await expect(page.locator('svg[aria-label$="のイメージ図"]').first()).toBeVisible()
+  await expect(page.locator('img[alt$="のイメージ写真"]').first()).toBeVisible()
   await page.getByRole('button', { name: '📷 画像を生成' }).click()
   await expect(page.locator('img[alt$="のAI生成イメージ"]')).toBeVisible()
   await expect(page.getByText('AIが作ったイメージのため')).toBeVisible()

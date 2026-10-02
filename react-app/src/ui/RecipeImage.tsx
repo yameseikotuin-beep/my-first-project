@@ -1,5 +1,7 @@
 import type { FoodCategory, Recipe } from '../types'
+import { useState } from 'react'
 import { useImageUrl } from '../cloud/images'
+import { dishPhotoFor, dishPhotoUrl } from '../data/dishPhotos'
 
 const CATEGORY_COLOR: Record<FoodCategory, string> = {
   肉類: '#e8a17a',
@@ -55,17 +57,32 @@ function RecipeIllustration({ recipe, size = 220, categoryOf }: { recipe: Recipe
 }
 
 /**
- * 料理の画像。AIで生成した写真風の画像があればそれを、なければ材料から描くイメージ図を表示する。
+ * 料理の画像。優先順位:
+ * 1. AIで生成した写真風の画像（ログイン時に作成したもの）
+ * 2. 料理の種類ごとのイメージ写真（Unsplash）
+ * 3. 写真が読み込めない場合は、材料から描くイメージ図
  */
 export function RecipeImage({ recipe, size = 220, categoryOf }: { recipe: Recipe; size?: number; categoryOf: (foodId: string | null) => FoodCategory }) {
-  const url = useImageUrl(recipe.imagePath)
-  if (url) {
-    return (
-      <figure style={{ margin: 0, position: 'relative' }}>
-        <img src={url} alt={`${recipe.recipeName}のAI生成イメージ`} width={size} height={size} loading="lazy" style={{ display: 'block', width: '100%', maxWidth: size, height: 'auto', aspectRatio: '1 / 1', objectFit: 'cover', borderRadius: 14 }} />
-        {size >= 160 && <figcaption className="tiny" style={{ position: 'absolute', left: 8, bottom: 6, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,.6)' }}>AI生成イメージ</figcaption>}
-      </figure>
-    )
-  }
-  return <RecipeIllustration recipe={recipe} size={size} categoryOf={categoryOf} />
+  const aiUrl = useImageUrl(recipe.imagePath)
+  const main = recipe.ingredients.find((i) => i.role === 'protein' && !i.fixed)
+  const mainIsFish = main ? categoryOf(main.foodId) === '魚介類' : false
+  const stockUrl = dishPhotoUrl(dishPhotoFor(recipe, mainIsFish))
+  const [failed, setFailed] = useState<string | null>(null)
+  const url = aiUrl ?? (failed === stockUrl ? null : stockUrl)
+  if (!url) return <RecipeIllustration recipe={recipe} size={size} categoryOf={categoryOf} />
+  const caption = aiUrl ? 'AI生成イメージ' : '写真はイメージです'
+  return (
+    <figure style={{ margin: 0, position: 'relative' }}>
+      <img
+        src={url}
+        alt={aiUrl ? `${recipe.recipeName}のAI生成イメージ` : `${recipe.recipeName}のイメージ写真`}
+        width={size}
+        height={size}
+        loading="lazy"
+        onError={() => { if (!aiUrl) setFailed(stockUrl) }}
+        style={{ display: 'block', width: '100%', maxWidth: size, height: 'auto', aspectRatio: '1 / 1', objectFit: 'cover', borderRadius: size >= 160 ? 14 : 12, background: '#f1efe8' }}
+      />
+      {size >= 160 && <figcaption className="tiny" style={{ position: 'absolute', left: 8, bottom: 6, color: '#fff', textShadow: '0 1px 3px rgba(0,0,0,.8)' }}>{caption}</figcaption>}
+    </figure>
+  )
 }
