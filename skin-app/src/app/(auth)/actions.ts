@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { publicEnv } from '@/lib/env';
+import { getSiteUrl } from '@/lib/site-url';
 import { safeNextPath } from '@/lib/auth/roles';
 import { formValues, type FormState } from '@/lib/form-state';
 import {
@@ -43,7 +43,7 @@ export async function signup(_prev: FormState, formData: FormData): Promise<Form
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
-      emailRedirectTo: `${publicEnv.siteUrl}/auth/confirm`,
+      emailRedirectTo: `${getSiteUrl()}/auth/confirm`,
       data: { display_name: parsed.data.displayName, adult_confirmed: 'true' },
     },
   });
@@ -66,7 +66,7 @@ export async function requestPasswordReset(_prev: FormState, formData: FormData)
 
   const supabase = await createClient();
   await supabase.auth.resetPasswordForEmail(parsed.data, {
-    redirectTo: `${publicEnv.siteUrl}/auth/confirm?next=/update-password`,
+    redirectTo: `${getSiteUrl()}/auth/confirm?next=/update-password`,
   });
   // 登録の有無にかかわらず同じ文言を返す
   return { ok: true, message: '登録されているメールアドレスであれば、再設定用のメールを送信しました。' };
