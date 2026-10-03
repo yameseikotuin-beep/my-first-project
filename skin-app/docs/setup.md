@@ -28,7 +28,7 @@ Supabase CLI を使っている場合は `supabase db push` でも適用でき�
 | Authentication → Sign In / Providers → Email | メール認証を有効、「Confirm email」を有効 |
 | Authentication → Sign In / Providers → Email | パスワードの最低文字数を 10 以上に。漏えい済みパスワードの検査を使えるプランなら有効に |
 | Authentication → URL Configuration → Site URL | アプリの URL（例：`https://example.vercel.app`） |
-| Authentication → URL Configuration → Redirect URLs | `https://example.vercel.app/auth/confirm`（開発時は `http://localhost:3000/auth/confirm` も追加） |
+| Authentication → URL Configuration → Redirect URLs | `https://example.vercel.app/**`（開発時は `http://localhost:3000/**` も追加） |
 
 #### メールのテンプレート
 

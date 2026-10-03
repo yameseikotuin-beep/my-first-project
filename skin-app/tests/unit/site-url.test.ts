@@ -17,9 +17,11 @@ describe('getSiteUrl', () => {
     expect(getSiteUrl()).toBe('https://salon.example.jp');
   });
 
-  it('以前の NEXT_PUBLIC_SITE_URL も読める', () => {
+  it('以前の NEXT_PUBLIC_SITE_URL も読めるが、Vercel の本番 URL を優先する', () => {
     env({ NEXT_PUBLIC_SITE_URL: 'https://old.example.jp' });
     expect(getSiteUrl()).toBe('https://old.example.jp');
+    env({ NEXT_PUBLIC_SITE_URL: 'https://example.com', VERCEL_PROJECT_PRODUCTION_URL: 'app.vercel.app' });
+    expect(getSiteUrl()).toBe('https://app.vercel.app');
   });
 
   it('未設定なら Vercel の本番 URL を使う', () => {
