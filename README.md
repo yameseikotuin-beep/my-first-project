@@ -7,7 +7,7 @@
 | [ダイエット食事管理アプリ](#ダイエット食事管理アプリ) | `diet-tracker.html` | 不要 |
 | [InBody × 痛み因果診断アプリ](#inbody--痛み因果診断アプリ) | `index.html` | 不要 |
 | [React アプリ（開発中）](#react-アプリ開発中) | `react-app/` フォルダ | 必要（Vite） |
-| [AI肌分析・美容管理アプリ（設計中）](#ai肌分析美容管理アプリ設計中) | `skin-app/` フォルダ | 必要（Next.js） |
+| [AI肌分析・美容管理アプリ（開発中）](#ai肌分析美容管理アプリ開発中) | `skin-app/` フォルダ | 必要（Next.js） |
 
 ## ダイエット食事管理アプリ
 
@@ -103,6 +103,6 @@ npm install
 npm run dev
 ```
 
-## AI肌分析・美容管理アプリ（設計中）
+## AI肌分析・美容管理アプリ（開発中）
 
-`skin-app/` フォルダに作る Next.js ＋ Supabase のアプリです。現在は設計段階で、設計書は [skin-app/README.md](skin-app/README.md) にまとめています。
+`skin-app/` フォルダの Next.js ＋ Supabase のアプリです。現在は第2段階（認証・権限・顧客台帳・撮影）まで実装済みです。詳しくは [skin-app/README.md](skin-app/README.md) を参照してください。

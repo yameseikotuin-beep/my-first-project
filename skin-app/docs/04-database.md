@@ -1,7 +1,7 @@
 # 04. データベース設計（Supabase / PostgreSQL）
 
-> ステータス：**第1段階（設計）— レビュー待ち**
-> 本書の SQL は設計の説明用の下書きです。第2段階で `supabase/migrations/` に正式な形で作成し、テストします。
+> ステータス：**承認済み**（2026-10-03）。実装との差分は [stage2-report.md §5](stage2-report.md#5-設計からの変更点) を参照。
+> 本書の SQL は設計の説明用です。正式な定義は `supabase/migrations/` にあります。
 
 ## 1. 方針
 
