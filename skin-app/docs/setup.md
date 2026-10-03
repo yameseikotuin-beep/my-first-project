@@ -74,7 +74,7 @@ npm run dev                  # http://localhost:3000
 | --- | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | ○ | Supabase の Project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ○ | Supabase の anon（公開用）キー |
-| `NEXT_PUBLIC_SITE_URL` | ○ | アプリの URL（認証メールのリンク先） |
+| `SITE_URL` | 独自ドメインのときだけ | アプリの URL（認証メールのリンク先）。Vercel では本番の URL が自動で使われるため通常は不要。サーバー専用 |
 | `SUPABASE_SERVICE_ROLE_KEY` | スタッフ招待に必要 | **サーバーだけ**に設定する。`NEXT_PUBLIC_` を付けない |
 
 Supabase の値が未設定の場合、ログインが必要な画面は「初期設定が必要です」の画面に移動します。
@@ -92,7 +92,7 @@ npm run build       # 本番ビルド
 ## 5. Vercel への配置（例）
 
 1. Vercel でリポジトリを読み込み、**Root Directory** を `skin-app` にする
-2. 環境変数（§3）を設定する。`SUPABASE_SERVICE_ROLE_KEY` は Production / Preview のサーバー用にだけ設定する
+2. 環境変数（§3）を設定する。`NEXT_PUBLIC_` で始まる2つは公開してよい値なので、種類は「Config」にする。`SUPABASE_SERVICE_ROLE_KEY` は Production / Preview のサーバー用にだけ設定する
 3. デプロイ後、Supabase の Site URL と Redirect URLs をデプロイ先の URL に合わせる
 
 カメラはブラウザの仕様により HTTPS（または `localhost`）でしか使えません。スマートフォンの実機で試す場合は、Vercel のプレビュー環境など HTTPS の URL を使ってください。

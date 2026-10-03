@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { requireRole } from '@/lib/auth/session';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, isAdminClientConfigured } from '@/lib/supabase/admin';
-import { publicEnv } from '@/lib/env';
+import { getSiteUrl } from '@/lib/site-url';
 import { writeAudit } from '@/lib/audit';
 import { formValues, type FormState } from '@/lib/form-state';
 import { fieldErrorsOf, inviteSchema, memberUpdateSchema, uuidSchema } from '@/lib/validation/schemas';
@@ -22,7 +22,7 @@ export async function inviteMember(_prev: FormState, formData: FormData): Promis
   const admin = createAdminClient();
   const { data, error } = await admin.auth.admin.inviteUserByEmail(parsed.data.email, {
     data: { display_name: parsed.data.displayName },
-    redirectTo: `${publicEnv.siteUrl}/auth/confirm`,
+    redirectTo: `${getSiteUrl()}/auth/confirm`,
   });
   if (error || !data.user) {
     return {
