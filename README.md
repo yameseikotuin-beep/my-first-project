@@ -7,7 +7,7 @@
 | [ダイエット食事管理アプリ](#ダイエット食事管理アプリ) | `diet-tracker.html` | 不要 |
 | [InBody × 痛み因果診断アプリ](#inbody--痛み因果診断アプリ) | `index.html` | 不要 |
 | [React アプリ（開発中）](#react-アプリ開発中) | `react-app/` フォルダ | 必要（Vite） |
-| [新しいアプリ（準備中）](#新しいアプリ準備中) | `new-app/index.html` | 不要 |
+| [AI肌分析・美容管理アプリ（設計中）](#ai肌分析美容管理アプリ設計中) | `skin-app/` フォルダ | 必要（Next.js） |
 
 ## ダイエット食事管理アプリ
 
@@ -103,6 +103,6 @@ npm install
 npm run dev
 ```
 
-## 新しいアプリ（準備中）
+## AI肌分析・美容管理アプリ（設計中）
 
-`new-app/index.html` をブラウザで開くだけで動く、ビルド不要の1ファイル構成の雛形です。内容はこれから作ります。データは `new-app:` で始まるキーで localStorage に保存し、他のアプリのデータと混ざらないようにしています。
+`skin-app/` フォルダに作る Next.js ＋ Supabase のアプリです。現在は設計段階で、設計書は [skin-app/README.md](skin-app/README.md) にまとめています。
