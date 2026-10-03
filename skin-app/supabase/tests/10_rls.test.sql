@@ -258,6 +258,14 @@ select tests.ok(tests.rows($$select * from public.audit_logs where action = 'pho
 select tests.throws('delete from public.audit_logs', '管理者も監査ログを削除できない');
 select tests.throws($$update public.audit_logs set action = 'x.y'$$, '管理者も監査ログを書き換えられない');
 
+-- アプリと同じ使い方（ID を指定し、作成後に読み返さない）で、管理者が顧客の撮影セッションを作れる
+insert into public.consents (customer_id, document_id, kind, method, recorded_by)
+  select 'c0000000-0000-0000-0000-000000000001', id, kind, 'salon_tablet', auth.uid() from tests.docs
+  where kind = 'ai_processing';
+select tests.ok(tests.rows($$insert into public.photo_sessions (id, customer_id, captured_by)
+  values ('5e000000-0000-0000-0000-0000000000a1', 'c0000000-0000-0000-0000-000000000001', auth.uid())$$) = 1,
+  '管理者は同意のある顧客の撮影セッションを作れる');
+
 select tests.throws($$insert into public.customer_assignments (staff_id, customer_id, granted_by)
   values ('00000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000001', auth.uid())$$,
   'スタッフでない利用者を担当にはできない');
