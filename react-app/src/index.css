@@ -41,8 +41,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
   padding: 10px 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
-.app-header a.brand { color: #fff; text-decoration: none; font-weight: 700; font-size: 1.05rem; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.app-header a.brand { color: #fff; text-decoration: none; font-weight: 700; font-size: 1.05rem; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
 @media (max-width: 420px) { .app-header a.brand { font-size: 0.95rem; } .app-header select { max-width: 32vw; } }
+.app-header .brand-icon { width: 30px; height: 30px; border-radius: 8px; box-shadow: 0 0 0 1.5px rgba(255,255,255,0.85); flex: none; }
 .app-header .spacer { flex: 1; }
 .app-header .header-account { color: #fff; text-decoration: none; white-space: nowrap; font-size: 1.1rem; }
 .app-header .header-account .badge { font-size: 0.68rem; vertical-align: 2px; }

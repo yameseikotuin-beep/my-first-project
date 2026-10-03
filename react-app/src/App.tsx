@@ -52,7 +52,7 @@ export default function App() {
   return (
     <>
       <header className="app-header">
-        <a className="brand" href={href('')}><span aria-hidden>🥗</span>ダイエットレシピメーカー</a>
+        <a className="brand" href={href('')}><img className="brand-icon" src={`${import.meta.env.BASE_URL}favicon-64.png`} alt="" width={30} height={30} />ダイエットレシピメーカー</a>
         <span className="spacer" />
         {cloudConfigured && <a href={href('account')} className="header-account" aria-label="アカウント・同期"><SyncBadge />{' '}👤</a>}
         <select aria-label="利用者" value={d.activeUserId ?? ''} onChange={(e) => update((dd) => ({ ...dd, activeUserId: e.target.value || null }))}>
