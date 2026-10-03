@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ALLERGENS, type Allergen, type Genre, type MealPlan as Plan } from '../types'
 import { activeProfile, mine, settingsFor, update, useAppData } from '../store/store'
 import { putWorking, setSession, toast, useSession } from '../store/session'
-import { quickDailyPlan } from '../engine/quickPlan'
+import { planTemplates, quickDailyPlan } from '../engine/quickPlan'
 import { MEAL_PRESETS, achievement, generateMealPlan, type MealSlotDef } from '../engine/mealplan'
 import { navigate, useRoute } from '../router'
 import { Field, FoodChipsInput, Seg } from '../ui/common'
@@ -32,7 +32,7 @@ function QuickPlan({ plan }: { plan: Plan }) {
   function remake() {
     try {
       const seed = (session.planSeed ?? 0) + 1
-      const next = quickDailyPlan(db, settingsFor(d), activeProfile(d), plan.days[0].date, seed, d.activeUserId)
+      const next = quickDailyPlan(db, settingsFor(d), activeProfile(d), plan.days[0].date, seed, d.activeUserId, planTemplates(plan))
       setSession((ss) => ({ ...ss, planDraft: next, planSeed: seed }))
       window.scrollTo(0, 0)
     } catch {

@@ -178,6 +178,25 @@ describe('今日の献立（ボタンひとつ）', () => {
     expect(seen.size).toBeGreaterThanOrEqual(3)
   })
 
+  it('「別の献立にする」は、どの日でも前と違う料理になり、目標の90〜110%に収まる', async () => {
+    const { planTemplates, quickDailyPlan, seedFor } = await import('./quickPlan')
+    for (const date of ['2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04', '2026-10-05', '2026-10-06', '2026-10-07']) {
+      let seed = seedFor(date)
+      let plan = quickDailyPlan(db, settings, null, date, seed, null)
+      for (let i = 0; i < 4; i++) {
+        seed++
+        const next = quickDailyPlan(db, settings, null, date, seed, null, planTemplates(plan))
+        const before = new Set(planTemplates(plan))
+        expect(planTemplates(next).filter((t) => before.has(t)), `${date} ${i}回目`).toEqual([])
+        for (const a of achievement(next.daily, next.days[0].totals)) {
+          expect(a.percent, `${date} ${i}回目 ${a.label}`).toBeGreaterThanOrEqual(90)
+          expect(a.percent, `${date} ${i}回目 ${a.label}`).toBeLessThanOrEqual(110)
+        }
+        plan = next
+      }
+    }
+  })
+
   it('利用者のアレルギーを反映する', async () => {
     const { quickDailyPlan } = await import('./quickPlan')
     const p = quickDailyPlan(db, settings, profile({ allergens: ['卵', '乳'] }), '2026-10-02', 0, 'p1')

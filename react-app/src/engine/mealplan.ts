@@ -49,6 +49,8 @@ export interface MealPlanInput {
   userId: string | null
   /** 作り直すたびに変えると、別の料理の組み合わせになる */
   variation?: number
+  /** 使わない料理の型（作り直す前の献立と違う料理にするため）。候補がなくなる場合は使う */
+  avoidTemplates?: string[]
 }
 
 /**
@@ -57,7 +59,7 @@ export interface MealPlanInput {
  */
 export function generateMealPlan(db: FoodDb, input: MealPlanInput): MealPlan {
   const days: MealPlanDay[] = []
-  let previousTemplates: string[] = []
+  let previousTemplates: string[] = input.avoidTemplates ?? []
   for (let d = 0; d < input.days; d++) {
     const date = addDays(input.startDate, d)
     const used: string[] = []
