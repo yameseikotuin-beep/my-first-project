@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/server';
 import { canCapture, getActiveConsents } from '@/lib/consent';
 import { uuidSchema } from '@/lib/validation/schemas';
 import { CaptureFlow } from '@/features/capture/capture-flow';
+import { getSupabaseConfig } from '@/lib/env';
 
 export const metadata: Metadata = { title: '撮影' };
 
@@ -29,6 +30,7 @@ export default async function CustomerCapturePage({ params }: PageProps<'/staff/
           subjectLabel={`${customer.full_name} 様`}
           doneHref={`/staff/customers/${id}?tab=photos`}
           cancelHref={`/staff/customers/${id}`}
+          supabaseConfig={getSupabaseConfig()}
         />
       ) : (
         <Notice tone="warning" title="撮影と保存への同意が必要です">

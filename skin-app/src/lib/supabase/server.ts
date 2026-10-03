@@ -3,12 +3,13 @@ import 'server-only';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import type { Database } from './database.types';
-import { publicEnv } from '@/lib/env';
+import { getSupabaseConfig } from '@/lib/env';
 
 // サーバー側の Supabase クライアント。リクエストした本人の権限で動き、RLS が適用される。
 export async function createClient() {
   const cookieStore = await cookies();
-  return createServerClient<Database>(publicEnv.supabaseUrl, publicEnv.supabaseAnonKey, {
+  const { url, anonKey } = getSupabaseConfig();
+  return createServerClient<Database>(url, anonKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll();

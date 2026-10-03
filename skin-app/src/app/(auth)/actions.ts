@@ -3,8 +3,10 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getSiteUrl } from '@/lib/site-url';
+import { isSupabaseConfigured } from '@/lib/env';
 import { safeNextPath } from '@/lib/auth/roles';
 import { formValues, type FormState } from '@/lib/form-state';
+
 import {
   emailSchema,
   fieldErrorsOf,
@@ -13,7 +15,12 @@ import {
   signupSchema,
 } from '@/lib/validation/schemas';
 
+const notConfigured: FormState = {
+  message: 'アプリの初期設定（Supabase との接続）が完了していないため、今は利用できません。',
+};
+
 export async function login(_prev: FormState, formData: FormData): Promise<FormState> {
+  if (!isSupabaseConfigured()) return { ...notConfigured, values: formValues(formData, ['email']) };
   const parsed = loginSchema.safeParse(Object.fromEntries(formData));
   const values = formValues(formData, ['email', 'next']);
   if (!parsed.success) return { fieldErrors: fieldErrorsOf(parsed.error), values };
@@ -34,6 +41,7 @@ export async function login(_prev: FormState, formData: FormData): Promise<FormS
 }
 
 export async function signup(_prev: FormState, formData: FormData): Promise<FormState> {
+  if (!isSupabaseConfigured()) return { ...notConfigured, values: formValues(formData, ['email']) };
   const parsed = signupSchema.safeParse(Object.fromEntries(formData));
   const values = formValues(formData, ['displayName', 'email']);
   if (!parsed.success) return { fieldErrors: fieldErrorsOf(parsed.error), values };
@@ -60,6 +68,7 @@ export async function signup(_prev: FormState, formData: FormData): Promise<Form
 }
 
 export async function requestPasswordReset(_prev: FormState, formData: FormData): Promise<FormState> {
+  if (!isSupabaseConfigured()) return { ...notConfigured, values: formValues(formData, ['email']) };
   const parsed = emailSchema.safeParse(formData.get('email'));
   const values = formValues(formData, ['email']);
   if (!parsed.success) return { fieldErrors: { email: parsed.error.issues.map((i) => i.message) }, values };

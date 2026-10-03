@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { buildCsp } from '@/lib/csp';
-import { isSupabaseConfigured, publicEnv } from '@/lib/env';
+import { getSupabaseConfig, isSupabaseConfigured } from '@/lib/env';
 import { requiredRolesForPath } from '@/lib/auth/roles';
 
 // すべての画面の前に動く処理：
@@ -11,7 +11,8 @@ import { requiredRolesForPath } from '@/lib/auth/roles';
 //    （役割の確認は各画面のサーバー処理と RLS で行う。ここは使いやすさのための振り分け）
 export async function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
-  const csp = buildCsp(nonce, publicEnv.supabaseUrl, process.env.NODE_ENV === 'development');
+  const supabaseConfig = getSupabaseConfig();
+  const csp = buildCsp(nonce, supabaseConfig.url, process.env.NODE_ENV === 'development');
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-nonce', nonce);
@@ -20,8 +21,8 @@ export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: requestHeaders } });
   const required = requiredRolesForPath(request.nextUrl.pathname);
 
-  if (isSupabaseConfigured()) {
-    const supabase = createServerClient(publicEnv.supabaseUrl, publicEnv.supabaseAnonKey, {
+  if (isSupabaseConfigured(supabaseConfig)) {
+    const supabase = createServerClient(supabaseConfig.url, supabaseConfig.anonKey, {
       cookies: {
         getAll() {
           return request.cookies.getAll();
