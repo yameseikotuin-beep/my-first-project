@@ -9,39 +9,41 @@ export type CaptureSubject = { kind: 'self' } | { kind: 'customer'; customerId: 
 
 type Result<T> = { ok: true; data: T } | { ok: false; message: string };
 
-/** 撮影セッションを作る。同意がない場合は RLS で拒否される */
+/**
+ * 撮影セッションを作る。同意がない場合は RLS で拒否される。
+ * ID はここで決め、作成後に読み返さない（insert ... returning は、閲覧の RLS が
+ * 同じ文の中で作った行を見られないため拒否される）。
+ */
 export async function createPhotoSession(
   subject: CaptureSubject,
 ): Promise<Result<{ sessionId: string; pathPrefix: string }>> {
   const supabase = await createClient();
   if (subject.kind === 'self') {
     const user = await requireRole(['user']);
-    const { data, error } = await supabase
+    const sessionId = crypto.randomUUID();
+    const { error } = await supabase
       .from('photo_sessions')
-      .insert({ user_id: user.id, captured_by: user.id })
-      .select('id')
-      .single();
-    if (error || !data) {
+      .insert({ id: sessionId, user_id: user.id, captured_by: user.id });
+    if (error) {
       return { ok: false, message: '撮影を開始できません。撮影と保存への同意が必要です。' };
     }
-    return { ok: true, data: { sessionId: data.id, pathPrefix: `self/${user.id}/${data.id}/` } };
+    return { ok: true, data: { sessionId, pathPrefix: `self/${user.id}/${sessionId}/` } };
   }
 
   const user = await requireRole(['staff', 'admin']);
   const customerId = uuidSchema.safeParse(subject.customerId);
   if (!customerId.success) return { ok: false, message: '顧客が見つかりません。' };
-  const { data, error } = await supabase
+  const sessionId = crypto.randomUUID();
+  const { error } = await supabase
     .from('photo_sessions')
-    .insert({ customer_id: customerId.data, captured_by: user.id })
-    .select('id')
-    .single();
-  if (error || !data) {
+    .insert({ id: sessionId, customer_id: customerId.data, captured_by: user.id });
+  if (error) {
     return {
       ok: false,
       message: '撮影を開始できません。担当のお客さまで、撮影と保存への同意があることを確認してください。',
     };
   }
-  return { ok: true, data: { sessionId: data.id, pathPrefix: `salon/${customerId.data}/${data.id}/` } };
+  return { ok: true, data: { sessionId, pathPrefix: `salon/${customerId.data}/${sessionId}/` } };
 }
 
 const finite = z.number().finite();
