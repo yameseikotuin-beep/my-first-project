@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import type { SupabaseConfig } from '@/lib/env';
 import { Button, LinkButton } from '@/components/ui/button';
 import { Notice } from '@/components/ui/notice';
 import {
@@ -42,6 +43,8 @@ type Props = {
   /** 中止したときに戻る画面 */
   cancelHref: string;
   subjectLabel?: string;
+  /** 写真のアップロード先（サーバーから受け取る公開用の接続情報） */
+  supabaseConfig: SupabaseConfig;
 };
 
 async function analyze(
@@ -112,7 +115,7 @@ function QualityList({ report }: { report: QualityReport | null }) {
   );
 }
 
-export function CaptureFlow({ subject, doneHref, cancelHref, subjectLabel }: Props) {
+export function CaptureFlow({ subject, doneHref, cancelHref, subjectLabel, supabaseConfig }: Props) {
   const [step, setStep] = useState<Step>('intro');
   const [mode, setMode] = useState<Mode>('camera');
   const [angleIndex, setAngleIndex] = useState(0);
@@ -329,7 +332,7 @@ export function CaptureFlow({ subject, doneHref, cancelHref, subjectLabel }: Pro
         sessionRef.current = created.data;
       }
       const { sessionId, pathPrefix } = sessionRef.current;
-      const supabase = createClient();
+      const supabase = createClient(supabaseConfig);
       const device = deviceClass();
 
       for (const [a, shot] of entries) {

@@ -72,8 +72,8 @@ npm run dev                  # http://localhost:3000
 
 | 変数 | 必須 | 内容 |
 | --- | --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | ○ | Supabase の Project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ○ | Supabase の anon（公開用）キー |
+| `SUPABASE_URL` | ○ | Supabase の Project URL（例：`https://xxxx.supabase.co`） |
+| `SUPABASE_ANON_KEY` | ○ | Supabase の公開用キー（`eyJ…` の anon key または `sb_publishable_…`）。ブラウザに渡してよい値 |
 | `SITE_URL` | 独自ドメインのときだけ | アプリの URL（認証メールのリンク先）。Vercel では本番の URL が自動で使われるため通常は不要。サーバー専用 |
 | `SUPABASE_SERVICE_ROLE_KEY` | スタッフ招待に必要 | **サーバーだけ**に設定する。`NEXT_PUBLIC_` を付けない |
 
@@ -92,7 +92,7 @@ npm run build       # 本番ビルド
 ## 5. Vercel への配置（例）
 
 1. Vercel でリポジトリを読み込み、**Root Directory** を `skin-app` にする
-2. 環境変数（§3）を設定する。`NEXT_PUBLIC_` で始まる2つは公開してよい値なので、種類は「Config」にする。`SUPABASE_SERVICE_ROLE_KEY` は Production / Preview のサーバー用にだけ設定する
+2. 環境変数（§3）を設定する。名前に `NEXT_PUBLIC_` を付けると Vercel が保存を止めることがあるため、付けない名前（`SUPABASE_URL` など）で登録する。値を変更したあとは「Redeploy」（公開し直し）で反映する。`SUPABASE_SERVICE_ROLE_KEY` は Production / Preview のサーバー用にだけ設定する
 3. デプロイ後、Supabase の Site URL と Redirect URLs をデプロイ先の URL に合わせる
 
 カメラはブラウザの仕様により HTTPS（または `localhost`）でしか使えません。スマートフォンの実機で試す場合は、Vercel のプレビュー環境など HTTPS の URL を使ってください。

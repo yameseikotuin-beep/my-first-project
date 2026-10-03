@@ -6,6 +6,7 @@ import { requireRole } from '@/lib/auth/session';
 import { createClient } from '@/lib/supabase/server';
 import { canCapture, getActiveConsents } from '@/lib/consent';
 import { CaptureFlow } from '@/features/capture/capture-flow';
+import { getSupabaseConfig } from '@/lib/env';
 
 export const metadata: Metadata = { title: '撮影' };
 
@@ -18,7 +19,12 @@ export default async function MeCapturePage() {
     <div className="mx-auto max-w-2xl">
       <PageTitle>顔写真の撮影</PageTitle>
       {canCapture(active) ? (
-        <CaptureFlow subject={{ kind: 'self' }} doneHref="/me/photos" cancelHref="/me" />
+        <CaptureFlow
+          subject={{ kind: 'self' }}
+          doneHref="/me/photos"
+          cancelHref="/me"
+          supabaseConfig={getSupabaseConfig()}
+        />
       ) : (
         <Notice tone="warning" title="撮影と保存への同意が必要です">
           <LinkButton href="/consent" className="mt-3">

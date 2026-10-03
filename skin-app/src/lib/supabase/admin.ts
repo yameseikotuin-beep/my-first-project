@@ -2,7 +2,7 @@ import 'server-only';
 
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './database.types';
-import { publicEnv } from '@/lib/env';
+import { getSupabaseConfig } from '@/lib/env';
 
 // RLS を通らない管理用クライアント。用途はスタッフの招待と、それに伴う役割の設定だけに限定する。
 // 呼び出す前に、必ず呼び出した人が管理者であることを確認すること。
@@ -11,7 +11,7 @@ export function createAdminClient() {
   if (!key) {
     throw new Error('SUPABASE_SERVICE_ROLE_KEY が設定されていません');
   }
-  return createClient<Database>(publicEnv.supabaseUrl, key, {
+  return createClient<Database>(getSupabaseConfig().url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }
