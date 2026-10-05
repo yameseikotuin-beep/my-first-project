@@ -19,7 +19,7 @@ export default function AiAndPhotosPage() {
         </p>
       </section>
       <section>
-        <h2>AIへの送信（今後追加予定）</h2>
+        <h2>AIへの送信</h2>
         <ul>
           <li>送信先：Anthropic 社（Claude API）</li>
           <li>送信するもの：縮小した顔写真。氏名や連絡先は送りません。</li>

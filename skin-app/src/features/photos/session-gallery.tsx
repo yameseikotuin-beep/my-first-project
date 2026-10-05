@@ -1,5 +1,6 @@
 import type { SessionWithPhotos } from '@/lib/photos';
 import { ConfirmSubmit } from '@/components/ui/confirm-submit';
+import { LinkButton } from '@/components/ui/button';
 import { deletePhoto, deleteSession } from './actions';
 
 const angleLabels = { front: '正面', left: '左側', right: '右側' } as const;
@@ -12,11 +13,14 @@ export function SessionGallery({
   customerId,
   canDeleteSession,
   canDeletePhoto = true,
+  analyzeHrefBase,
 }: {
   sessions: SessionWithPhotos[];
   customerId?: string;
   canDeleteSession: boolean;
   canDeletePhoto?: boolean;
+  /** 「この撮影で分析する」のリンク先（末尾に撮影の ID を付ける） */
+  analyzeHrefBase?: string;
 }) {
   if (sessions.length === 0) {
     return <p className="rounded-2xl border border-dashed border-line p-6 text-center text-ink-muted">まだ写真がありません。</p>;
@@ -30,15 +34,22 @@ export function SessionGallery({
         <section key={session.id} className="rounded-2xl border border-line bg-surface p-4 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="font-medium">{dateFormat.format(new Date(session.created_at))} の撮影</h3>
-            {canDeleteSession ? (
-              <form action={deleteSession}>
-                <input type="hidden" name="sessionId" value={session.id} />
-                {customerId ? <input type="hidden" name="customerId" value={customerId} /> : null}
-                <ConfirmSubmit confirmMessage="この撮影の写真をすべて削除します。元に戻せません。よろしいですか？">
-                  この撮影をすべて削除
-                </ConfirmSubmit>
-              </form>
-            ) : null}
+            <div className="flex flex-wrap gap-2">
+              {analyzeHrefBase && session.photos.length > 0 ? (
+                <LinkButton href={`${analyzeHrefBase}${session.id}`} className="min-h-11 px-4 text-sm">
+                  この撮影で分析する
+                </LinkButton>
+              ) : null}
+              {canDeleteSession ? (
+                <form action={deleteSession}>
+                  <input type="hidden" name="sessionId" value={session.id} />
+                  {customerId ? <input type="hidden" name="customerId" value={customerId} /> : null}
+                  <ConfirmSubmit confirmMessage="この撮影の写真をすべて削除します。元に戻せません。よろしいですか？">
+                    この撮影をすべて削除
+                  </ConfirmSubmit>
+                </form>
+              ) : null}
+            </div>
           </div>
           {session.photos.length === 0 ? (
             <p className="mt-3 text-sm text-ink-muted">写真がありません（保存が途中で止まった可能性があります）。</p>

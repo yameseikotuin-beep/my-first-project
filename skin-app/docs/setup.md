@@ -16,6 +16,7 @@ Supabase の **SQL Editor** で、次のファイルを **ファイル名の順�
 
 1. `supabase/migrations/20261003000000_stage2_core.sql`（テーブル・RLS・関数・写真の保存場所）
 2. `supabase/migrations/20261003000100_consent_documents_v1.sql`（同意文 v1。**雛形**）
+3. `supabase/migrations/20261005000000_stage3_analysis.sql`（第3段階：分析結果・AI 利用回数）
 
 Supabase CLI を使っている場合は `supabase db push` でも適用できます。
 
@@ -75,6 +76,9 @@ npm run dev                  # http://localhost:3000
 | `SUPABASE_URL` | ○ | Supabase の Project URL（例：`https://xxxx.supabase.co`） |
 | `SUPABASE_ANON_KEY` | ○ | Supabase の公開用キー（`eyJ…` の anon key または `sb_publishable_…`）。ブラウザに渡してよい値 |
 | `SITE_URL` | 独自ドメインのときだけ | アプリの URL（認証メールのリンク先）。Vercel では本番の URL が自動で使われるため通常は不要。サーバー専用 |
+| `ANTHROPIC_API_KEY` | AI の説明文に必要 | Claude API のキー（**サーバーだけ**）。未設定なら AI を使わない仮の説明文で動く |
+| `ANTHROPIC_MODEL` | 任意 | 既定 `claude-opus-5-5` |
+| `AI_DAILY_LIMIT_USER` / `AI_DAILY_LIMIT_STAFF` | 任意 | 1日あたりの AI 利用回数の上限（既定 10 / 100） |
 | `SUPABASE_SERVICE_ROLE_KEY` | スタッフ招待に必要 | **サーバーだけ**に設定する。`NEXT_PUBLIC_` を付けない |
 
 Supabase の値が未設定の場合、ログインが必要な画面は「初期設定が必要です」の画面に移動します。

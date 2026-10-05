@@ -57,7 +57,6 @@ export default async function MeHomePage() {
       <Card>
         <h2 className="font-serif text-lg font-semibold">準備中の機能</h2>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-ink-muted">
-          <li>肌の見た目の分析レポート（今後のアップデートで追加）</li>
           <li>セルフケアの記録と経過グラフ（今後のアップデートで追加）</li>
         </ul>
       </Card>

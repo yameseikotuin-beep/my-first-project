@@ -13,12 +13,15 @@ import { CustomerForm } from '@/features/customers/customer-form';
 import { updateCustomer } from '@/features/customers/actions';
 import { ConsentStatus } from '@/features/consent/consent-status';
 import { SessionGallery } from '@/features/photos/session-gallery';
+import { AnalysisList } from '@/features/analysis/analysis-list';
+import { listAnalyses } from '@/lib/analyses';
 
 export const metadata: Metadata = { title: '顧客の詳細' };
 
 const tabs = [
   { key: 'overview', label: '概要' },
   { key: 'photos', label: '写真' },
+  { key: 'analyses', label: '分析' },
   { key: 'consents', label: '同意' },
   { key: 'visits', label: '来店・施術' },
   { key: 'measurements', label: '実測値' },
@@ -94,6 +97,14 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
           sessions={await loadSessionsWithPhotos(supabase, { customerId: id }, 30)}
           customerId={id}
           canDeleteSession={user.profile.role === 'admin'}
+          analyzeHrefBase={`/staff/customers/${id}/analyses/new?session=`}
+        />
+      ) : null}
+
+      {tab === 'analyses' ? (
+        <AnalysisList
+          analyses={await listAnalyses(supabase, { customerId: id })}
+          hrefFor={(aid) => `/staff/customers/${id}/analyses/${aid}`}
         />
       ) : null}
 
