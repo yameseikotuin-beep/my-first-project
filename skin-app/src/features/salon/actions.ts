@@ -56,6 +56,8 @@ export async function startVisit(customerId: string): Promise<void> {
 
 export async function setVisitStatus(visitId: string, status: 'in_progress' | 'completed'): Promise<void> {
   await requireRole(['staff', 'admin']);
+  // 画面で bind した値も送り手が書き換えられるため、ここで確かめる
+  if (status !== 'in_progress' && status !== 'completed') return;
   const found = await getVisit(visitId);
   if (!found) return;
   await found.supabase.from('visits').update({ status }).eq('id', visitId);

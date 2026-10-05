@@ -32,6 +32,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(url);
   }
   const forced = type === 'recovery' || type === 'invite' ? '/update-password' : null;
-  url.pathname = forced ?? safeNextPath(searchParams.get('next')) ?? '/home';
+  // next は「/staff?tab=x」のように検索条件を含むことがあるため、パスと検索条件に分けて設定する
+  const target = new URL(forced ?? safeNextPath(searchParams.get('next')) ?? '/home', url.origin);
+  url.pathname = target.pathname;
+  url.search = target.search;
   return NextResponse.redirect(url);
 }
