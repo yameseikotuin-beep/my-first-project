@@ -354,11 +354,6 @@ create policy treatment_menus_delete on public.treatment_menus
 revoke update, truncate on public.treatment_menus from authenticated;
 grant update (name, category, description, cautions, price_yen, duration_min, is_active, updated_by)
   on public.treatment_menus to authenticated;
--- トリガーの中だけで使う関数は、ログイン中の利用者も直接は使えない
-revoke execute on function
-  public.visit_customer(uuid), public.treatments_fill_snapshot(), public.check_visit_links(),
-  public.audit_salon_change()
-from authenticated;
 
 -- visits：担当の顧客だけ。削除は管理者だけ
 create policy visits_select on public.visits
@@ -376,11 +371,6 @@ create policy visits_delete on public.visits
   using (public.is_admin());
 revoke update, truncate on public.visits from authenticated;
 grant update (visited_at, status, next_visit_memo) on public.visits to authenticated;
--- トリガーの中だけで使う関数は、ログイン中の利用者も直接は使えない
-revoke execute on function
-  public.visit_customer(uuid), public.treatments_fill_snapshot(), public.check_visit_links(),
-  public.audit_salon_change()
-from authenticated;
 
 -- intake_forms
 create policy intake_forms_select on public.intake_forms
@@ -394,11 +384,6 @@ create policy intake_forms_delete on public.intake_forms
   for delete to authenticated using (public.is_admin());
 revoke update, truncate on public.intake_forms from authenticated;
 grant update (form_version, answers, skin_condition_under_treatment) on public.intake_forms to authenticated;
--- トリガーの中だけで使う関数は、ログイン中の利用者も直接は使えない
-revoke execute on function
-  public.visit_customer(uuid), public.treatments_fill_snapshot(), public.check_visit_links(),
-  public.audit_salon_change()
-from authenticated;
 
 -- counseling_sheets
 create policy counseling_sheets_select on public.counseling_sheets
@@ -413,11 +398,6 @@ create policy counseling_sheets_delete on public.counseling_sheets
 revoke update, truncate on public.counseling_sheets from authenticated;
 grant update (concerns, analysis_summary, proposal, customer_wishes, staff_notes)
   on public.counseling_sheets to authenticated;
--- トリガーの中だけで使う関数は、ログイン中の利用者も直接は使えない
-revoke execute on function
-  public.visit_customer(uuid), public.treatments_fill_snapshot(), public.check_visit_links(),
-  public.audit_salon_change()
-from authenticated;
 
 -- treatments：記録の削除は担当者も可能（入力の誤りを直すため）
 create policy treatments_select on public.treatments
@@ -432,11 +412,6 @@ create policy treatments_delete on public.treatments
   for delete to authenticated using (public.can_access_visit(visit_id));
 revoke update, truncate on public.treatments from authenticated;
 grant update (notes, before_session_id, after_session_id) on public.treatments to authenticated;
--- トリガーの中だけで使う関数は、ログイン中の利用者も直接は使えない
-revoke execute on function
-  public.visit_customer(uuid), public.treatments_fill_snapshot(), public.check_visit_links(),
-  public.audit_salon_change()
-from authenticated;
 
 -- care_proposals
 create policy care_proposals_select on public.care_proposals
@@ -451,11 +426,6 @@ create policy care_proposals_delete on public.care_proposals
   for delete to authenticated using (public.can_access_visit(visit_id));
 revoke update, truncate on public.care_proposals from authenticated;
 grant update (menu_ids, draft_text, final_text, generated_by, ai_model, status) on public.care_proposals to authenticated;
--- トリガーの中だけで使う関数は、ログイン中の利用者も直接は使えない
-revoke execute on function
-  public.visit_customer(uuid), public.treatments_fill_snapshot(), public.check_visit_links(),
-  public.audit_salon_change()
-from authenticated;
 
 -- device_measurements：書き換えはできない。誤りは削除して記録し直す（記録した人か管理者）
 create policy device_measurements_select on public.device_measurements
