@@ -60,6 +60,7 @@ export function ConsentForm({ documents, alreadyGranted, action, mode, returnTo 
                 <input
                   type="checkbox"
                   name={`consent_${kind}`}
+                  defaultChecked={state.values?.[`consent_${kind}`] === 'on'}
                   className="mt-1 h-5 w-5 shrink-0 accent-[var(--color-sage-strong)]"
                 />
                 <span>

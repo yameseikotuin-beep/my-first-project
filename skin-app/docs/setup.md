@@ -93,7 +93,21 @@ npm run typecheck   # 型チェック
 npm test            # 単体テスト（Vitest）
 npm run test:rls    # RLS のテスト（手元の PostgreSQL を一時的に起動して実行）
 npm run build       # 本番ビルド
+npm run test:e2e    # 画面の自動テスト（下記）
 ```
+
+### 画面の自動テスト（E2E）
+
+Docker が使える環境で、手元に Supabase を起動し、本番ビルドのアプリを Playwright で操作して確認します。本番の Supabase は使いません。
+
+```bash
+npx supabase start   # 手元の Supabase を起動（初回は数分。マイグレーションも自動で適用）
+npm run build
+npm run test:e2e
+npx supabase stop    # 終わったら停止
+```
+
+`supabase/config.toml` は、この手元用の Supabase の設定です（本番の設定ではありません）。
 
 ## 5. Vercel への配置（例）
 

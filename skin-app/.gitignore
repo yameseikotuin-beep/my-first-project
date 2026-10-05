@@ -45,3 +45,11 @@ next-env.d.ts
 
 # env の見本はコミットする
 !.env.example
+
+# Playwright
+/test-results/
+/playwright-report/
+
+# Supabase CLI（手元用）
+/supabase/.branches/
+/supabase/.temp/

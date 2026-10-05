@@ -6,7 +6,7 @@ import { requireRole } from '@/lib/auth/session';
 import { createClient } from '@/lib/supabase/server';
 import { consentKinds, getActiveConsents, getLatestConsentDocuments, type Subject } from '@/lib/consent';
 import type { ConsentKind, ConsentMethod } from '@/lib/supabase/database.types';
-import type { FormState } from '@/lib/form-state';
+import { formValues, type FormState } from '@/lib/form-state';
 import { uuidSchema } from '@/lib/validation/schemas';
 
 async function saveConsents(subject: Subject, method: ConsentMethod, formData: FormData): Promise<FormState> {
@@ -57,7 +57,11 @@ export async function grantCustomerConsents(
   await requireRole(['staff', 'admin']);
   if (!uuidSchema.safeParse(customerId).success) return { message: '顧客が見つかりません。' };
   if (formData.get('confirmedByCustomer') !== 'on') {
-    return { fieldErrors: { confirmedByCustomer: ['お客さまご本人による確認が必要です'] } };
+    // 入れたチェックが消えないよう、送られた値を返す
+    return {
+      fieldErrors: { confirmedByCustomer: ['お客さまご本人による確認が必要です'] },
+      values: formValues(formData, ['consent_photo_capture', 'consent_photo_storage', 'consent_ai_processing']),
+    };
   }
   const result = await saveConsents({ customerId }, 'salon_tablet', formData);
   if (!result.ok) return result;
