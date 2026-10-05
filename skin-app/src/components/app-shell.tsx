@@ -16,7 +16,7 @@ type Props = {
 export function AppShell({ children, nav, displayName, role, homeHref, layout }: Props) {
   return (
     <>
-      <header className="sticky top-0 z-20 border-b border-line bg-surface/90 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b border-line bg-surface/90 backdrop-blur print:hidden">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
           <Brand href={homeHref} />
           <div className="flex items-center gap-3 text-sm">
@@ -34,11 +34,17 @@ export function AppShell({ children, nav, displayName, role, homeHref, layout }:
           <div className="border-t border-line lg:hidden">
             <NavLinks items={nav} variant="scroll" />
           </div>
-        ) : null}
+        ) : (
+          <div className="hidden border-t border-line sm:block">
+            <div className="mx-auto max-w-6xl">
+              <NavLinks items={nav} variant="scroll" />
+            </div>
+          </div>
+        )}
       </header>
       <div className="mx-auto flex w-full max-w-6xl flex-1 gap-8 px-4">
         {layout === 'side' ? (
-          <aside className="hidden w-52 shrink-0 py-8 lg:block">
+          <aside className="hidden w-52 shrink-0 py-8 lg:block print:hidden">
             <NavLinks items={nav} variant="side" />
           </aside>
         ) : null}
@@ -47,7 +53,9 @@ export function AppShell({ children, nav, displayName, role, homeHref, layout }:
         </main>
       </div>
       {layout === 'tabs' ? <NavLinks items={nav} variant="tabs" /> : null}
-      <LegalFooter />
+      <div className="print:hidden">
+        <LegalFooter />
+      </div>
     </>
   );
 }

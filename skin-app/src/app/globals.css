@@ -19,6 +19,8 @@
   --color-danger: #a33b3b;
   --color-danger-soft: #f8e6e4;
   --color-focus: #3f6a52;
+  /* グラフの線の色（彩度・コントラストを検証済み） */
+  --color-chart: #2e8b57;
   --radius-card: 16px;
 }
 
@@ -67,5 +69,20 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* 印刷（PDF 保存）用：背景を白にし、カードが途中で分かれないようにする */
+@media print {
+  body {
+    background: #ffffff;
+  }
+  section,
+  figure,
+  table {
+    break-inside: avoid;
+  }
+  main {
+    padding-bottom: 0 !important;
   }
 }

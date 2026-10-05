@@ -55,10 +55,18 @@ export default async function MeHomePage() {
       </Card>
 
       <Card>
-        <h2 className="font-serif text-lg font-semibold">準備中の機能</h2>
-        <ul className="mt-2 list-disc space-y-1 pl-5 text-ink-muted">
-          <li>セルフケアの記録と経過グラフ（今後のアップデートで追加）</li>
-        </ul>
+        <h2 className="font-serif text-lg font-semibold">記録を振り返る</h2>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <LinkButton href="/me/analyses" variant="secondary">
+            分析の記録
+          </LinkButton>
+          <LinkButton href="/me/progress" variant="secondary">
+            経過グラフ
+          </LinkButton>
+          <LinkButton href="/me/care" variant="secondary">
+            セルフケアの記録
+          </LinkButton>
+        </div>
       </Card>
     </div>
   );

@@ -13,13 +13,13 @@ export function NavLinks({ items, variant }: { items: NavItem[]; variant: 'tabs'
   const pathname = usePathname();
 
   if (variant === 'tabs') {
-    // スマホ：片手で届く画面下部のタブ（PC では上部に横並び）
+    // スマホ：片手で届く画面下部のタブ（PC では AppShell がヘッダーの下に横並びで表示する）
     return (
       <nav
         aria-label="メインメニュー"
-        className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:static sm:order-first sm:mx-auto sm:mt-0 sm:w-full sm:max-w-6xl sm:border-0 sm:bg-transparent sm:px-4 sm:pt-4"
+        className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden print:hidden"
       >
-        <ul className="grid grid-cols-5 sm:flex sm:gap-2">
+        <ul className="grid grid-cols-5">
           {items.map((item) => {
             const active = isActive(pathname, item);
             return (
@@ -27,11 +27,11 @@ export function NavLinks({ items, variant }: { items: NavItem[]; variant: 'tabs'
                 <Link
                   href={item.href}
                   aria-current={active ? 'page' : undefined}
-                  className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs sm:min-h-11 sm:flex-row sm:gap-2 sm:rounded-full sm:px-4 sm:text-base ${
-                    active ? 'font-bold text-sage-strong sm:bg-sage-soft' : 'text-ink-muted hover:text-ink'
+                  className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs ${
+                    active ? 'font-bold text-sage-strong' : 'text-ink-muted hover:text-ink'
                   }`}
                 >
-                  <span aria-hidden className="text-lg sm:text-base">
+                  <span aria-hidden className="text-lg">
                     {item.icon}
                   </span>
                   {item.label}

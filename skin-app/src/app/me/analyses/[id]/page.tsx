@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { requireRole } from '@/lib/auth/session';
 import { createClient } from '@/lib/supabase/server';
-import { loadAnalysis } from '@/lib/analyses';
+import { loadAnalysis, loadPreviousAnalysis } from '@/lib/analyses';
 import { uuidSchema } from '@/lib/validation/schemas';
 import { AnalysisReport } from '@/features/analysis/analysis-report';
 
@@ -16,12 +16,15 @@ export default async function MeAnalysisPage({ params, searchParams }: PageProps
   const supabase = await createClient();
   const detail = await loadAnalysis(supabase, id);
   if (!detail) notFound();
+  const previous = await loadPreviousAnalysis(supabase, detail);
   return (
     <AnalysisReport
       detail={detail}
       aiNotice={typeof ai === 'string' ? ai : undefined}
       againHref="/me/capture"
       canDelete
+      previous={previous}
+      previousHref={previous ? `/me/analyses/${previous.analysis.id}` : undefined}
     />
   );
 }

@@ -13,6 +13,8 @@ import {
 import { METRICS, REGIONS, type Metric, type Region } from '@/lib/analysis/types';
 import type { AnalysisItemRow } from '@/lib/supabase/database.types';
 import { deleteAnalysis } from './actions';
+import { PrintButton } from '@/components/ui/print-button';
+import { changeLabel, lightingDiffers, metricAverages } from '@/lib/analysis/summary';
 
 const dateFormat = new Intl.DateTimeFormat('ja-JP', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Asia/Tokyo' });
 
@@ -72,6 +74,78 @@ function FaceMap({ items }: { items: AnalysisItemRow[] }) {
   );
 }
 
+function frontPhoto(detail: AnalysisDetail) {
+  return detail.session?.photos.find((p) => p.angle === 'front');
+}
+
+function Comparison({ current, previous, previousHref }: { current: AnalysisDetail; previous: AnalysisDetail; previousHref: string }) {
+  const now = metricAverages(current.items);
+  const before = metricAverages(previous.items);
+  const a = frontPhoto(previous);
+  const b = frontPhoto(current);
+  const brightness = (p: typeof a) => (p?.quality as { brightness?: number } | null)?.brightness ?? null;
+  const differs = lightingDiffers(brightness(a), brightness(b));
+  return (
+    <Card className="space-y-4">
+      <h2 className="font-serif text-lg font-semibold">前回との比較</h2>
+      {!current.analysis.analyzer_validated || !previous.analysis.analyzer_validated ? (
+        <p className="text-sm text-warning">
+          ⚠︎ どちらもモック（未検証）の値のため、数字の変化は肌の状態の変化を表しません。写真を並べて見比べる用途でお使いください。
+        </p>
+      ) : null}
+      {differs ? (
+        <p className="text-sm text-warning">⚠︎ 2回の撮影で明るさが大きく異なるため、比較の精度は低くなります。</p>
+      ) : null}
+      <div className="grid grid-cols-2 gap-3">
+        {[
+          { label: '前回', detail: previous, photo: a },
+          { label: '今回', detail: current, photo: b },
+        ].map(({ label, detail, photo }) => (
+          <figure key={label}>
+            {photo?.url ? (
+              // eslint-disable-next-line @next/next/no-img-element -- 短時間で失効する署名付き URL のため
+              <img src={photo.url} alt={`${label}の正面の写真`} className="aspect-[3/4] w-full rounded-xl object-cover" />
+            ) : (
+              <div className="flex aspect-[3/4] items-center justify-center rounded-xl bg-surface-muted text-sm text-ink-muted">
+                写真なし
+              </div>
+            )}
+            <figcaption className="mt-1 text-sm">
+              {label}（{dateFormat.format(new Date(detail.analysis.created_at))}）
+            </figcaption>
+          </figure>
+        ))}
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[30rem] text-left text-[0.95rem]">
+          <caption className="sr-only">項目ごとの平均評価の比較</caption>
+          <thead className="text-sm text-ink-muted">
+            <tr>
+              <th scope="col" className="py-2 pr-3 font-medium">項目</th>
+              <th scope="col" className="py-2 pr-3 font-medium">前回の平均</th>
+              <th scope="col" className="py-2 pr-3 font-medium">今回の平均</th>
+              <th scope="col" className="py-2 font-medium">変化</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line">
+            {METRICS.map((m) => (
+              <tr key={m}>
+                <td className="py-2 pr-3">{metricLabels[m]}</td>
+                <td className="py-2 pr-3">{before[m]?.toFixed(1) ?? '－'}</td>
+                <td className="py-2 pr-3">{now[m]?.toFixed(1) ?? '－'}</td>
+                <td className="py-2">{changeLabel(before[m], now[m])}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <LinkButton href={previousHref} variant="ghost" className="print:hidden">
+        前回の結果を見る
+      </LinkButton>
+    </Card>
+  );
+}
+
 function ItemTable({ items, metric }: { items: AnalysisItemRow[]; metric: Metric }) {
   const rows = REGIONS.map((region) => items.find((i) => i.metric === metric && i.region === region)).filter(
     (r): r is AnalysisItemRow => Boolean(r),
@@ -120,8 +194,12 @@ export function AnalysisReport({
   customerId,
   canDelete,
   subjectLabel,
+  previous,
+  previousHref,
 }: {
   detail: AnalysisDetail;
+  previous?: AnalysisDetail | null;
+  previousHref?: string;
   aiNotice?: string;
   againHref: string;
   customerId?: string;
@@ -236,9 +314,14 @@ export function AnalysisReport({
         強い赤み・かゆみ・痛み、急な変化、形や色が不規則なほくろのような部分など、気になる症状がある場合は、この結果にかかわらず医療機関（皮膚科など）にご相談ください。
       </Notice>
 
-      <p className="text-sm text-ink-muted">前回との比較と、印刷（PDF）は今後のアップデートで追加されます。</p>
+      {analysis.status === 'completed' && previous && previousHref ? (
+        <Comparison current={detail} previous={previous} previousHref={previousHref} />
+      ) : analysis.status === 'completed' ? (
+        <p className="text-sm text-ink-muted">前回の分析結果がないため、比較はまだ表示されません。</p>
+      ) : null}
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3 print:hidden">
+        <PrintButton />
         <LinkButton href={againHref} variant="secondary">
           もう一度撮影する
         </LinkButton>
