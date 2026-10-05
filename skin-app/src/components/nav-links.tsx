@@ -19,7 +19,7 @@ export function NavLinks({ items, variant }: { items: NavItem[]; variant: 'tabs'
         aria-label="メインメニュー"
         className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:static sm:order-first sm:mx-auto sm:mt-0 sm:w-full sm:max-w-6xl sm:border-0 sm:bg-transparent sm:px-4 sm:pt-4"
       >
-        <ul className="grid grid-cols-4 sm:flex sm:gap-2">
+        <ul className="grid grid-cols-5 sm:flex sm:gap-2">
           {items.map((item) => {
             const active = isActive(pathname, item);
             return (

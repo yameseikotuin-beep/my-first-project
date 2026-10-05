@@ -12,7 +12,7 @@ const labels: Record<ConsentKind, { title: string; required: boolean; note: stri
   ai_processing: {
     title: 'AIサービスへの写真の送信',
     required: false,
-    note: '任意です。AIによる説明文の機能（今後追加予定）で使います',
+    note: '任意です。分析のときに、AIによる見た目の説明文を作るために使います',
   },
 };
 

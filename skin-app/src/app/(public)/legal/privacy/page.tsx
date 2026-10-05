@@ -28,7 +28,7 @@ export default function PrivacyPage() {
         <h2>3. 保存先と第三者への提供</h2>
         <ul>
           <li>データは Supabase（クラウドサービス）に保存します。【保存地域を記入】</li>
-          <li>AIによる説明文の作成（今後追加予定）では、同意をいただいた場合に限り、縮小した顔写真を Anthropic 社の Claude API に送信します。</li>
+          <li>AIによる説明文の作成では、同意をいただいた場合に限り、縮小した顔写真を Anthropic 社の Claude API に送信します。</li>
         </ul>
       </section>
       <section>

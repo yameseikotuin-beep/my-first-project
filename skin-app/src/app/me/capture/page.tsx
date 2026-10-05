@@ -24,6 +24,7 @@ export default async function MeCapturePage() {
           doneHref="/me/photos"
           cancelHref="/me"
           supabaseConfig={getSupabaseConfig()}
+          analyzeHrefBase="/me/analyses/new?session="
         />
       ) : (
         <Notice tone="warning" title="撮影と保存への同意が必要です">

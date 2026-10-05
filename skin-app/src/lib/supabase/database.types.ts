@@ -7,6 +7,9 @@ export type AppRole = 'user' | 'staff' | 'admin';
 export type PhotoAngle = 'front' | 'left' | 'right';
 export type ConsentKind = 'photo_capture' | 'photo_storage' | 'ai_processing';
 export type ConsentMethod = 'self_app' | 'salon_tablet';
+export type AnalysisStatus = 'completed' | 'retake_required';
+export type SkinMetric = 'pores' | 'redness' | 'pigmentation_like' | 'texture' | 'surface';
+export type FaceRegion = 'forehead' | 'cheek_left' | 'cheek_right' | 'nose' | 'chin' | 'under_eye';
 
 type Relationship = {
   foreignKeyName: string;
@@ -106,6 +109,52 @@ export type AuditLogRow = {
   created_at: string;
 };
 
+export type AnalysisRow = {
+  id: string;
+  session_id: string;
+  status: AnalysisStatus;
+  analyzer_name: string;
+  analyzer_version: string;
+  analyzer_validated: boolean;
+  retake_reason: string | null;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type AnalysisItemRow = {
+  analysis_id: string;
+  metric: SkinMetric;
+  region: FaceRegion;
+  determinable: boolean;
+  grade: number | null;
+  confidence: number;
+  reason: string | null;
+};
+
+export type AnalysisDescriptionRow = {
+  analysis_id: string;
+  summary: string;
+  item_notes: Json;
+  cautions: string;
+  self_care_info: string;
+  suggest_medical_consult: boolean;
+  provider: 'anthropic' | 'mock';
+  model: string | null;
+  prompt_version: string;
+  filtered_count: number;
+  created_at: string;
+};
+
+export type AiUsageRow = {
+  id: number;
+  actor_id: string | null;
+  purpose: 'describe' | 'proposal';
+  analysis_id: string | null;
+  model: string | null;
+  succeeded: boolean;
+  created_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -176,6 +225,55 @@ export type Database = {
         ]
       >;
       audit_logs: Table<AuditLogRow, never, never>;
+      analyses: Table<
+        AnalysisRow,
+        Omit<AnalysisRow, 'created_at' | 'analyzer_validated' | 'retake_reason'> &
+          Partial<Pick<AnalysisRow, 'created_at' | 'analyzer_validated' | 'retake_reason'>>,
+        never,
+        [
+          {
+            foreignKeyName: 'analyses_session_id_fkey';
+            columns: ['session_id'];
+            isOneToOne: false;
+            referencedRelation: 'photo_sessions';
+            referencedColumns: ['id'];
+          },
+        ]
+      >;
+      analysis_items: Table<
+        AnalysisItemRow,
+        Omit<AnalysisItemRow, 'reason'> & { reason?: string | null },
+        never,
+        [
+          {
+            foreignKeyName: 'analysis_items_analysis_id_fkey';
+            columns: ['analysis_id'];
+            isOneToOne: false;
+            referencedRelation: 'analyses';
+            referencedColumns: ['id'];
+          },
+        ]
+      >;
+      analysis_descriptions: Table<
+        AnalysisDescriptionRow,
+        Omit<AnalysisDescriptionRow, 'created_at'> & { created_at?: string },
+        never,
+        [
+          {
+            foreignKeyName: 'analysis_descriptions_analysis_id_fkey';
+            columns: ['analysis_id'];
+            isOneToOne: true;
+            referencedRelation: 'analyses';
+            referencedColumns: ['id'];
+          },
+        ]
+      >;
+      ai_usage: Table<
+        AiUsageRow,
+        Pick<AiUsageRow, 'actor_id' | 'purpose' | 'succeeded'> & Partial<Pick<AiUsageRow, 'analysis_id' | 'model'>>,
+        never
+      >;
+
     };
     Views: { [_ in never]: never };
     Functions: {
@@ -183,6 +281,8 @@ export type Database = {
       is_admin: { Args: Record<string, never>; Returns: boolean };
       is_staff_or_admin: { Args: Record<string, never>; Returns: boolean };
       can_access_customer: { Args: { target: string }; Returns: boolean };
+      can_access_analysis: { Args: { target: string }; Returns: boolean };
+      my_ai_usage_today: { Args: Record<string, never>; Returns: number };
       write_audit_log: {
         Args: { p_action: string; p_target_type?: string; p_target_id?: string; p_metadata?: Json };
         Returns: undefined;
@@ -208,6 +308,9 @@ export type Database = {
       photo_angle: PhotoAngle;
       consent_kind: ConsentKind;
       consent_method: ConsentMethod;
+      analysis_status: AnalysisStatus;
+      skin_metric: SkinMetric;
+      face_region: FaceRegion;
     };
     CompositeTypes: { [_ in never]: never };
   };

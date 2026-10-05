@@ -5,6 +5,7 @@ const nav = [
   { href: '/me', label: 'ホーム', icon: '⌂', exact: true },
   { href: '/me/capture', label: '撮影', icon: '◎' },
   { href: '/me/photos', label: '写真', icon: '▦' },
+  { href: '/me/analyses', label: '分析', icon: '◇' },
   { href: '/me/settings', label: '設定', icon: '⚙︎' },
 ];
 

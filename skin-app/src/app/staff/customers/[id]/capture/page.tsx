@@ -31,6 +31,7 @@ export default async function CustomerCapturePage({ params }: PageProps<'/staff/
           doneHref={`/staff/customers/${id}?tab=photos`}
           cancelHref={`/staff/customers/${id}`}
           supabaseConfig={getSupabaseConfig()}
+          analyzeHrefBase={`/staff/customers/${id}/analyses/new?session=`}
         />
       ) : (
         <Notice tone="warning" title="撮影と保存への同意が必要です">

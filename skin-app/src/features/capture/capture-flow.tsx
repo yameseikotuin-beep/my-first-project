@@ -45,6 +45,8 @@ type Props = {
   subjectLabel?: string;
   /** 写真のアップロード先（サーバーから受け取る公開用の接続情報） */
   supabaseConfig: SupabaseConfig;
+  /** 保存後に「続けて分析する」のリンク先（末尾に撮影の ID を付ける） */
+  analyzeHrefBase?: string;
 };
 
 async function analyze(
@@ -115,7 +117,7 @@ function QualityList({ report }: { report: QualityReport | null }) {
   );
 }
 
-export function CaptureFlow({ subject, doneHref, cancelHref, subjectLabel, supabaseConfig }: Props) {
+export function CaptureFlow({ subject, doneHref, cancelHref, subjectLabel, supabaseConfig, analyzeHrefBase }: Props) {
   const [step, setStep] = useState<Step>('intro');
   const [mode, setMode] = useState<Mode>('camera');
   const [angleIndex, setAngleIndex] = useState(0);
@@ -129,6 +131,7 @@ export function CaptureFlow({ subject, doneHref, cancelHref, subjectLabel, supab
   const [uploadedAngles, setUploadedAngles] = useState<readonly Angle[]>([]);
   // 確認画面から1枚だけ撮り直しているときは、撮り終えたら確認画面に戻る
   const [retaking, setRetaking] = useState(false);
+  const [savedSessionId, setSavedSessionId] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -363,6 +366,7 @@ export function CaptureFlow({ subject, doneHref, cancelHref, subjectLabel, supab
           },
         });
         if (!registered.ok) throw new UploadError(registered.message);
+        setSavedSessionId(sessionId);
         uploadedRef.current.add(a);
         setUploadedAngles([...uploadedRef.current]);
         setProgress({ done: uploadedRef.current.size, total: entries.length });
@@ -592,11 +596,18 @@ export function CaptureFlow({ subject, doneHref, cancelHref, subjectLabel, supab
   return (
     <div className="space-y-5">
       <Notice tone="success" title="写真を保存しました" live>
-        保存した写真はいつでも確認・削除できます。肌の見た目の分析は、今後のアップデートで追加されます。
+        保存した写真はいつでも確認・削除できます。
       </Notice>
-      <LinkButton href={doneHref} className="w-full sm:w-auto">
-        保存した写真を見る
-      </LinkButton>
+      <div className="flex flex-col gap-3 sm:flex-row">
+        {analyzeHrefBase && savedSessionId ? (
+          <LinkButton href={`${analyzeHrefBase}${savedSessionId}`} className="w-full sm:w-auto">
+            続けて分析する
+          </LinkButton>
+        ) : null}
+        <LinkButton href={doneHref} variant="secondary" className="w-full sm:w-auto">
+          保存した写真を見る
+        </LinkButton>
+      </div>
     </div>
   );
 }

@@ -16,7 +16,7 @@ export default async function MePhotosPage() {
     <div className="space-y-6">
       <PageTitle lead="写真はご本人だけが見られます。1枚ずつ、または撮影ごとに削除できます。">保存した写真</PageTitle>
       <LinkButton href="/me/capture">新しく撮影する</LinkButton>
-      <SessionGallery sessions={sessions} canDeleteSession />
+      <SessionGallery sessions={sessions} canDeleteSession analyzeHrefBase="/me/analyses/new?session=" />
     </div>
   );
 }

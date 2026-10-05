@@ -20,7 +20,7 @@ const angleOrder = { front: 0, left: 1, right: 2 } as const;
  */
 export async function loadSessionsWithPhotos(
   supabase: SupabaseClient<Database>,
-  filter: { userId: string } | { customerId: string },
+  filter: { userId: string } | { customerId: string } | { sessionId: string },
   limit = 20,
 ): Promise<SessionWithPhotos[]> {
   let query = supabase
@@ -28,7 +28,12 @@ export async function loadSessionsWithPhotos(
     .select('*, photos(*)')
     .order('created_at', { ascending: false })
     .limit(limit);
-  query = 'userId' in filter ? query.eq('user_id', filter.userId) : query.eq('customer_id', filter.customerId);
+  query =
+    'userId' in filter
+      ? query.eq('user_id', filter.userId)
+      : 'customerId' in filter
+        ? query.eq('customer_id', filter.customerId)
+        : query.eq('id', filter.sessionId);
   const { data } = await query;
   const sessions: (PhotoSessionRow & { photos: PhotoRow[] })[] = data ?? [];
 
