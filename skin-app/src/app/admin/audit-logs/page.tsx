@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { PageTitle } from '@/components/ui/card';
+import { buttonClass } from '@/components/ui/button';
 import { requireRole } from '@/lib/auth/session';
 import { createClient } from '@/lib/supabase/server';
 import { roleLabels, type AppRole } from '@/lib/auth/roles';
@@ -54,7 +55,7 @@ export default async function AuditLogsPage({ searchParams }: PageProps<'/admin/
             ))}
           </select>
         </label>
-        <button type="submit" className="min-h-12 rounded-full border border-line bg-surface px-6">
+        <button type="submit" className={buttonClass('secondary')}>
           絞り込む
         </button>
       </form>

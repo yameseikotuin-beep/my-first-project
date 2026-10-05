@@ -33,7 +33,7 @@ export function CareForm({ today }: { today: string }) {
         </legend>
         <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
           {CARE_ITEMS.map((item) => (
-            <label key={item} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-line bg-surface px-3">
+            <label key={item} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-line bg-surface px-3 transition-colors active:bg-sage-soft has-[:checked]:border-sage has-[:checked]:bg-sage-soft">
               <input type="checkbox" name="careItems" value={item} className="h-5 w-5 accent-[var(--color-sage-strong)]" />
               <span className="text-[0.95rem]">{item}</span>
             </label>

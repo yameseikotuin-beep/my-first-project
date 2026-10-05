@@ -11,7 +11,7 @@ import { Notice } from '@/components/ui/notice';
 function Checkbox({ name, children, error }: { name: string; children: React.ReactNode; error?: string[] }) {
   return (
     <div>
-      <label className="flex min-h-11 cursor-pointer items-start gap-3">
+      <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-xl px-2 py-1 transition-colors active:bg-sage-soft has-[:checked]:bg-sage-soft">
         <input
           type="checkbox"
           name={name}

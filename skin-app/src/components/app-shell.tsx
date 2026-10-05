@@ -24,7 +24,7 @@ export function AppShell({ children, nav, displayName, role, homeHref, layout }:
               {displayName || '（表示名なし）'}・{roleLabels[role]}
             </span>
             <form action={logout}>
-              <button type="submit" className="min-h-11 rounded-full px-3 text-sage-strong hover:bg-sage-soft">
+              <button type="submit" className="min-h-11 rounded-full px-3 text-sage-strong transition-colors hover:bg-sage-soft active:bg-sage-soft active:scale-[0.97]">
                 ログアウト
               </button>
             </form>
