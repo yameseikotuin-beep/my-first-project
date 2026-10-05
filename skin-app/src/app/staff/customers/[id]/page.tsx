@@ -15,16 +15,46 @@ import { ConsentStatus } from '@/features/consent/consent-status';
 import { SessionGallery } from '@/features/photos/session-gallery';
 import { AnalysisList } from '@/features/analysis/analysis-list';
 import { listAnalyses } from '@/lib/analyses';
+import { listVisits, type VisitSummary } from '@/lib/salon';
+import { MeasurementsTab, VisitsTab } from '@/features/salon/customer-tabs';
+import { startVisit } from '@/features/salon/actions';
+import { SubmitButton } from '@/components/ui/submit-button';
 
 export const metadata: Metadata = { title: '顧客の詳細' };
 
+const visitDate = new Intl.DateTimeFormat('ja-JP', { dateStyle: 'medium', timeZone: 'Asia/Tokyo' });
+
+function LatestVisit({ customerId, visit }: { customerId: string; visit?: VisitSummary }) {
+  return (
+    <Card>
+      <h2 className="font-serif text-lg font-semibold">最近の来店</h2>
+      {visit ? (
+        <div className="mt-2 space-y-1">
+          <p>
+            <Link href={`/staff/visits/${visit.id}`} className="underline-offset-4 hover:underline active:opacity-75">
+              {visitDate.format(new Date(visit.visited_at))}
+            </Link>
+            <span className="ml-2 text-ink-muted">{visit.menuNames.join('、') || '施術の記録なし'}</span>
+          </p>
+          {visit.next_visit_memo ? <p className="whitespace-pre-wrap">次回来店メモ：{visit.next_visit_memo}</p> : null}
+        </div>
+      ) : (
+        <p className="mt-2 text-ink-muted">まだ来店の記録がありません。</p>
+      )}
+      <LinkButton href={`/staff/customers/${customerId}?tab=visits`} variant="ghost" className="mt-2 px-0">
+        来店・施術の一覧へ
+      </LinkButton>
+    </Card>
+  );
+}
+
 const tabs = [
   { key: 'overview', label: '概要' },
+  { key: 'visits', label: '来店・施術' },
   { key: 'photos', label: '写真' },
   { key: 'analyses', label: '分析' },
-  { key: 'consents', label: '同意' },
-  { key: 'visits', label: '来店・施術' },
   { key: 'measurements', label: '実測値' },
+  { key: 'consents', label: '同意' },
 ] as const;
 type TabKey = (typeof tabs)[number]['key'];
 
@@ -48,10 +78,17 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
       <div className="flex flex-wrap items-start justify-between gap-4">
         <PageTitle lead={customer.full_name_kana || undefined}>{customer.full_name} 様</PageTitle>
         <div className="flex flex-wrap gap-2">
+          <form action={startVisit.bind(null, id)}>
+            <SubmitButton pendingLabel="準備中…">来店を記録する</SubmitButton>
+          </form>
           {ready ? (
-            <LinkButton href={`/staff/customers/${id}/capture`}>撮影する</LinkButton>
+            <LinkButton href={`/staff/customers/${id}/capture`} variant="secondary">
+              撮影する
+            </LinkButton>
           ) : (
-            <LinkButton href={`/staff/customers/${id}/consent`}>同意を取得する</LinkButton>
+            <LinkButton href={`/staff/customers/${id}/consent`} variant="secondary">
+              同意を取得する
+            </LinkButton>
           )}
         </div>
       </div>
@@ -84,6 +121,8 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
           ))}
         </ul>
       </nav>
+
+      {tab === 'overview' ? <LatestVisit customerId={id} visit={(await listVisits(supabase, id, 1))[0]} /> : null}
 
       {tab === 'overview' ? (
         <Card>
@@ -118,12 +157,27 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
         </Card>
       ) : null}
 
-      {tab === 'visits' || tab === 'measurements' ? (
-        <Notice title="準備中です">
-          {tab === 'visits'
-            ? '来店記録・問診・カウンセリング・施術履歴は今後のアップデートで追加されます。'
-            : '測定機器の実測値の記録は今後のアップデートで追加されます（AIの評価とは別に表示します）。'}
-        </Notice>
+      {tab === 'visits' ? (
+        <VisitsTab customerId={id} visits={await listVisits(supabase, id)} error={sp.error === 'visit'} />
+      ) : null}
+
+      {tab === 'measurements' ? (
+        <MeasurementsTab
+          customerId={id}
+          measurements={
+            (
+              await supabase
+                .from('device_measurements')
+                .select('*')
+                .eq('customer_id', id)
+                .order('measured_at', { ascending: false })
+                .limit(200)
+            ).data ?? []
+          }
+          visits={await listVisits(supabase, id, 10)}
+          myId={user.id}
+          isAdmin={user.profile.role === 'admin'}
+        />
       ) : null}
     </div>
   );
