@@ -12,7 +12,7 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   async rewrites() {
-    return [{ source: '/favicon.ico', destination: '/icon' }];
+    return [{ source: '/favicon.ico', destination: '/icon.png' }];
   },
   async headers() {
     return [
