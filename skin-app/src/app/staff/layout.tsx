@@ -6,6 +6,7 @@ export default async function StaffLayout({ children }: LayoutProps<'/staff'>) {
   const nav = [
     { href: '/staff', label: 'ダッシュボード', icon: '⌂', exact: true },
     { href: '/staff/customers', label: '顧客台帳', icon: '☰' },
+    { href: '/staff/menus', label: 'メニュー', icon: '¥' },
     ...(user.profile.role === 'admin' ? [{ href: '/admin', label: '管理メニュー', icon: '⚙︎' }] : []),
   ];
   return (

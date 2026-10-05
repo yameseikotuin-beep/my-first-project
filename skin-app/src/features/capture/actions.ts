@@ -5,7 +5,7 @@ import { requireRole } from '@/lib/auth/session';
 import { createClient } from '@/lib/supabase/server';
 import { uuidSchema } from '@/lib/validation/schemas';
 
-export type CaptureSubject = { kind: 'self' } | { kind: 'customer'; customerId: string };
+export type CaptureSubject = { kind: 'self' } | { kind: 'customer'; customerId: string; visitId?: string };
 
 type Result<T> = { ok: true; data: T } | { ok: false; message: string };
 
@@ -33,10 +33,13 @@ export async function createPhotoSession(
   const user = await requireRole(['staff', 'admin']);
   const customerId = uuidSchema.safeParse(subject.customerId);
   if (!customerId.success) return { ok: false, message: '顧客が見つかりません。' };
+  // 来店時の撮影は来店にひも付ける（来店と顧客が一致しなければデータベースが拒否する）
+  const visitId = subject.visitId ? uuidSchema.safeParse(subject.visitId) : null;
+  if (visitId && !visitId.success) return { ok: false, message: '来店の記録が見つかりません。' };
   const sessionId = crypto.randomUUID();
   const { error } = await supabase
     .from('photo_sessions')
-    .insert({ id: sessionId, customer_id: customerId.data, captured_by: user.id });
+    .insert({ id: sessionId, customer_id: customerId.data, visit_id: visitId?.data ?? null, captured_by: user.id });
   if (error) {
     return {
       ok: false,

@@ -18,6 +18,7 @@ Supabase の **SQL Editor** で、次のファイルを **ファイル名の順�
 2. `supabase/migrations/20261003000100_consent_documents_v1.sql`（同意文 v1。**雛形**）
 3. `supabase/migrations/20261005000000_stage3_analysis.sql`（第3段階：分析結果・AI 利用回数）
 4. `supabase/migrations/20261006000000_stage4a_self_care.sql`（第4段階-1：セルフケアの記録・退会）
+5. `supabase/migrations/20261007000000_stage4b_salon.sql`（第4段階-2：メニュー・来店・問診・カウンセリング・施術・実測値・利用状況）
 
 Supabase CLI を使っている場合は `supabase db push` でも適用できます。
 
