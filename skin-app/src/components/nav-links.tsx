@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { LinkPending } from './ui/link-pending';
 import { usePathname } from 'next/navigation';
 
 export type NavItem = { href: string; label: string; icon?: string; exact?: boolean };
@@ -27,12 +28,15 @@ export function NavLinks({ items, variant }: { items: NavItem[]; variant: 'tabs'
                 <Link
                   href={item.href}
                   aria-current={active ? 'page' : undefined}
-                  className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs ${
+                  className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs transition-colors active:bg-sage-soft ${
                     active ? 'font-bold text-sage-strong' : 'text-ink-muted hover:text-ink'
                   }`}
                 >
-                  <span aria-hidden className="text-lg">
+                  <span aria-hidden className="relative text-lg">
                     {item.icon}
+                    <span className="absolute -right-4 top-0.5">
+                      <LinkPending />
+                    </span>
                   </span>
                   {item.label}
                 </Link>
@@ -54,12 +58,13 @@ export function NavLinks({ items, variant }: { items: NavItem[]; variant: 'tabs'
               <Link
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
-                className={`flex min-h-11 items-center gap-2 rounded-full px-4 ${
+                className={`flex min-h-11 items-center gap-2 rounded-full px-4 transition-colors active:bg-sage-soft ${
                   active ? 'bg-sage-soft font-bold text-sage-strong' : 'text-ink-muted hover:bg-surface-muted hover:text-ink'
                 }`}
               >
                 {item.icon ? <span aria-hidden>{item.icon}</span> : null}
                 {item.label}
+                <LinkPending />
               </Link>
             </li>
           );

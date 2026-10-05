@@ -56,7 +56,7 @@ export function ConsentForm({ documents, alreadyGranted, action, mode, returnTo 
             {granted ? (
               <p className="mt-3 font-medium text-sage-strong">✓ 同意済みです</p>
             ) : (
-              <label className="mt-3 flex min-h-11 cursor-pointer items-start gap-3">
+              <label className="mt-3 flex min-h-11 cursor-pointer items-start gap-3 rounded-xl px-2 py-1 transition-colors active:bg-sage-soft has-[:checked]:bg-sage-soft">
                 <input
                   type="checkbox"
                   name={`consent_${kind}`}
@@ -72,7 +72,7 @@ export function ConsentForm({ documents, alreadyGranted, action, mode, returnTo 
       })}
       {mode === 'salon' ? (
         <div>
-          <label className="flex min-h-11 cursor-pointer items-start gap-3 font-medium">
+          <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-xl px-2 py-1 font-medium transition-colors active:bg-sage-soft has-[:checked]:bg-sage-soft">
             <input
               type="checkbox"
               name="confirmedByCustomer"

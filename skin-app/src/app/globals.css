@@ -48,6 +48,20 @@ html {
   font-size: 100%; /* 本文 16px。利用者のブラウザの文字サイズ設定に従う */
 }
 
+/* スマホで触れたときの反応：ブラウザ標準の灰色の点滅の代わりに、各ボタン・リンクの色の変化で示す */
+@layer base {
+  a,
+  button,
+  summary,
+  label {
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* 文字のリンクは押すと少し薄くなる（ボタンの形のリンクは active:opacity-100 で打ち消し、色の変化で示す） */
+  a:active {
+    opacity: 0.75;
+  }
+}
+
 body {
   background: var(--color-bg);
   color: var(--color-text);

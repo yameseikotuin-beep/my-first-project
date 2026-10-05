@@ -52,7 +52,7 @@ export default async function StaffDashboard() {
             <ul className="mt-3 divide-y divide-line">
               {recent.map((c) => (
                 <li key={c.id}>
-                  <Link href={`/staff/customers/${c.id}`} className="flex min-h-11 items-center justify-between py-2 hover:underline">
+                  <Link href={`/staff/customers/${c.id}`} className="flex min-h-11 items-center justify-between py-2 hover:underline active:bg-sage-soft">
                     <span>{c.full_name}</span>
                     <span className="text-sm text-ink-muted">{dateFormat.format(new Date(c.updated_at))}</span>
                   </Link>
@@ -71,7 +71,7 @@ export default async function StaffDashboard() {
                 <li key={s.id}>
                   <Link
                     href={`/staff/customers/${s.customer_id}?tab=photos`}
-                    className="flex min-h-11 items-center justify-between py-2 hover:underline"
+                    className="flex min-h-11 items-center justify-between py-2 hover:underline active:bg-sage-soft"
                   >
                     <span>{s.customers?.full_name ?? '顧客'}</span>
                     <span className="text-sm text-ink-muted">{dateFormat.format(new Date(s.created_at))}</span>

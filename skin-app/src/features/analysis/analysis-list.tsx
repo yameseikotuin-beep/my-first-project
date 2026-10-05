@@ -15,7 +15,7 @@ export function AnalysisList({ analyses, hrefFor }: { analyses: AnalysisSummary[
     <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
       {analyses.map((a) => (
         <li key={a.id}>
-          <Link href={hrefFor(a.id)} className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-surface-muted">
+          <Link href={hrefFor(a.id)} className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-surface-muted active:bg-sage-soft">
             <span className="font-medium">{dateFormat.format(new Date(a.created_at))} の分析</span>
             <span className="flex flex-wrap gap-2 text-sm">
               {a.status === 'retake_required' ? (

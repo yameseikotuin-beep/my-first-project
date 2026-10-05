@@ -74,7 +74,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
               <Link
                 href={`/staff/customers/${id}${t.key === 'overview' ? '' : `?tab=${t.key}`}`}
                 aria-current={tab === t.key ? 'page' : undefined}
-                className={`flex min-h-11 items-center border-b-2 px-4 ${
+                className={`flex min-h-11 items-center border-b-2 px-4 transition-colors active:bg-sage-soft ${
                   tab === t.key ? 'border-sage-strong font-bold text-sage-strong' : 'border-transparent text-ink-muted hover:text-ink'
                 }`}
               >

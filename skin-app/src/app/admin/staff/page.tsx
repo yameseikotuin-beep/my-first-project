@@ -41,7 +41,7 @@ export default async function AdminStaffPage({ searchParams }: PageProps<'/admin
             key={f.key}
             href={f.key === 'staff' ? '/admin/staff' : '/admin/staff?filter=all'}
             aria-current={filter === f.key ? 'page' : undefined}
-            className={`rounded-full px-4 py-2 ${filter === f.key ? 'bg-sage-soft font-bold text-sage-strong' : 'text-ink-muted hover:bg-surface-muted'}`}
+            className={`rounded-full px-4 py-2 transition-colors active:bg-sage-soft ${filter === f.key ? 'bg-sage-soft font-bold text-sage-strong' : 'text-ink-muted hover:bg-surface-muted'}`}
           >
             {f.label}
           </Link>
