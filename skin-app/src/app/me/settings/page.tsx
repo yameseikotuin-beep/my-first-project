@@ -6,6 +6,7 @@ import { requireRole } from '@/lib/auth/session';
 import { createClient } from '@/lib/supabase/server';
 import { getActiveConsents } from '@/lib/consent';
 import { DisplayNameForm } from '@/features/account/display-name-form';
+import { DeleteAccountForm } from '@/features/account/delete-account-form';
 import { ConsentStatus } from '@/features/consent/consent-status';
 
 export const metadata: Metadata = { title: '設定' };
@@ -50,9 +51,19 @@ export default async function MeSettingsPage({ searchParams }: PageProps<'/me/se
         <LinkButton href="/me/photos" variant="secondary" className="mt-3">
           写真を管理する
         </LinkButton>
-        <Notice tone="info" title="退会（すべてのデータの削除）は準備中です">
-          今後のアップデートで、この画面から退会できるようになります。それまでに退会を希望される場合は、運営者にお問い合わせください。
+      </Card>
+
+      <Card className="space-y-4">
+        <h2 className="font-serif text-lg font-semibold">退会（すべてのデータの削除）</h2>
+        <Notice tone="warning" title="元に戻せません">
+          <ul className="list-disc space-y-1 pl-5">
+            <li>写真・分析結果・セルフケアの記録・同意の記録・アカウントがすべて削除されます。</li>
+            <li>削除したデータも、システムのバックアップに一定期間残る場合があります。</li>
+            <li>操作の記録（監査ログ）には、退会したことと件数だけが残ります（写真や氏名は残りません）。</li>
+            <li>サロンで登録された情報は、このアカウントとは別に管理されているため削除されません。サロンにお問い合わせください。</li>
+          </ul>
         </Notice>
+        <DeleteAccountForm />
       </Card>
     </div>
   );

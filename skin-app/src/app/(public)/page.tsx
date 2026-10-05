@@ -2,9 +2,15 @@ import { LinkButton } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Notice } from '@/components/ui/notice';
 
-export default function TopPage() {
+export default async function TopPage({ searchParams }: PageProps<'/'>) {
+  const { account } = await searchParams;
   return (
     <div className="space-y-8">
+      {account === 'deleted' ? (
+        <Notice tone="success" title="退会の手続きが完了しました" live>
+          アカウントと、写真・分析結果などのデータを削除しました。ご利用ありがとうございました。
+        </Notice>
+      ) : null}
       <section className="py-6 text-center sm:py-12">
         <p className="text-sm tracking-[0.3em] text-gold-text">SKIN NOTE</p>
         <h1 className="mt-3 font-serif text-3xl font-semibold leading-snug sm:text-4xl">

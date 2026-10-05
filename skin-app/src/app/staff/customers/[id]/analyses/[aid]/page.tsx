@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { requireRole } from '@/lib/auth/session';
 import { createClient } from '@/lib/supabase/server';
-import { loadAnalysis } from '@/lib/analyses';
+import { loadAnalysis, loadPreviousAnalysis } from '@/lib/analyses';
 import { uuidSchema } from '@/lib/validation/schemas';
 import { AnalysisReport } from '@/features/analysis/analysis-report';
 
@@ -18,6 +18,7 @@ export default async function CustomerAnalysisPage({ params, searchParams }: Pag
   if (!customer) notFound();
   const detail = await loadAnalysis(supabase, aid);
   if (!detail || detail.session?.customer_id !== id) notFound();
+  const previous = await loadPreviousAnalysis(supabase, detail);
   return (
     <AnalysisReport
       detail={detail}
@@ -26,6 +27,8 @@ export default async function CustomerAnalysisPage({ params, searchParams }: Pag
       customerId={id}
       canDelete={user.profile.role === 'admin'}
       subjectLabel={`${customer.full_name} 様`}
+      previous={previous}
+      previousHref={previous ? `/staff/customers/${id}/analyses/${previous.analysis.id}` : undefined}
     />
   );
 }

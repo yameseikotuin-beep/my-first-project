@@ -155,6 +155,18 @@ export type AiUsageRow = {
   created_at: string;
 };
 
+export type SelfCareLogRow = {
+  id: string;
+  user_id: string;
+  log_date: string;
+  care_items: string[];
+  products: string;
+  note: string;
+  sleep_hours: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -268,6 +280,12 @@ export type Database = {
           },
         ]
       >;
+      self_care_logs: Table<
+        SelfCareLogRow,
+        Pick<SelfCareLogRow, 'user_id' | 'log_date'> &
+          Partial<Pick<SelfCareLogRow, 'care_items' | 'products' | 'note' | 'sleep_hours'>>,
+        Partial<Pick<SelfCareLogRow, 'log_date' | 'care_items' | 'products' | 'note' | 'sleep_hours'>>
+      >;
       ai_usage: Table<
         AiUsageRow,
         Pick<AiUsageRow, 'actor_id' | 'purpose' | 'succeeded'> & Partial<Pick<AiUsageRow, 'analysis_id' | 'model'>>,
@@ -283,6 +301,7 @@ export type Database = {
       can_access_customer: { Args: { target: string }; Returns: boolean };
       can_access_analysis: { Args: { target: string }; Returns: boolean };
       my_ai_usage_today: { Args: Record<string, never>; Returns: number };
+      delete_my_account: { Args: Record<string, never>; Returns: undefined };
       write_audit_log: {
         Args: { p_action: string; p_target_type?: string; p_target_id?: string; p_metadata?: Json };
         Returns: undefined;

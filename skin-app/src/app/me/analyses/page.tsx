@@ -15,9 +15,14 @@ export default async function MeAnalysesPage() {
   return (
     <div className="space-y-6">
       <PageTitle lead="分析するには、撮影した写真の一覧から「この撮影で分析する」を押してください。">分析の記録</PageTitle>
-      <LinkButton href="/me/photos" variant="secondary">
-        写真から分析する
-      </LinkButton>
+      <div className="flex flex-wrap gap-3">
+        <LinkButton href="/me/photos" variant="secondary">
+          写真から分析する
+        </LinkButton>
+        <LinkButton href="/me/progress" variant="secondary">
+          経過グラフを見る
+        </LinkButton>
+      </div>
       <AnalysisList analyses={analyses} hrefFor={(id) => `/me/analyses/${id}`} />
     </div>
   );
