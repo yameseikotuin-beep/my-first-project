@@ -1028,13 +1028,16 @@
         <p>「📷 写真から記録する」で写真を選択・撮影し、「🤖 AIで解析して自動入力」を押すと、Gemini AIが料理名・カロリー・PFCを推定して自動入力します。事前に上の「🤖 AI写真解析の設定」でAPIキーを保存しておく必要があります。</p>
 
         <h4>② 食品名+分量から計算</h4>
-        <p>food名と分量（g）を入力し「🤖 計算」を押すと、AIがその分量に応じた栄養価を推定して自動入力します。①と同じAPIキーを使います。</p>
+        <p>food名と分量を入力し「🤖 計算」を押すと、AIがその分量に応じた栄養価を推定して自動入力します。①と同じAPIキーを使います。</p>
         <p>「鶏むね肉」のような単一の食材だけでなく、「カレーライス」「親子丼」「サラダチキンサンド」のような複数の材料からなる完成した料理名でも計算できます。</p>
+        <p>分量欄はグラム数（例: 150）だけでなく、「2個」「1本」「3枚」「1人前」のような個数・単位での入力にも対応しています。数字だけ入力した場合はグラム数として扱われます。</p>
         <p><strong>入力例:</strong></p>
         <ul>
           <li>food名「カレーライス」、分量「350」</li>
-          <li>food名「鶏むね肉」、分量「150」</li>
-          <li>food名「親子丼」、分量「500」</li>
+          <li>food名「ゆで卵」、分量「2個」</li>
+          <li>food名「バナナ」、分量「1本」</li>
+          <li>food名「食パン」、分量「2枚」</li>
+          <li>food名「親子丼」、分量「1人前」</li>
         </ul>
 
         <h4>③ まとめてテキストで記録</h4>
@@ -1102,9 +1105,9 @@
         <input type="text" id="mealName" required placeholder="例: 鶏胸肉サラダ">
       </div>
       <div class="full">
-        <label>分量 (g)（食品名とあわせてAI自動計算に使用・任意）</label>
+        <label>分量(g)・個数など（食品名とあわせてAI自動計算に使用・任意）</label>
         <div class="inline-calc">
-          <input type="number" id="mealGrams" min="0" step="1" placeholder="例: 150">
+          <input type="text" id="mealGrams" placeholder="例: 150 / 2個 / 1本 / 1人前">
           <button type="button" id="calcFromNameBtn" class="ghost-btn">🤖 計算</button>
         </div>
         <p class="field-hint" id="calcFromNameStatus"></p>
@@ -2143,10 +2146,15 @@
     return callGeminiJSON(apiKey, parts, NUTRITION_SCHEMA_WITH_NAME);
   }
 
-  function callGeminiTextEstimate(apiKey, name, grams) {
-    var prompt = "以下の食品の栄養価を推定してください。食品名: " + name + "。分量: " + grams + "g。" +
+  function callGeminiTextEstimate(apiKey, name, quantity) {
+    var isPlainNumber = /^[0-9]+(\.[0-9]+)?$/.test(quantity.trim());
+    var quantityText = isPlainNumber ? quantity.trim() + "g" : quantity.trim();
+    var prompt = "以下の食品の栄養価を推定してください。食品名: " + name + "。分量: " + quantityText + "。" +
       "食品名は「鶏むね肉」のような単一の食材の場合も、「カレーライス」「親子丼」のような" +
-      "複数の材料からなる完成した料理の場合もあります。いずれの場合も、指定された分量" +
+      "複数の材料からなる完成した料理の場合もあります。分量はグラム数（例: 150g）の場合もあれば、" +
+      "「2個」「1本」「3枚」「1人前」のような個数・単位での指定の場合もあります。" +
+      "個数・単位で指定されている場合は、その食品の一般的な1個あたり・1本あたりなどのサイズを" +
+      "仮定して、指定された個数分の合計量に換算してください。いずれの場合も、指定された分量全体" +
       "（完成した料理の場合は料理全体の総重量）に相当するカロリー(kcal)、たんぱく質(g)、" +
       "脂質(g)、炭水化物(g)、食物繊維(g)、糖質(g)、塩分相当量(g)を、一般的な栄養データに基づいて推定してください。";
     return callGeminiJSON(apiKey, [{ text: prompt }], NUTRITION_SCHEMA);
@@ -2398,7 +2406,7 @@
   el.calcFromNameBtn.addEventListener("click", function() {
     var apiKey = getGeminiKey();
     var name = el.mealName.value.trim();
-    var grams = parseFloat(el.mealGrams.value);
+    var quantity = el.mealGrams.value.trim();
 
     if (!apiKey) {
       setCalcFromNameStatus("先に上の「AI写真解析の設定」でGemini APIキーを保存してください", true);
@@ -2408,15 +2416,15 @@
       setCalcFromNameStatus("food名を入力してください", true);
       return;
     }
-    if (!grams || grams <= 0) {
-      setCalcFromNameStatus("分量(g)を入力してください", true);
+    if (!quantity) {
+      setCalcFromNameStatus("分量(g)または個数を入力してください（例: 150 / 2個 / 1本）", true);
       return;
     }
 
     el.calcFromNameBtn.disabled = true;
     setCalcFromNameStatus("🔄 計算中...");
 
-    callGeminiTextEstimate(apiKey, name, grams).then(function(result) {
+    callGeminiTextEstimate(apiKey, name, quantity).then(function(result) {
       if (result.calories != null && !isNaN(result.calories)) el.mealCalories.value = Math.round(result.calories);
       if (result.protein != null && !isNaN(result.protein)) el.mealProtein.value = round1(result.protein);
       if (result.fat != null && !isNaN(result.fat)) el.mealFat.value = round1(result.fat);
