@@ -415,6 +415,8 @@
   .ghost-btn:hover { background: var(--bg); }
   .recipe-link-btn {
     display: block;
+    width: 100%;
+    box-sizing: border-box;
     text-align: center;
     padding: 10px 14px;
     border-radius: 10px;
@@ -425,8 +427,33 @@
     font-weight: 600;
     text-decoration: none;
     margin: 8px 0 14px;
+    cursor: pointer;
+    font-family: inherit;
   }
   .recipe-link-btn:hover { background: var(--card); }
+  .recipe-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: var(--bg);
+    display: none;
+    flex-direction: column;
+  }
+  .recipe-modal.open { display: flex; }
+  .recipe-modal-bar {
+    display: flex;
+    justify-content: flex-end;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    background: var(--card);
+    flex: 0 0 auto;
+  }
+  .recipe-modal-frame {
+    flex: 1 1 auto;
+    width: 100%;
+    border: 0;
+    background: #fff;
+  }
   .inline-calc {
     display: flex;
     gap: 8px;
@@ -814,8 +841,7 @@
         <p>「食事を記録」欄の「🤖 次の食事のおすすめを見る」を押すと、その日の残りカロリー・PFCと、すでに記録した食事内容を踏まえて、AIが次の食事の提案をしてくれます。食事を追加・削除したり日付を移動すると、内容が古くならないよう提案は自動的にリセットされます。</p>
 
         <h4>🍳 ダイエットレシピメーカー</h4>
-        <p>「食事を記録」欄の「🍳 ダイエットレシピメーカーでレシピを探す」から、別アプリの「ダイエットレシピメーカー」を開けます。高タンパク・低脂質なレシピを探したいときにご利用ください。データの自動連携はしていないため、レシピの栄養価をこのアプリに反映したい場合は、①〜④のいずれかの方法で改めて記録してください。</p>
-        <p><strong>食事管理アプリに戻るには：</strong>端末の「戻る」操作（画面の左端からのスワイプ、またはAndroidの戻るボタン・戻るジェスチャー）で戻れます。ホーム画面に追加して使っている場合も同じ操作で戻れます。</p>
+        <p>「食事を記録」欄の「🍳 ダイエットレシピメーカーでレシピを探す」を押すと、別アプリの「ダイエットレシピメーカー」が画面いっぱいに開きます。高タンパク・低脂質なレシピを探したいときにご利用ください。右上の「✕ 閉じて食事管理に戻る」を押せば、いつでも元の画面に戻れます（ホーム画面に追加して使っている場合も同じボタンで戻れます）。データの自動連携はしていないため、レシピの栄養価をこのアプリに反映したい場合は、①〜④のいずれかの方法で改めて記録してください。</p>
 
         <h4>🏃 運動記録</h4>
         <p>運動内容・時間(分)を入力し、消費カロリーを手動入力するか「🤖 推定」でAIに概算してもらえます（パーソナルデータの体重が設定されていると、より精度の高い推定になります）。記録した消費カロリーは、その日の「本日のサマリー」の残りカロリーに自動的に加算されます。</p>
@@ -1036,7 +1062,7 @@
   <section class="card">
     <h2>➕ 食事を記録</h2>
     <p class="field-hint">1回の「記録を追加」で1品分が記録されます。複数の料理を食べた場合は、記録を追加した後にもう一度入力し、1品ずつ追加してください。</p>
-    <a href="recipe/" class="recipe-link-btn">🍳 ダイエットレシピメーカーでレシピを探す</a>
+    <button type="button" id="openRecipeBtn" class="recipe-link-btn">🍳 ダイエットレシピメーカーでレシピを探す</button>
 
     <details class="manual-inline">
       <summary>食事記録の方法を見る</summary>
@@ -1225,6 +1251,13 @@
 </main>
 
 <footer>ログインしていない場合、データはこのブラウザ内（localStorage）のみに保存されます。ログインするとクラウド（Firestore）に保存され、別の端末・ブラウザからも同じデータにアクセスできます。</footer>
+
+<div class="recipe-modal" id="recipeModal">
+  <div class="recipe-modal-bar">
+    <button type="button" id="closeRecipeBtn" class="ghost-btn">✕ 閉じて食事管理に戻る</button>
+  </div>
+  <iframe id="recipeFrame" class="recipe-modal-frame" src="about:blank" title="ダイエットレシピメーカー"></iframe>
+</div>
 
 <script>
 (function() {
@@ -1445,6 +1478,10 @@
     saveTarget: document.getElementById("saveTarget"),
     sumPFCTargetLine: document.getElementById("sumPFCTargetLine"),
     sumExtraNutrients: document.getElementById("sumExtraNutrients"),
+    openRecipeBtn: document.getElementById("openRecipeBtn"),
+    closeRecipeBtn: document.getElementById("closeRecipeBtn"),
+    recipeModal: document.getElementById("recipeModal"),
+    recipeFrame: document.getElementById("recipeFrame"),
     dailyAdviceBtn: document.getElementById("dailyAdviceBtn"),
     dailyAdviceStatus: document.getElementById("dailyAdviceStatus"),
     dailyAdviceBox: document.getElementById("dailyAdviceBox"),
@@ -1953,6 +1990,16 @@
     el.choosePhotoBtn.style.display = "block";
     setAnalyzeStatus("");
   }
+
+  el.openRecipeBtn.addEventListener("click", function() {
+    el.recipeFrame.src = "recipe/";
+    el.recipeModal.classList.add("open");
+  });
+
+  el.closeRecipeBtn.addEventListener("click", function() {
+    el.recipeModal.classList.remove("open");
+    el.recipeFrame.src = "about:blank";
+  });
 
   el.choosePhotoBtn.addEventListener("click", function() {
     el.mealPhotoInput.click();
