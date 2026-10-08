@@ -460,6 +460,26 @@
   }
   .inline-calc input { flex: 1; }
   .inline-calc .ghost-btn { white-space: nowrap; }
+  .ai-personality-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .ai-personality-row label {
+    font-size: 0.8rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .ai-personality-row select {
+    flex: 1;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.9rem;
+  }
   .advice-box {
     margin-top: 12px;
     padding: 12px 14px;
@@ -830,6 +850,7 @@
 
         <h4>📊 本日のサマリー</h4>
         <p>選択した日の目標カロリーに対する摂取量・残りと、PFCの合計・目標PFCとの比較を表示します。運動を記録した日は、消費カロリーが「残り」に自動的に反映されます。食物繊維・糖質・塩分を入力した記録がある日は、その合計もあわせて表示されます。「🤖 今日の食事をAIに評価してもらう」を押すと、その日の食事内容をAIが評価し、一言アドバイスを表示します。</p>
+        <p>評価の前にある「AIの性格」で、評価の口調を「やさしい」「ふつう」「きびしい」の3パターンから選べます。選んだ性格はこのプロフィールに保存され、次回以降もそのまま使われます。性格を変更すると、表示中の評価結果は内容が古くならないようリセットされます。</p>
 
         <h4>➕ 食事を記録</h4>
         <p>写真からのAI解析・食品名と分量からのAI計算・手動入力の3通りで記録できます。詳しくは「食事を記録」欄内の「食事記録の方法を見る」をご覧ください。「詳細な栄養素を追加」を開くと、食物繊維・糖質・塩分も記録できます（任意項目、AI解析・計算でも自動入力されます）。</p>
@@ -1049,6 +1070,14 @@
     <div class="pfc-target-line" id="sumPFCTargetLine"></div>
     <div class="pfc-target-line" id="sumExtraNutrients"></div>
 
+    <div class="ai-personality-row">
+      <label for="aiPersonality">AIの性格</label>
+      <select id="aiPersonality">
+        <option value="gentle">やさしい</option>
+        <option value="normal">ふつう</option>
+        <option value="strict">きびしい</option>
+      </select>
+    </div>
     <button type="button" id="dailyAdviceBtn" class="primary-btn">🤖 今日の食事をAIに評価してもらう</button>
     <p class="field-hint" id="dailyAdviceStatus"></p>
     <div class="advice-box" id="dailyAdviceBox" style="display:none;">
@@ -1325,6 +1354,7 @@
       targetProtein: 0,
       targetFat: 0,
       targetCarbs: 0,
+      aiPersonality: "gentle",
       personal: {
         gender: "male",
         age: "",
@@ -1351,6 +1381,7 @@
       data.targetProtein = parsed.targetProtein != null ? parsed.targetProtein : data.targetProtein;
       data.targetFat = parsed.targetFat != null ? parsed.targetFat : data.targetFat;
       data.targetCarbs = parsed.targetCarbs != null ? parsed.targetCarbs : data.targetCarbs;
+      data.aiPersonality = parsed.aiPersonality || data.aiPersonality;
       data.personal = Object.assign({}, data.personal, parsed.personal || {});
       data.meals = parsed.meals || [];
       data.weights = parsed.weights || [];
@@ -1482,6 +1513,7 @@
     closeRecipeBtn: document.getElementById("closeRecipeBtn"),
     recipeModal: document.getElementById("recipeModal"),
     recipeFrame: document.getElementById("recipeFrame"),
+    aiPersonality: document.getElementById("aiPersonality"),
     dailyAdviceBtn: document.getElementById("dailyAdviceBtn"),
     dailyAdviceStatus: document.getElementById("dailyAdviceStatus"),
     dailyAdviceBox: document.getElementById("dailyAdviceBox"),
@@ -1573,6 +1605,8 @@
     el.targetProtein.value = state.targetProtein || "";
     el.targetFat.value = state.targetFat || "";
     el.targetCarbs.value = state.targetCarbs || "";
+
+    el.aiPersonality.value = state.aiPersonality || "gentle";
   }
 
   function resetCalcPreview() {
@@ -2279,10 +2313,20 @@
     required: ["evaluation", "advice"]
   };
 
-  function callGeminiDailyAdvice(apiKey, summaryText) {
-    var prompt = "あなたは優しく前向きな栄養士です。以下はある人の1日の食事記録です。" +
+  var AI_PERSONALITY_PROMPTS = {
+    gentle: "あなたは優しく前向きな栄養士です。" +
+      "咎めるような言い方は避け、良かった点があれば褒めつつ、改善点があれば優しく伝えてください。",
+    normal: "あなたは冷静でフラットな栄養士です。" +
+      "褒めすぎず咎めすぎず、良かった点・改善点を淡々と客観的な事実として伝えてください。",
+    strict: "あなたは非常に厳しいパーソナルトレーナー兼栄養士です。" +
+      "甘やかさず、目標とのズレや改善すべき点をはっきりと指摘してください。" +
+      "ただし人格否定や暴言は避け、あくまで食事内容に対する厳しい指摘にとどめてください。"
+  };
+
+  function callGeminiDailyAdvice(apiKey, summaryText, personality) {
+    var personaPrompt = AI_PERSONALITY_PROMPTS[personality] || AI_PERSONALITY_PROMPTS.gentle;
+    var prompt = personaPrompt + " 以下はある人の1日の食事記録です。" +
       "目標と実績を踏まえて、今日の食事内容を2〜3文程度で評価してください。" +
-      "咎めるような言い方は避け、良かった点があれば褒めつつ、改善点があれば優しく伝えてください。" +
       "また、明日以降に活かせる具体的な一言アドバイスも別途考えてください。\n\n" + summaryText;
     return callGeminiJSON(apiKey, [{ text: prompt }], DAILY_ADVICE_SCHEMA);
   }
@@ -2346,7 +2390,7 @@
     el.dailyAdviceStatus.textContent = "🔄 評価中...";
     el.dailyAdviceStatus.style.color = "var(--muted)";
 
-    callGeminiDailyAdvice(apiKey, buildDailySummaryText()).then(function(result) {
+    callGeminiDailyAdvice(apiKey, buildDailySummaryText(), el.aiPersonality.value).then(function(result) {
       el.dailyAdviceEvaluation.textContent = result.evaluation || "";
       el.dailyAdviceText.textContent = result.advice || "";
       el.dailyAdviceBox.style.display = "block";
@@ -2357,6 +2401,12 @@
     }).finally(function() {
       el.dailyAdviceBtn.disabled = false;
     });
+  });
+
+  el.aiPersonality.addEventListener("change", function() {
+    state.aiPersonality = el.aiPersonality.value;
+    saveData();
+    resetDailyAdvice();
   });
 
   var NEXT_MEAL_SCHEMA = {
