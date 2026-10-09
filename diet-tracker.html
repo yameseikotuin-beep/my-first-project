@@ -889,7 +889,7 @@
         <p>メールアドレスとパスワードでログインすると、記録がクラウド（Firestore）に保存され、別の端末・ブラウザから同じアカウントでログインすれば同じデータにアクセスできます。ログインしない場合は、このブラウザ内（localStorage）のみに保存されます。</p>
 
         <h4>🧍 パーソナルデータ・目標設定</h4>
-        <p>性別・年齢・身長・体重・活動レベル・目標（減量/維持/増量）・変化スピードを入力して「自動計算する」を押すと、BMR/TDEEから目標カロリーとPFC（たんぱく質/脂質/炭水化物）が算出されます。「この設定を反映する」を押すと下の「目標値」に反映されます。</p>
+        <p>性別・年齢・身長・体重・活動レベル・目標（減量/ボディメイク/維持/増量）・変化スピードを入力して「自動計算する」を押すと、BMR/TDEEから目標カロリーとPFC（たんぱく質/脂質/炭水化物）が算出されます。「この設定を反映する」を押すと下の「目標値」に反映されます。「ボディメイク」は軽い減量相当のカロリー設定に、たんぱく質を多めにすることで、脂肪を減らしつつ筋肉を維持・増加させたい場合に向いています（「たんぱく質」欄は2.0〜2.2への変更を推奨、下の「目安を見る」も参照）。</p>
 
         <h4>🎯 目標値</h4>
         <p>自動計算した後も、カロリー・PFCの各値を直接編集して保存できます。</p>
@@ -1007,6 +1007,7 @@
         <label>目標</label>
         <select id="pGoal">
           <option value="lose">減量</option>
+          <option value="bodyrecomp">ボディメイク（脂肪を減らして筋肉を増やす）</option>
           <option value="maintain">維持</option>
           <option value="gain">増量</option>
         </select>
@@ -1030,6 +1031,7 @@
             <tr><td>運動しない・健康維持</td><td>1.0〜1.2</td></tr>
             <tr><td>軽い運動習慣</td><td>1.2〜1.6</td></tr>
             <tr><td>ダイエット（筋肉を落とさず減量）</td><td>1.6〜2.2</td></tr>
+            <tr><td>ボディメイク（脂肪を減らして筋肉を増やす）</td><td>2.0〜2.2</td></tr>
             <tr><td>筋トレ・増量</td><td>1.6〜2.2</td></tr>
           </table>
         </details>
@@ -1924,6 +1926,7 @@
     var pace = parseFloat(p.pace);
     if (p.goal === "lose") dailyDelta = -(pace * 7200 / 7);
     else if (p.goal === "gain") dailyDelta = (pace * 7200 / 7);
+    else if (p.goal === "bodyrecomp") dailyDelta = -200;
 
     var targetCal = Math.round(tdee + dailyDelta);
     var floor = Math.round(bmr * 0.8);
