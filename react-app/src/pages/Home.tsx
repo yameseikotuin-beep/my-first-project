@@ -114,7 +114,7 @@ export function Home() {
       </div>
 
       <p className="tiny muted" style={{ marginTop: 20 }}>
-        写真: Unsplash（Unsplash License）。レシピの写真は料理の種類ごとのイメージです。
+        レシピの写真は料理の種類ごとのイメージです（<a href={href('credits')}>写真の出典</a>）。
         保存したレシピ {mine(d, d.recipes).length}件。データはこの端末のブラウザ内に保存されます。
         栄養値は日本食品標準成分表（八訂）に基づく計算値で、医学的な助言ではありません。
       </p>

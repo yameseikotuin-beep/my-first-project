@@ -13,6 +13,7 @@ import { MealPlanPage } from './pages/MealPlan'
 import { Shopping } from './pages/Shopping'
 import { Inventory } from './pages/Inventory'
 import { Account, SyncBadge } from './pages/Account'
+import { Credits } from './pages/Credits'
 import { cloudConfigured } from './cloud/supabase'
 
 const NAV = [
@@ -46,6 +47,7 @@ export default function App() {
     case 'shopping': content = <Shopping key={`${key}-${id ?? ''}`} />; break
     case 'inventory': content = <Inventory />; break
     case 'account': content = <Account />; break
+    case 'credits': content = <Credits />; break
     default: content = <p>ページが見つかりません。<a href={href('')}>ホームへ</a></p>
   }
 

@@ -323,3 +323,9 @@ details > summary { cursor: pointer; font-weight: 600; }
 .compare.compact th, .compare.compact td { white-space: nowrap; padding: 6px 4px; font-size: 0.85rem; }
 .quick-plan { margin: 0 0 14px; }
 .quick-plan-text { flex: 1; min-width: 0; }
+
+/* ===== 写真の出典 ===== */
+.credit-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+.credit-row { display: flex; gap: 10px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 8px; }
+.credit-row img { flex: none; width: 56px; height: 56px; object-fit: cover; border-radius: 8px; }
+.credit-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 0.85rem; overflow-wrap: anywhere; }

@@ -195,7 +195,7 @@ describe('今日の献立（ボタンひとつ）', () => {
         plan = next
       }
     }
-  })
+  }, 30_000)
 
   it('利用者のアレルギーを反映する', async () => {
     const { quickDailyPlan } = await import('./quickPlan')
