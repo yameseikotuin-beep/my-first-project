@@ -476,6 +476,99 @@
     text-overflow: ellipsis;
   }
   .recipe-link-btn:hover { background: var(--card); }
+  .info-trigger {
+    display: inline-block;
+    background: none;
+    border: none;
+    padding: 0;
+    margin-top: 2px;
+    font-size: 0.78rem;
+    color: var(--primary);
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .info-trigger::before { content: "▸ "; }
+  .manual-card-trigger {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 6px;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text);
+    text-align: left;
+  }
+  .manual-card-trigger::before { content: none; }
+  .manual-card-trigger::after {
+    content: "開く ▸";
+    margin-left: auto;
+    font-size: 0.7rem;
+    font-weight: 400;
+    color: var(--muted);
+  }
+  .info-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(0,0,0,0.45);
+  }
+  .info-modal.open { display: flex; }
+  .info-modal-box {
+    background: var(--card);
+    border-radius: 14px;
+    width: 100%;
+    max-width: 480px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow);
+  }
+  .info-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    flex: 0 0 auto;
+  }
+  .info-modal-header h3 {
+    margin: 0;
+    font-size: 1rem;
+  }
+  .info-modal-close {
+    background: none;
+    border: none;
+    font-size: 1.1rem;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 4px 8px;
+    line-height: 1;
+  }
+  .info-modal-body {
+    padding: 14px 16px;
+    overflow-y: auto;
+  }
+  .info-modal-body table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 6px;
+    font-size: 0.78rem;
+  }
+  .info-modal-body th, .info-modal-body td {
+    text-align: left;
+    padding: 6px 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .info-modal-body th {
+    color: var(--muted);
+    font-weight: 600;
+  }
   .recipe-modal {
     position: fixed;
     inset: 0;
@@ -876,9 +969,8 @@
 <main>
   <div class="page active" id="page-home" data-page="home">
   <section class="card">
-    <details class="manual-card">
-      <summary><span>📖 アプリの使い方</span></summary>
-      <div class="manual-body">
+    <button type="button" class="info-trigger manual-card-trigger" data-target="guide-app-manual" data-title="📖 アプリの使い方">📖 アプリの使い方</button>
+    <div class="manual-body" id="guide-app-manual" hidden>
         <h4>📱 画面構成</h4>
         <p>画面下部のメニューから4つのページを切り替えられます。「🏠 ホーム」＝アプリの使い方・日付・本日のサマリー・パーソナルデータ・目標値・AI写真解析の設定、「🍽️ 記録」＝食事を記録・運動記録（入力）、「📋 履歴」＝記録一覧・運動記録一覧・カロリー推移グラフ、「⚖️ 体重」＝体重記録です。</p>
 
@@ -921,8 +1013,7 @@
 
         <h4>⚖️ 体重記録</h4>
         <p>体重を記録すると、グラフと日別の数値一覧（前回との増減つき）の両方で確認できます。パーソナルデータで目標体重を設定していると、直近の記録から変化ペースを計算し、「あと何日・いつ頃に目標体重へ到達しそうか」の予測も表示されます。</p>
-      </div>
-    </details>
+    </div>
   </section>
 
   <section class="card">
@@ -1024,8 +1115,8 @@
         <label>たんぱく質 (g / 体重1kgあたり)</label>
         <input type="number" id="pProteinPerKg" min="0.5" max="4" step="0.1" value="1.8">
         <p class="field-hint">迷ったら1.8のままでOK（ダイエット向けの標準値。体重×この値=たんぱく質g）</p>
-        <details class="field-guide">
-          <summary>目安を見る</summary>
+        <button type="button" class="info-trigger" data-target="guide-protein-ratio" data-title="たんぱく質係数の目安">目安を見る</button>
+        <div id="guide-protein-ratio" hidden>
           <table>
             <tr><th>目的</th><th>係数</th></tr>
             <tr><td>運動しない・健康維持</td><td>1.0〜1.2</td></tr>
@@ -1034,21 +1125,21 @@
             <tr><td>ボディメイク（脂肪を減らして筋肉を増やす）</td><td>2.0〜2.2</td></tr>
             <tr><td>筋トレ・増量</td><td>1.6〜2.2</td></tr>
           </table>
-        </details>
+        </div>
       </div>
       <div>
         <label>脂質の割合（総カロリーの%）</label>
         <input type="number" id="pFatPct" min="10" max="50" step="1" value="25">
         <p class="field-hint">迷ったら25%のままでOK（標準的な配分。残りは自動で炭水化物になります）</p>
-        <details class="field-guide">
-          <summary>目安を見る</summary>
+        <button type="button" class="info-trigger" data-target="guide-fat-ratio" data-title="脂質の割合の目安">目安を見る</button>
+        <div id="guide-fat-ratio" hidden>
           <table>
             <tr><th>割合</th><th>特徴</th></tr>
             <tr><td>20%</td><td>やや低め。炭水化物を多く確保したい人向け</td></tr>
             <tr><td>25%（デフォルト）</td><td>標準的でバランスが良い</td></tr>
             <tr><td>30〜35%</td><td>脂質多め・炭水化物控えめにしたい人向け</td></tr>
           </table>
-        </details>
+        </div>
       </div>
       <button type="submit">自動計算する</button>
     </form>
@@ -1082,9 +1173,8 @@
   <section class="card">
     <h2>🤖 AI写真解析の設定</h2>
 
-    <details class="manual-inline">
-      <summary>APIキーの取得・保存の手順を見る</summary>
-      <div class="manual-body">
+    <button type="button" class="info-trigger" data-target="guide-api-key" data-title="APIキーの取得・保存の手順">APIキーの取得・保存の手順を見る</button>
+    <div class="manual-body" id="guide-api-key" hidden>
         <h4>① APIキーを取得する</h4>
         <p><strong>必ずSafariやChromeなど通常のブラウザで開いてください。</strong>LINEなどのアプリ内で開いたページ（アプリ内ブラウザ）からだと、Googleのアカウント操作（プロジェクト作成やAPIキー発行）が正しく動作せず、原因の分かりにくいエラーになることがあります。</p>
         <ol>
@@ -1120,8 +1210,7 @@
           <li><strong>「リクエストが不正です」</strong>：画像が壊れている、または大きすぎる可能性があります。別の写真で試すか、手動入力に切り替えてください。</li>
           <li>どのエラーでも、まず「🔍 診断する」ボタンを押すとキーの有効性やエラー内容をその場で確認できます。解決しない場合は、写真解析・食品名計算を使わず「③ 手動入力」で記録してください。</li>
         </ul>
-      </div>
-    </details>
+    </div>
 
     <div class="target-form">
       <div class="field" style="flex:1;min-width:220px;">
@@ -1143,9 +1232,8 @@
     <h2>➕ 食事を記録</h2>
     <p class="field-hint">1回の「記録を追加」で1品分が記録されます。複数の料理を食べた場合は、記録を追加した後にもう一度入力し、1品ずつ追加してください。</p>
 
-    <details class="manual-inline">
-      <summary>食事記録の方法を見る</summary>
-      <div class="manual-body">
+    <button type="button" class="info-trigger" data-target="guide-meal-method" data-title="食事記録の方法">食事記録の方法を見る</button>
+    <div class="manual-body" id="guide-meal-method" hidden>
         <p>「記録を追加」を押すごとに1品分が食事リストに追加されます。定食のように複数の料理をまとめて食べた場合も、まとめて1件にするのではなく、料理ごとに①〜④のいずれかの方法で1品ずつ記録してください（例: ごはん、味噌汁、焼き魚をそれぞれ記録）。ただし③のまとめてテキスト入力を使えば、複数の料理を一度に記録できます。分けて記録すると、後から食事リストで料理ごとの内容を確認・修正しやすくなります。</p>
 
         <h4>① 写真から記録</h4>
@@ -1172,8 +1260,7 @@
         <p>カロリー・food名・PFCの各欄に直接入力します。PFCは任意項目です（空欄でも記録できます）。「詳細な栄養素を追加」を開くと、食物繊維・糖質・塩分も入力できます。</p>
 
         <p>①②③はいずれもAIによる推定値です。内容を確認し、必要に応じて数値を修正してから記録を確定してください。</p>
-      </div>
-    </details>
+    </div>
 
     <div class="favorites-bar" id="favoritesBar" style="display:none;">
       <div class="favorites-label">⭐ お気に入りから記録</div>
@@ -1288,16 +1375,16 @@
           <option value="cardio">有酸素運動</option>
           <option value="strength">筋力トレーニング</option>
         </select>
-        <details class="field-guide">
-          <summary>対応可能な運動の例を見る</summary>
+        <button type="button" class="info-trigger" data-target="guide-exercise-examples" data-title="対応可能な運動の例">対応可能な運動の例を見る</button>
+        <div id="guide-exercise-examples" hidden>
           <table>
             <tr><th>種類</th><th>運動例</th></tr>
             <tr><td>有酸素運動</td><td>ウォーキング、ジョギング、ランニング、サイクリング、水泳、縄跳び、エアロビクス、階段昇降、ハイキング、クロストレーナー、ヨガ、ピラティス、ストレッチ</td></tr>
             <tr><td>筋力トレーニング</td><td>腕立て伏せ、腹筋、スクワット、ベンチプレス、デッドリフト、懸垂、ダンベルカール、ショルダープレス、ラットプルダウン、レッグプレス、プランク</td></tr>
           </table>
-        </details>
-        <details class="field-guide">
-          <summary>消費カロリーの目安を見る</summary>
+        </div>
+        <button type="button" class="info-trigger" data-target="guide-exercise-calories" data-title="消費カロリーの目安">消費カロリーの目安を見る</button>
+        <div id="guide-exercise-calories" hidden>
           <p class="field-hint">体重60kg・一般的な強度の場合のおおよその目安です。実際の消費量は体重・強度により変動するため、「🤖 推定」でより精度の高い概算も得られます。</p>
           <table>
             <tr><th>有酸素運動（30分あたり）</th><th>目安</th></tr>
@@ -1326,7 +1413,7 @@
             <tr><td>レッグプレス</td><td>約8kcal</td></tr>
             <tr><td>プランク（30〜60秒）</td><td>約3kcal</td></tr>
           </table>
-        </details>
+        </div>
       </div>
       <div class="full">
         <label>運動内容</label>
@@ -1398,6 +1485,16 @@
   <button type="button" class="bottom-nav-btn" data-page="history"><span class="icon">📋</span><span>履歴</span></button>
   <button type="button" class="bottom-nav-btn" data-page="weight"><span class="icon">⚖️</span><span>体重</span></button>
 </nav>
+
+<div class="info-modal" id="infoModal">
+  <div class="info-modal-box">
+    <div class="info-modal-header">
+      <h3 id="infoModalTitle"></h3>
+      <button type="button" id="infoModalClose" class="info-modal-close" aria-label="閉じる">✕</button>
+    </div>
+    <div class="info-modal-body" id="infoModalBody"></div>
+  </div>
+</div>
 
 <div class="recipe-modal" id="recipeModal">
   <div class="recipe-modal-bar">
@@ -1627,6 +1724,10 @@
     saveTarget: document.getElementById("saveTarget"),
     sumPFCTargetLine: document.getElementById("sumPFCTargetLine"),
     sumExtraNutrients: document.getElementById("sumExtraNutrients"),
+    infoModal: document.getElementById("infoModal"),
+    infoModalTitle: document.getElementById("infoModalTitle"),
+    infoModalBody: document.getElementById("infoModalBody"),
+    infoModalClose: document.getElementById("infoModalClose"),
     openRecipeBtn: document.getElementById("openRecipeBtn"),
     closeRecipeBtn: document.getElementById("closeRecipeBtn"),
     recipeModal: document.getElementById("recipeModal"),
@@ -2169,6 +2270,35 @@
     el.choosePhotoBtn.style.display = "block";
     setAnalyzeStatus("");
   }
+
+  function openInfoModal(targetId, title) {
+    var source = document.getElementById(targetId);
+    if (!source) return;
+    el.infoModalTitle.textContent = title || "";
+    el.infoModalBody.innerHTML = source.innerHTML;
+    el.infoModal.classList.add("open");
+  }
+
+  function closeInfoModal() {
+    el.infoModal.classList.remove("open");
+    el.infoModalBody.innerHTML = "";
+  }
+
+  document.querySelectorAll(".info-trigger").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      openInfoModal(btn.getAttribute("data-target"), btn.getAttribute("data-title"));
+    });
+  });
+
+  el.infoModalClose.addEventListener("click", closeInfoModal);
+
+  el.infoModal.addEventListener("click", function(e) {
+    if (e.target === el.infoModal) closeInfoModal();
+  });
+
+  document.addEventListener("keydown", function(e) {
+    if (e.key === "Escape" && el.infoModal.classList.contains("open")) closeInfoModal();
+  });
 
   el.openRecipeBtn.addEventListener("click", function() {
     el.recipeFrame.src = "recipe/";
