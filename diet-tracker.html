@@ -980,6 +980,9 @@
         <h4>☁️ クラウド同期</h4>
         <p>メールアドレスとパスワードでログインすると、記録がクラウド（Firestore）に保存され、別の端末・ブラウザから同じアカウントでログインすれば同じデータにアクセスできます。ログインしない場合は、このブラウザ内（localStorage）のみに保存されます。</p>
 
+        <h4>💾 データのバックアップ</h4>
+        <p>「🤖 AI写真解析の設定」の下にある「📤 エクスポート」で、現在のプロフィールの記録・設定をJSONファイルとしてダウンロードできます。「📥 インポート」でそのファイルを選ぶと、今のプロフィールのデータをファイルの内容で復元（上書き）できます。クラウド同期を使っていない場合の保険や、機種変更時のデータ移行に活用してください。</p>
+
         <h4>🧍 パーソナルデータ・目標設定</h4>
         <p>性別・年齢・身長・体重・活動レベル・目標（減量/ボディメイク/維持/増量）・変化スピードを入力して「自動計算する」を押すと、BMR/TDEEから目標カロリーとPFC（たんぱく質/脂質/炭水化物）が算出されます。「この設定を反映する」を押すと下の「目標値」に反映されます。「ボディメイク」は軽い減量相当のカロリー設定に、たんぱく質を多めにすることで、脂肪を減らしつつ筋肉を維持・増加させたい場合に向いています（「たんぱく質」欄は2.0〜2.2への変更を推奨、下の「目安を見る」も参照）。</p>
 
@@ -1224,6 +1227,17 @@
       <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>で無料のAPIキーを取得できます。キーはこのブラウザにのみ保存され、写真解析のときだけGoogleのAPIへ直接送信されます（サーバーやリポジトリには保存されません）。
     </p>
     <p class="field-hint" id="diagnoseResult"></p>
+  </section>
+
+  <section class="card">
+    <h2>💾 データのバックアップ</h2>
+    <p class="field-hint">このプロフィールの記録・設定をファイルに書き出して保存したり、保存したファイルから復元したりできます。機種変更やブラウザのデータ消失に備えて、定期的なエクスポートをおすすめします。</p>
+    <div class="photo-actions" style="margin-top:10px;">
+      <button type="button" id="exportDataBtn" class="primary-btn">📤 エクスポート</button>
+      <button type="button" id="importDataBtn" class="ghost-btn">📥 インポート</button>
+    </div>
+    <input type="file" id="importDataInput" accept="application/json" style="display:none;">
+    <p class="field-hint" id="backupStatus"></p>
   </section>
   </div>
 
@@ -1779,6 +1793,10 @@
     geminiKeyStatus: document.getElementById("geminiKeyStatus"),
     diagnoseGeminiKey: document.getElementById("diagnoseGeminiKey"),
     diagnoseResult: document.getElementById("diagnoseResult"),
+    exportDataBtn: document.getElementById("exportDataBtn"),
+    importDataBtn: document.getElementById("importDataBtn"),
+    importDataInput: document.getElementById("importDataInput"),
+    backupStatus: document.getElementById("backupStatus"),
     mealPhotoInput: document.getElementById("mealPhotoInput"),
     choosePhotoBtn: document.getElementById("choosePhotoBtn"),
     photoPreviewWrap: document.getElementById("photoPreviewWrap"),
@@ -2260,6 +2278,72 @@
     }).finally(function() {
       el.diagnoseGeminiKey.disabled = false;
     });
+  });
+
+  function setBackupStatus(text, isError) {
+    el.backupStatus.textContent = text || "";
+    el.backupStatus.style.color = isError ? "var(--danger)" : "var(--muted)";
+  }
+
+  el.exportDataBtn.addEventListener("click", function() {
+    var profile = profiles.filter(function(p) { return p.id === activeProfileId; })[0];
+    var payload = {
+      app: "diet-tracker",
+      exportVersion: 1,
+      exportedAt: new Date().toISOString(),
+      profileName: profile ? profile.name : "",
+      state: state
+    };
+    var json = JSON.stringify(payload, null, 2);
+    var blob = new Blob([json], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "diet-tracker-backup-" + todayStr() + ".json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setBackupStatus("✅ バックアップファイルをダウンロードしました");
+  });
+
+  el.importDataBtn.addEventListener("click", function() {
+    el.importDataInput.value = "";
+    el.importDataInput.click();
+  });
+
+  el.importDataInput.addEventListener("change", function() {
+    var file = el.importDataInput.files && el.importDataInput.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var parsed;
+      try {
+        parsed = JSON.parse(e.target.result);
+      } catch (err) {
+        setBackupStatus("⚠️ ファイルを読み込めませんでした（JSON形式ではありません）", true);
+        return;
+      }
+      var importedState = parsed && parsed.state;
+      if (!importedState || typeof importedState !== "object") {
+        setBackupStatus("⚠️ このアプリのバックアップファイルではないようです", true);
+        return;
+      }
+      var confirmMsg = "現在のプロフィール「" + (profiles.filter(function(p) { return p.id === activeProfileId; })[0] || {}).name +
+        "」のデータを、このファイルの内容で上書きします。よろしいですか？";
+      if (!confirm(confirmMsg)) return;
+
+      state = mergeState(importedState);
+      saveData();
+      fillFormsFromState();
+      resetCalcPreview();
+      render();
+      setBackupStatus("✅ データを復元しました");
+    };
+    reader.onerror = function() {
+      setBackupStatus("⚠️ ファイルを読み込めませんでした", true);
+    };
+    reader.readAsText(file);
   });
 
   function resetPhotoState() {
