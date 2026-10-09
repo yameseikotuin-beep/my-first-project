@@ -55,7 +55,7 @@
     background: var(--bg);
     color: var(--text);
     font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", system-ui, sans-serif;
-    padding-bottom: 40px;
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
   }
   header {
     padding: 20px 16px 12px;
@@ -75,10 +75,46 @@
     max-width: 720px;
     margin: 0 auto;
     padding: 0 16px;
+  }
+  .page {
+    display: none;
+  }
+  .page.active {
     display: flex;
     flex-direction: column;
     gap: 16px;
   }
+  .bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 900;
+    max-width: 720px;
+    margin: 0 auto;
+    display: flex;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-bottom: none;
+    border-radius: 14px 14px 0 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .bottom-nav-btn {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 4px 6px;
+    border: none;
+    background: none;
+    color: var(--muted);
+    font-size: 0.68rem;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .bottom-nav-btn .icon { font-size: 1.25rem; line-height: 1; }
+  .bottom-nav-btn.active { color: var(--primary); font-weight: 700; }
   .card {
     background: var(--card);
     border: 1px solid var(--border);
@@ -832,10 +868,14 @@
 <div class="auth-message" id="authMessage"></div>
 
 <main>
+  <div class="page active" id="page-home" data-page="home">
   <section class="card">
     <details class="manual-card">
       <summary><span>📖 アプリの使い方</span></summary>
       <div class="manual-body">
+        <h4>📱 画面構成</h4>
+        <p>画面下部のメニューから4つのページを切り替えられます。「🏠 ホーム」＝アプリの使い方・日付・本日のサマリー・パーソナルデータ・目標値・AI写真解析の設定、「🍽️ 記録」＝食事を記録・運動記録、「📋 履歴」＝記録一覧・カロリー推移グラフ、「⚖️ 体重」＝体重記録です。</p>
+
         <h4>👤 プロフィール</h4>
         <p>同じブラウザを複数人で使う場合、プロフィールを分けて記録できます（データは互いに混ざりません）。「+ 新規」で追加、「名前変更」「削除」も可能です。ログイン中はこの代わりにアカウントがプロフィールとして使われます。</p>
 
@@ -843,7 +883,7 @@
         <p>メールアドレスとパスワードでログインすると、記録がクラウド（Firestore）に保存され、別の端末・ブラウザから同じアカウントでログインすれば同じデータにアクセスできます。ログインしない場合は、このブラウザ内（localStorage）のみに保存されます。</p>
 
         <h4>🧍 パーソナルデータ・目標設定</h4>
-        <p>性別・年齢・身長・体重・活動レベル・目標（減量/維持/増量）・変化スピードを入力して「自動計算する」を押すと、BMR/TDEEから目標カロリーとPFC（たんぱく質/脂質/炭水化物）が算出されます。「この設定を反映する」を押すと下の「目標値」に反映されます。年齢・身長・体重を保存すると、初期設定が完了したとみなされ、「パーソナルデータ・目標設定」「目標値」「AI写真解析の設定」の3つの欄はページ下部（体重記録の下）に自動的に移動します。内容はいつでもそこから確認・変更できます。</p>
+        <p>性別・年齢・身長・体重・活動レベル・目標（減量/維持/増量）・変化スピードを入力して「自動計算する」を押すと、BMR/TDEEから目標カロリーとPFC（たんぱく質/脂質/炭水化物）が算出されます。「この設定を反映する」を押すと下の「目標値」に反映されます。</p>
 
         <h4>🎯 目標値</h4>
         <p>自動計算した後も、カロリー・PFCの各値を直接編集して保存できます。</p>
@@ -879,7 +919,48 @@
     </details>
   </section>
 
-  <div id="setupSection">
+  <section class="card">
+    <div class="date-nav">
+      <button id="prevDay">‹</button>
+      <input type="date" id="datePicker">
+      <button id="nextDay">›</button>
+      <button id="todayBtn">今日</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>📊 本日のサマリー</h2>
+    <div class="summary-grid">
+      <div class="stat"><div class="label">目標</div><div class="value" id="sumTarget">0</div></div>
+      <div class="stat"><div class="label">摂取</div><div class="value" id="sumIntake">0</div></div>
+      <div class="stat"><div class="label">残り</div><div class="value" id="sumRemain">0</div></div>
+      <div class="stat"><div class="label">P/F/C</div><div class="value" id="sumPFC" style="font-size:0.8rem">0/0/0</div></div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar" style="width:0%"></div></div>
+      <div class="progress-caption"><span id="progressPct">0%</span><span id="progressNote"></span></div>
+    </div>
+    <div class="pfc-target-line" id="sumPFCTargetLine"></div>
+    <div class="pfc-target-line" id="sumExtraNutrients"></div>
+
+    <div class="ai-personality-row">
+      <label for="aiPersonality">AIの性格</label>
+      <select id="aiPersonality">
+        <option value="gentle">やさしい</option>
+        <option value="normal">ふつう</option>
+        <option value="strict">きびしい</option>
+      </select>
+    </div>
+    <button type="button" id="dailyAdviceBtn" class="primary-btn">🤖 今日の食事をAIに評価してもらう</button>
+    <p class="field-hint" id="dailyAdviceStatus"></p>
+    <div class="advice-box" id="dailyAdviceBox" style="display:none;">
+      <div class="advice-label">📝 評価</div>
+      <p id="dailyAdviceEvaluation"></p>
+      <div class="advice-label">💡 一言アドバイス</div>
+      <p id="dailyAdviceText"></p>
+    </div>
+  </section>
+
   <section class="card">
     <h2>🧍 パーソナルデータ・目標設定</h2>
     <form class="meal-form" id="personalForm">
@@ -1049,48 +1130,7 @@
   </section>
   </div>
 
-  <section class="card">
-    <div class="date-nav">
-      <button id="prevDay">‹</button>
-      <input type="date" id="datePicker">
-      <button id="nextDay">›</button>
-      <button id="todayBtn">今日</button>
-    </div>
-  </section>
-
-  <section class="card">
-    <h2>📊 本日のサマリー</h2>
-    <div class="summary-grid">
-      <div class="stat"><div class="label">目標</div><div class="value" id="sumTarget">0</div></div>
-      <div class="stat"><div class="label">摂取</div><div class="value" id="sumIntake">0</div></div>
-      <div class="stat"><div class="label">残り</div><div class="value" id="sumRemain">0</div></div>
-      <div class="stat"><div class="label">P/F/C</div><div class="value" id="sumPFC" style="font-size:0.8rem">0/0/0</div></div>
-    </div>
-    <div class="progress-wrap">
-      <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar" style="width:0%"></div></div>
-      <div class="progress-caption"><span id="progressPct">0%</span><span id="progressNote"></span></div>
-    </div>
-    <div class="pfc-target-line" id="sumPFCTargetLine"></div>
-    <div class="pfc-target-line" id="sumExtraNutrients"></div>
-
-    <div class="ai-personality-row">
-      <label for="aiPersonality">AIの性格</label>
-      <select id="aiPersonality">
-        <option value="gentle">やさしい</option>
-        <option value="normal">ふつう</option>
-        <option value="strict">きびしい</option>
-      </select>
-    </div>
-    <button type="button" id="dailyAdviceBtn" class="primary-btn">🤖 今日の食事をAIに評価してもらう</button>
-    <p class="field-hint" id="dailyAdviceStatus"></p>
-    <div class="advice-box" id="dailyAdviceBox" style="display:none;">
-      <div class="advice-label">📝 評価</div>
-      <p id="dailyAdviceEvaluation"></p>
-      <div class="advice-label">💡 一言アドバイス</div>
-      <p id="dailyAdviceText"></p>
-    </div>
-  </section>
-
+  <div class="page" id="page-meals" data-page="meals">
   <section class="card">
     <h2>➕ 食事を記録</h2>
     <p class="field-hint">1回の「記録を追加」で1品分が記録されます。複数の料理を食べた場合は、記録を追加した後にもう一度入力し、1品ずつ追加してください。</p>
@@ -1232,11 +1272,6 @@
   </section>
 
   <section class="card">
-    <h2>🍽️ 記録一覧</h2>
-    <div id="mealList"></div>
-  </section>
-
-  <section class="card">
     <h2>🏃 運動記録</h2>
     <form class="meal-form" id="exerciseForm">
       <div class="full">
@@ -1259,12 +1294,21 @@
     </form>
     <div id="exerciseList"></div>
   </section>
+  </div>
+
+  <div class="page" id="page-history" data-page="history">
+  <section class="card">
+    <h2>🍽️ 記録一覧</h2>
+    <div id="mealList"></div>
+  </section>
 
   <section class="card">
     <h2>📈 カロリー推移（直近14日）</h2>
     <canvas id="calorieChart" width="600" height="160"></canvas>
   </section>
+  </div>
 
+  <div class="page" id="page-weight" data-page="weight">
   <section class="card">
     <h2>⚖️ 体重記録</h2>
     <div class="advice-box" id="goalPredictionBox" style="display:none;">
@@ -1281,9 +1325,17 @@
     <h3 class="weight-list-title">記録一覧</h3>
     <div id="weightList" class="weight-list"></div>
   </section>
+  </div>
 </main>
 
 <footer>ログインしていない場合、データはこのブラウザ内（localStorage）のみに保存されます。ログインするとクラウド（Firestore）に保存され、別の端末・ブラウザからも同じデータにアクセスできます。</footer>
+
+<nav class="bottom-nav" id="bottomNav">
+  <button type="button" class="bottom-nav-btn active" data-page="home"><span class="icon">🏠</span><span>ホーム</span></button>
+  <button type="button" class="bottom-nav-btn" data-page="meals"><span class="icon">🍽️</span><span>記録</span></button>
+  <button type="button" class="bottom-nav-btn" data-page="history"><span class="icon">📋</span><span>履歴</span></button>
+  <button type="button" class="bottom-nav-btn" data-page="weight"><span class="icon">⚖️</span><span>体重</span></button>
+</nav>
 
 <div class="recipe-modal" id="recipeModal">
   <div class="recipe-modal-bar">
@@ -1470,6 +1522,7 @@
   var selectedDate = todayStr();
 
   var el = {
+    bottomNav: document.getElementById("bottomNav"),
     profileBar: document.getElementById("profileBar"),
     profileSelect: document.getElementById("profileSelect"),
     addProfileBtn: document.getElementById("addProfileBtn"),
@@ -1486,7 +1539,6 @@
     authMessage: document.getElementById("authMessage"),
     cloudUserEmail: document.getElementById("cloudUserEmail"),
     syncStatus: document.getElementById("syncStatus"),
-    setupSection: document.getElementById("setupSection"),
     personalForm: document.getElementById("personalForm"),
     pGender: document.getElementById("pGender"),
     pAge: document.getElementById("pAge"),
@@ -1782,6 +1834,26 @@
     });
   }
 
+  var PAGE_IDS = ["home", "meals", "history", "weight"];
+
+  function switchPage(pageId) {
+    if (PAGE_IDS.indexOf(pageId) === -1) pageId = "home";
+    document.querySelectorAll(".page").forEach(function(p) {
+      p.classList.toggle("active", p.id === "page-" + pageId);
+    });
+    el.bottomNav.querySelectorAll(".bottom-nav-btn").forEach(function(btn) {
+      btn.classList.toggle("active", btn.getAttribute("data-page") === pageId);
+    });
+    try { localStorage.setItem("dietTracker.activePage", pageId); } catch (e) {}
+    window.scrollTo(0, 0);
+  }
+
+  el.bottomNav.querySelectorAll(".bottom-nav-btn").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      switchPage(btn.getAttribute("data-page"));
+    });
+  });
+
   function init() {
     updateCloudUI();
     renderProfileSelect();
@@ -1789,6 +1861,9 @@
     resetCalcPreview();
     el.datePicker.value = selectedDate;
     el.weightDate.value = todayStr();
+    var savedPage = null;
+    try { savedPage = localStorage.getItem("dietTracker.activePage"); } catch (e) {}
+    switchPage(savedPage || "home");
     render();
   }
 
@@ -1830,7 +1905,6 @@
     };
     saveData();
     renderGoalPrediction();
-    repositionSetupSection();
 
     if (!p.age || !p.height || !p.weight) {
       alert("年齢・身長・現在体重を入力してください");
@@ -2896,24 +2970,6 @@
     renderWeightList();
     renderFavorites();
     renderGoalPrediction();
-    repositionSetupSection();
-  }
-
-  function isPersonalSetupComplete() {
-    var p = state.personal;
-    return !!(p && p.age && p.height && p.weight);
-  }
-
-  function repositionSetupSection() {
-    var mainEl = el.setupSection && el.setupSection.parentNode;
-    if (!el.setupSection || !mainEl) return;
-    if (isPersonalSetupComplete()) {
-      if (mainEl.lastElementChild !== el.setupSection) {
-        mainEl.appendChild(el.setupSection);
-      }
-    } else if (mainEl.children[1] !== el.setupSection) {
-      mainEl.insertBefore(el.setupSection, mainEl.children[1] || null);
-    }
   }
 
   function mealsForDate(dateStr) {
