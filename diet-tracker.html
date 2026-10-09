@@ -914,7 +914,7 @@
         <p>「食事を記録」欄の「🍳 レシピを探す」を押すと、別アプリの「ダイエットレシピメーカー」が画面いっぱいに開きます。高タンパク・低脂質なレシピを探したいときにご利用ください。右上の「✕ 閉じて食事管理に戻る」を押せば、いつでも元の画面に戻れます（ホーム画面に追加して使っている場合も同じボタンで戻れます）。データの自動連携はしていないため、レシピの栄養価をこのアプリに反映したい場合は、①〜④のいずれかの方法で改めて記録してください。</p>
 
         <h4>🏃 運動記録</h4>
-        <p>運動内容・時間(分)を入力し、消費カロリーを手動入力するか「🤖 推定」でAIに概算してもらえます（パーソナルデータの体重が設定されていると、より精度の高い推定になります）。記録した消費カロリーは、その日の「本日のサマリー」の残りカロリーに自動的に加算されます。</p>
+        <p>まず「種類」で有酸素運動／筋力トレーニングを選びます。有酸素運動は時間(分)、筋力トレーニングはセット数を入力し、運動内容とあわせて、消費カロリーを手動入力するか「🤖 推定」でAIに概算してもらえます（パーソナルデータの体重が設定されていると、より精度の高い推定になります）。「対応可能な運動の例を見る」で、入力例を確認できます。記録した消費カロリーは、その日の「本日のサマリー」の残りカロリーに自動的に加算されます。</p>
 
         <h4>🍽️ 記録一覧・📈 グラフ</h4>
         <p>その日の記録一覧（削除も可能）と、直近14日間のカロリー推移グラフを確認できます。</p>
@@ -1283,12 +1283,31 @@
     <h2>🏃 運動記録</h2>
     <form class="meal-form" id="exerciseForm">
       <div class="full">
+        <label>種類</label>
+        <select id="exerciseCategory">
+          <option value="cardio">有酸素運動</option>
+          <option value="strength">筋力トレーニング</option>
+        </select>
+        <details class="field-guide">
+          <summary>対応可能な運動の例を見る</summary>
+          <table>
+            <tr><th>種類</th><th>運動例</th></tr>
+            <tr><td>有酸素運動</td><td>ウォーキング、ジョギング、ランニング、サイクリング、水泳、縄跳び、エアロビクス、階段昇降、ハイキング、クロストレーナー</td></tr>
+            <tr><td>筋力トレーニング</td><td>腕立て伏せ、腹筋、スクワット、ベンチプレス、デッドリフト、懸垂、ダンベルカール、ショルダープレス、ラットプルダウン、レッグプレス、プランク</td></tr>
+          </table>
+        </details>
+      </div>
+      <div class="full">
         <label>運動内容</label>
         <input type="text" id="exerciseName" required placeholder="例: ランニング、ウォーキング">
       </div>
-      <div>
+      <div id="exerciseMinutesField">
         <label>時間 (分)</label>
         <input type="number" id="exerciseMinutes" min="0" step="1" placeholder="例: 30">
+      </div>
+      <div id="exerciseSetsField" style="display:none;">
+        <label>セット数</label>
+        <input type="number" id="exerciseSets" min="0" step="1" placeholder="例: 3">
       </div>
       <div>
         <label>消費カロリー (kcal)</label>
@@ -1605,8 +1624,12 @@
     mealSugar: document.getElementById("mealSugar"),
     mealSalt: document.getElementById("mealSalt"),
     exerciseForm: document.getElementById("exerciseForm"),
+    exerciseCategory: document.getElementById("exerciseCategory"),
     exerciseName: document.getElementById("exerciseName"),
+    exerciseMinutesField: document.getElementById("exerciseMinutesField"),
     exerciseMinutes: document.getElementById("exerciseMinutes"),
+    exerciseSetsField: document.getElementById("exerciseSetsField"),
+    exerciseSets: document.getElementById("exerciseSets"),
     exerciseCalories: document.getElementById("exerciseCalories"),
     calcExerciseBtn: document.getElementById("calcExerciseBtn"),
     exerciseCalcStatus: document.getElementById("exerciseCalcStatus"),
@@ -2383,9 +2406,13 @@
     required: ["calories"]
   };
 
-  function callGeminiExerciseEstimate(apiKey, name, minutes) {
+  function callGeminiExerciseEstimate(apiKey, category, name, value) {
     var weight = parseFloat(state.personal.weight);
-    var prompt = "以下の運動による消費カロリーを推定してください。運動内容: " + name + "。時間: " + minutes + "分。" +
+    var activityText = category === "strength"
+      ? "運動内容: " + name + "（筋力トレーニング）。セット数: " + value + "セット。" +
+        "時間の指定はありませんが、1セットあたりの実施時間とセット間の休憩を一般的な目安で仮定してください。"
+      : "運動内容: " + name + "（有酸素運動）。時間: " + value + "分。";
+    var prompt = "以下の運動による消費カロリーを推定してください。" + activityText +
       (weight ? "体重: " + weight + "kg。" : "") +
       "一般的な運動強度を仮定し、妥当な範囲でよいので消費カロリー(kcal)を概算で返してください。";
     return callGeminiJSON(apiKey, [{ text: prompt }], EXERCISE_SCHEMA);
@@ -2873,10 +2900,21 @@
     el.exerciseCalcStatus.style.color = isError ? "var(--danger)" : "var(--muted)";
   }
 
+  function updateExerciseFieldVisibility() {
+    var isStrength = el.exerciseCategory.value === "strength";
+    el.exerciseMinutesField.style.display = isStrength ? "none" : "block";
+    el.exerciseSetsField.style.display = isStrength ? "block" : "none";
+  }
+
+  el.exerciseCategory.addEventListener("change", updateExerciseFieldVisibility);
+  updateExerciseFieldVisibility();
+
   el.calcExerciseBtn.addEventListener("click", function() {
     var apiKey = getGeminiKey();
     var name = el.exerciseName.value.trim();
-    var minutes = parseFloat(el.exerciseMinutes.value);
+    var category = el.exerciseCategory.value;
+    var isStrength = category === "strength";
+    var value = isStrength ? parseFloat(el.exerciseSets.value) : parseFloat(el.exerciseMinutes.value);
 
     if (!apiKey) {
       setExerciseCalcStatus("先に上の「AI写真解析の設定」でGemini APIキーを保存してください", true);
@@ -2886,15 +2924,15 @@
       setExerciseCalcStatus("運動内容を入力してください", true);
       return;
     }
-    if (!minutes || minutes <= 0) {
-      setExerciseCalcStatus("時間(分)を入力してください", true);
+    if (!value || value <= 0) {
+      setExerciseCalcStatus(isStrength ? "セット数を入力してください" : "時間(分)を入力してください", true);
       return;
     }
 
     el.calcExerciseBtn.disabled = true;
     setExerciseCalcStatus("🔄 推定中...");
 
-    callGeminiExerciseEstimate(apiKey, name, minutes).then(function(result) {
+    callGeminiExerciseEstimate(apiKey, category, name, value).then(function(result) {
       if (result.calories != null && !isNaN(result.calories)) el.exerciseCalories.value = Math.round(result.calories);
       setExerciseCalcStatus("✅ 推定結果を入力しました。内容を確認して「運動を記録」を押してください");
     }).catch(function(err) {
@@ -2908,16 +2946,20 @@
     e.preventDefault();
     var name = el.exerciseName.value.trim();
     if (!name) return;
+    var category = el.exerciseCategory.value;
     var exercise = {
       id: Date.now() + "-" + Math.random().toString(36).slice(2, 8),
       date: selectedDate,
       name: name,
-      minutes: parseFloat(el.exerciseMinutes.value) || 0,
+      category: category,
+      minutes: category === "strength" ? 0 : (parseFloat(el.exerciseMinutes.value) || 0),
+      sets: category === "strength" ? (parseFloat(el.exerciseSets.value) || 0) : 0,
       calories: parseFloat(el.exerciseCalories.value) || 0
     };
     state.exercises.push(exercise);
     saveData();
     el.exerciseForm.reset();
+    updateExerciseFieldVisibility();
     setExerciseCalcStatus("");
     resetDailyAdvice();
     resetNextMealSuggestion();
@@ -2939,9 +2981,12 @@
       return;
     }
     var html = exercises.map(function(ex) {
+      var detail = ex.category === "strength"
+        ? (ex.sets ? ex.sets + "セット" : "")
+        : (ex.minutes ? ex.minutes + "分" : "");
       return '<div class="meal-item">' +
         '<div class="info"><div class="name">' + escapeHtml(ex.name) + '</div>' +
-        (ex.minutes ? '<div class="macro">' + ex.minutes + '分</div>' : '') +
+        (detail ? '<div class="macro">' + detail + '</div>' : '') +
         '</div>' +
         '<div class="kcal">-' + ex.calories + ' kcal</div>' +
         '<button class="del" data-id="' + ex.id + '" title="削除">✕</button>' +
