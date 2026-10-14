@@ -983,6 +983,9 @@
         <h4>💾 データのバックアップ</h4>
         <p>「🤖 AI写真解析の設定」の下にある「📤 エクスポート」で、現在のプロフィールの記録・設定をJSONファイルとしてダウンロードできます。「📥 インポート」でそのファイルを選ぶと、今のプロフィールのデータをファイルの内容で復元（上書き）できます。クラウド同期を使っていない場合の保険や、機種変更時のデータ移行に活用してください。</p>
 
+        <h4>⏰ 記録のリマインド</h4>
+        <p>「データのバックアップ」の下にある「リマインドを有効にする」をオンにすると、通知の許可を求められます。許可すると、設定した時刻までにその日の食事が1件も記録されていない場合に通知でお知らせします。ブラウザ・端末の通知機能に依存するため対応状況はさまざまで、特にiPhoneはホーム画面に追加したアプリとして開いている場合のみ対応します。また、このアプリを開いている（タブを閉じていない）間しか判定されないため、完全にアプリを閉じていると届かないことがあります。</p>
+
         <h4>🧍 パーソナルデータ・目標設定</h4>
         <p>性別・年齢・身長・体重・活動レベル・目標（減量/ボディメイク/維持/増量）・変化スピードを入力して「自動計算する」を押すと、BMR/TDEEから目標カロリーとPFC（たんぱく質/脂質/炭水化物）が算出されます。「この設定を反映する」を押すと下の「目標値」に反映されます。「ボディメイク」は軽い減量相当のカロリー設定に、たんぱく質を多めにすることで、脂肪を減らしつつ筋肉を維持・増加させたい場合に向いています（「たんぱく質」欄は2.0〜2.2への変更を推奨、下の「目安を見る」も参照）。</p>
 
@@ -1238,6 +1241,19 @@
     </div>
     <input type="file" id="importDataInput" accept="application/json" style="display:none;">
     <p class="field-hint" id="backupStatus"></p>
+  </section>
+
+  <section class="card">
+    <h2>⏰ 記録のリマインド</h2>
+    <p class="field-hint">設定した時刻になっても食事の記録がない場合、通知でお知らせします。対応は端末・ブラウザにより異なり（iPhoneはホーム画面に追加したアプリとして開いている場合のみ対応）、このアプリを開いている間（バックグラウンド含む）しか判定できないため、完全に閉じている間は届かないことがあります。</p>
+    <p class="field-hint"><label><input type="checkbox" id="reminderEnabled" style="width:auto;vertical-align:middle;"> リマインドを有効にする</label></p>
+    <div class="target-form">
+      <div class="field">
+        <label>時刻</label>
+        <input type="time" id="reminderTime" value="20:00">
+      </div>
+    </div>
+    <p class="field-hint" id="reminderStatus"></p>
   </section>
   </div>
 
@@ -1797,6 +1813,9 @@
     importDataBtn: document.getElementById("importDataBtn"),
     importDataInput: document.getElementById("importDataInput"),
     backupStatus: document.getElementById("backupStatus"),
+    reminderEnabled: document.getElementById("reminderEnabled"),
+    reminderTime: document.getElementById("reminderTime"),
+    reminderStatus: document.getElementById("reminderStatus"),
     mealPhotoInput: document.getElementById("mealPhotoInput"),
     choosePhotoBtn: document.getElementById("choosePhotoBtn"),
     photoPreviewWrap: document.getElementById("photoPreviewWrap"),
@@ -2050,6 +2069,8 @@
     try { savedPage = localStorage.getItem("dietTracker.activePage"); } catch (e) {}
     switchPage(savedPage || "home");
     render();
+    initReminderUI();
+    checkReminder();
   }
 
   function calcBMR(gender, weight, height, age) {
@@ -2344,6 +2365,123 @@
       setBackupStatus("⚠️ ファイルを読み込めませんでした", true);
     };
     reader.readAsText(file);
+  });
+
+  var REMINDER_ENABLED_KEY = "dietTracker.reminderEnabled";
+  var REMINDER_TIME_KEY = "dietTracker.reminderTime";
+  var REMINDER_SHOWN_KEY = "dietTracker.reminderShownDate";
+
+  function getReminderEnabled() {
+    try { return localStorage.getItem(REMINDER_ENABLED_KEY) === "1"; } catch (e) { return false; }
+  }
+  function setReminderEnabledPref(v) {
+    try { localStorage.setItem(REMINDER_ENABLED_KEY, v ? "1" : "0"); } catch (e) {}
+  }
+  function getReminderTime() {
+    try { return localStorage.getItem(REMINDER_TIME_KEY) || "20:00"; } catch (e) { return "20:00"; }
+  }
+  function setReminderTimePref(v) {
+    try { localStorage.setItem(REMINDER_TIME_KEY, v); } catch (e) {}
+  }
+
+  function setReminderStatus(text, isError) {
+    el.reminderStatus.textContent = text || "";
+    el.reminderStatus.style.color = isError ? "var(--danger)" : "var(--muted)";
+  }
+
+  function updateReminderStatusText() {
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "denied") {
+      setReminderStatus("通知がブロックされています。端末・ブラウザの設定から許可してください", true);
+    } else if (getReminderEnabled() && Notification.permission === "granted") {
+      setReminderStatus("✅ " + getReminderTime() + "までに記録がなければ通知します");
+    } else {
+      setReminderStatus("");
+    }
+  }
+
+  function initReminderUI() {
+    if (!("Notification" in window)) {
+      el.reminderEnabled.disabled = true;
+      el.reminderTime.disabled = true;
+      setReminderStatus("この端末・ブラウザは通知に対応していません", true);
+      return;
+    }
+    el.reminderTime.value = getReminderTime();
+    el.reminderEnabled.checked = getReminderEnabled() && Notification.permission === "granted";
+    updateReminderStatusText();
+  }
+
+  el.reminderEnabled.addEventListener("change", function() {
+    if (!el.reminderEnabled.checked) {
+      setReminderEnabledPref(false);
+      updateReminderStatusText();
+      return;
+    }
+    if (Notification.permission === "granted") {
+      setReminderEnabledPref(true);
+      updateReminderStatusText();
+    } else if (Notification.permission === "denied") {
+      el.reminderEnabled.checked = false;
+      setReminderStatus("通知がブロックされています。端末・ブラウザの設定から許可してください", true);
+    } else {
+      Notification.requestPermission().then(function(perm) {
+        if (perm === "granted") {
+          setReminderEnabledPref(true);
+          el.reminderEnabled.checked = true;
+        } else {
+          setReminderEnabledPref(false);
+          el.reminderEnabled.checked = false;
+        }
+        updateReminderStatusText();
+      });
+    }
+  });
+
+  el.reminderTime.addEventListener("change", function() {
+    setReminderTimePref(el.reminderTime.value || "20:00");
+    updateReminderStatusText();
+  });
+
+  function checkReminder() {
+    if (!("Notification" in window)) return;
+    if (!getReminderEnabled() || Notification.permission !== "granted") return;
+
+    var todayKey = todayStr();
+    var shownDate = null;
+    try { shownDate = localStorage.getItem(REMINDER_SHOWN_KEY); } catch (e) {}
+    if (shownDate === todayKey) return;
+
+    var parts = getReminderTime().split(":");
+    var targetHour = parseInt(parts[0], 10);
+    var targetMinute = parseInt(parts[1], 10);
+    if (isNaN(targetHour) || isNaN(targetMinute)) return;
+
+    var now = new Date();
+    var nowMinutesOfDay = now.getHours() * 60 + now.getMinutes();
+    if (nowMinutesOfDay < targetHour * 60 + targetMinute) return;
+
+    var todaysMeals = state.meals.filter(function(m) { return m.date === todayKey; });
+    if (todaysMeals.length > 0) return;
+
+    try { localStorage.setItem(REMINDER_SHOWN_KEY, todayKey); } catch (e) {}
+
+    var title = "🥗 ダイエット食事管理";
+    var body = "今日はまだ食事が記録されていません。記録をお忘れなく！";
+    if (navigator.serviceWorker) {
+      navigator.serviceWorker.ready.then(function(reg) {
+        reg.showNotification(title, { body: body, icon: "icons/icon-192.png", badge: "icons/icon-192.png" });
+      }).catch(function() {
+        try { new Notification(title, { body: body, icon: "icons/icon-192.png" }); } catch (e) {}
+      });
+    } else {
+      try { new Notification(title, { body: body, icon: "icons/icon-192.png" }); } catch (e) {}
+    }
+  }
+
+  setInterval(checkReminder, 60000);
+  document.addEventListener("visibilitychange", function() {
+    if (!document.hidden) checkReminder();
   });
 
   function resetPhotoState() {
