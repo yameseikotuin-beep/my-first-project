@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0f766e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="姿勢分析">
+<title>AI姿勢分析アプリ</title>
+<style>
+  :root{
+    --bg:#f4f6f8;
+    --panel:#ffffff;
+    --text:#1f2937;
+    --muted:#6b7280;
+    --border:#e2e8f0;
+    --accent:#0f766e;
+    --accent-dark:#115e59;
+    --accent-bg:#f0fdfa;
+    --good:#16a34a;
+    --caution:#ca8a04;
+    --bad:#dc2626;
+    --good-bg:#ecfdf3;
+    --caution-bg:#fefce8;
+    --bad-bg:#fef2f2;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:"Hiragino Sans","Yu Gothic",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    line-height:1.6;
+    padding-bottom:60px;
+    overflow-x:hidden;
+    -webkit-tap-highlight-color:transparent;
+  }
+  header{
+    background:linear-gradient(135deg,#115e59,#0f766e);
+    color:#fff;
+    padding:28px 20px 24px;
+    text-align:center;
+  }
+  header h1{margin:0 0 6px;font-size:1.5rem;}
+  header p{margin:0;opacity:.9;font-size:.9rem;}
+  main{
+    max-width:880px;
+    margin:20px auto;
+    padding:0 16px;
+    display:flex;
+    flex-direction:column;
+    gap:20px;
+  }
+  section.panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:20px;
+  }
+  h2{margin:0 0 12px;font-size:1.15rem;}
+  h3{margin:0 0 8px;font-size:1rem;}
+  .muted{color:var(--muted);font-size:.85rem;}
+  button{
+    font:inherit;
+    border:1px solid var(--accent);
+    background:var(--accent);
+    color:#fff;
+    border-radius:8px;
+    padding:9px 14px;
+    cursor:pointer;
+    font-size:.92rem;
+  }
+  button:hover{background:var(--accent-dark);}
+  button.secondary{background:#fff;color:var(--accent);}
+  button.secondary:hover{background:var(--accent-bg);}
+  button.danger{background:#fff;color:var(--bad);border-color:var(--bad);}
+  button.danger:hover{background:var(--bad-bg);}
+  button:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-row{display:flex;gap:8px;flex-wrap:wrap;}
+
+  details.guide summary{cursor:pointer;font-weight:bold;}
+  details.guide ul{margin:10px 0 0;padding-left:1.3em;}
+  details.guide li{margin-bottom:4px;}
+
+  .views{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media (max-width:640px){.views{grid-template-columns:1fr;}}
+  .view-card{
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:14px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .view-card h3{display:flex;justify-content:space-between;align-items:center;}
+  .view-status{font-size:.78rem;font-weight:normal;color:var(--muted);}
+  .canvas-wrap{
+    position:relative;
+    background:#f1f5f9;
+    border:2px dashed #cbd5e1;
+    border-radius:8px;
+    min-height:260px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+  }
+  .canvas-wrap.has-image{border-style:solid;border-color:var(--border);background:#0f172a;}
+  .canvas-wrap canvas{display:none;max-width:100%;max-height:520px;}
+  .canvas-wrap.has-image canvas{display:block;}
+  .canvas-wrap.has-image .placeholder{display:none;}
+  .placeholder{text-align:center;color:var(--muted);font-size:.85rem;padding:16px;}
+  .placeholder .figure{font-size:2.6rem;line-height:1;margin-bottom:6px;}
+  .warn{
+    background:var(--caution-bg);
+    border:1px solid #fde68a;
+    color:#854d0e;
+    border-radius:8px;
+    padding:8px 10px;
+    font-size:.83rem;
+  }
+  .hidden{display:none !important;}
+
+  #status-bar{
+    font-size:.85rem;
+    padding:8px 12px;
+    border-radius:8px;
+    background:var(--accent-bg);
+    color:var(--accent-dark);
+  }
+  #status-bar.error{background:var(--bad-bg);color:var(--bad);}
+
+  .score-head{display:flex;gap:20px;align-items:center;flex-wrap:wrap;margin-bottom:16px;}
+  .score-ring{position:relative;width:120px;height:120px;flex-shrink:0;}
+  .score-ring svg{transform:rotate(-90deg);}
+  .score-ring .num{
+    position:absolute;inset:0;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+  }
+  .score-ring .num strong{font-size:2rem;line-height:1;}
+  .score-ring .num span{font-size:.75rem;color:var(--muted);}
+  .score-summary{flex:1;min-width:200px;}
+  .score-summary p{margin:4px 0;}
+
+  .metrics{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media (max-width:640px){.metrics{grid-template-columns:1fr;}}
+  .metric{
+    border:1px solid var(--border);
+    border-left:5px solid var(--good);
+    border-radius:8px;
+    padding:12px 14px;
+  }
+  .metric.caution{border-left-color:var(--caution);}
+  .metric.bad{border-left-color:var(--bad);}
+  .metric .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
+  .metric .name{font-weight:bold;}
+  .metric .view-tag{font-size:.72rem;color:var(--muted);margin-left:4px;font-weight:normal;}
+  .metric .value{font-size:1.25rem;font-weight:bold;white-space:nowrap;}
+  .badge{
+    display:inline-block;
+    font-size:.75rem;
+    padding:1px 8px;
+    border-radius:999px;
+    font-weight:bold;
+  }
+  .badge.good{background:var(--good-bg);color:var(--good);}
+  .badge.caution{background:var(--caution-bg);color:var(--caution);}
+  .badge.bad{background:var(--bad-bg);color:var(--bad);}
+  .metric .desc{font-size:.88rem;margin:6px 0 0;}
+  .metric .diff{font-size:.8rem;color:var(--muted);margin-top:4px;}
+  .metric .diff .better{color:var(--good);font-weight:bold;}
+  .metric .diff .worse{color:var(--bad);font-weight:bold;}
+  .metric .advice{
+    margin-top:8px;
+    background:var(--accent-bg);
+    border-radius:6px;
+    padding:8px 10px;
+    font-size:.84rem;
+  }
+  .metric .advice b{color:var(--accent-dark);}
+
+  .save-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;align-items:center;}
+  .save-row input{
+    flex:1;min-width:160px;
+    font:inherit;font-size:.92rem;
+    padding:8px 10px;border:1px solid var(--border);border-radius:8px;
+  }
+
+  .trend{width:100%;height:auto;display:block;margin-bottom:12px;}
+  .history-list{display:flex;flex-direction:column;gap:10px;}
+  .history-item{
+    display:flex;gap:12px;align-items:center;
+    border:1px solid var(--border);border-radius:8px;padding:10px;
+  }
+  .history-item img{width:56px;height:74px;object-fit:cover;border-radius:4px;background:#0f172a;}
+  .history-item .info{flex:1;min-width:0;}
+  .history-item .info .date{font-weight:bold;font-size:.9rem;}
+  .history-item .info .memo{font-size:.82rem;color:var(--muted);overflow-wrap:anywhere;}
+  .history-item .info .chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;}
+  .history-item .hscore{font-size:1.4rem;font-weight:bold;min-width:48px;text-align:center;}
+  .history-item button{padding:5px 10px;font-size:.8rem;}
+
+  /* カメラ撮影 */
+  #camera-modal{
+    position:fixed;inset:0;
+    background:rgba(15,23,42,.92);
+    z-index:100;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:12px;
+    gap:10px;
+  }
+  .cam-stage{position:relative;max-width:100%;max-height:72vh;}
+  .cam-stage video{display:block;max-width:100%;max-height:72vh;border-radius:8px;background:#000;}
+  .cam-stage video.mirror{transform:scaleX(-1);}
+  .cam-guide{position:absolute;inset:0;pointer-events:none;}
+  .cam-guide .vline{position:absolute;left:50%;top:4%;bottom:4%;border-left:2px dashed rgba(255,255,255,.6);}
+  .cam-guide .hline{position:absolute;left:10%;right:10%;border-top:2px dashed rgba(94,234,212,.7);}
+  .cam-guide .hline.top{top:5%;}
+  .cam-guide .hline.bottom{bottom:5%;}
+  #countdown{
+    position:absolute;inset:0;
+    display:flex;align-items:center;justify-content:center;
+    font-size:5rem;font-weight:bold;color:#fff;
+    text-shadow:0 2px 12px rgba(0,0,0,.7);
+    pointer-events:none;
+  }
+  .cam-controls{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center;color:#fff;font-size:.88rem;}
+  .cam-controls select{font:inherit;padding:6px;border-radius:6px;}
+  .cam-hint{color:#cbd5e1;font-size:.82rem;text-align:center;}
+
+  footer{max-width:880px;margin:0 auto;padding:0 16px;}
+  footer p{font-size:.78rem;color:var(--muted);}
+</style>
+</head>
+<body>
+<header>
+  <h1>AI姿勢分析</h1>
+  <p>正面と横からの全身写真で、姿勢の傾きやゆがみをチェックします</p>
+</header>
+
+<main>
+  <section class="panel">
+    <details class="guide" open>
+      <summary>上手に撮影するコツ</summary>
+      <ul>
+        <li>頭から足先まで全身が写るように、カメラを<b>腰の高さ</b>に置いて2〜3m離れて撮影します。</li>
+        <li>体のラインがわかる服装で、髪が長い場合は耳が見えるようにまとめます。</li>
+        <li><b>正面</b>：カメラに向かってまっすぐ立ち、両足を腰幅程度に開いて腕は自然に下ろします。</li>
+        <li><b>横</b>：体の真横をカメラに向け、正面を見て普段どおりに立ちます（力を入れて姿勢を正さない）。</li>
+        <li>カメラを傾けず、背景はなるべく無地にすると精度が上がります。</li>
+        <li>写真は端末内のブラウザだけで解析され、外部に送信されません。</li>
+      </ul>
+    </details>
+  </section>
+
+  <section class="panel">
+    <h2>1. 写真を用意する</h2>
+    <div id="status-bar">写真を選ぶと、AIモデル（約10MB）を読み込んで解析します。</div>
+    <div class="views" style="margin-top:14px;">
+      <div class="view-card" data-view="front">
+        <h3>正面 <span class="view-status" id="front-status">未選択</span></h3>
+        <div class="canvas-wrap" id="front-wrap">
+          <div class="placeholder"><div class="figure">🧍</div>カメラに向かって<br>まっすぐ立った全身写真</div>
+          <canvas id="front-canvas"></canvas>
+        </div>
+        <div class="warn hidden" id="front-warn"></div>
+        <div class="btn-row">
+          <button type="button" data-action="pick" data-view="front">写真を選ぶ</button>
+          <button type="button" class="secondary" data-action="camera" data-view="front">カメラで撮る</button>
+          <button type="button" class="secondary hidden" data-action="clear" data-view="front">削除</button>
+        </div>
+        <input type="file" accept="image/*" id="front-file" class="hidden">
+      </div>
+      <div class="view-card" data-view="side">
+        <h3>横 <span class="view-status" id="side-status">未選択</span></h3>
+        <div class="canvas-wrap" id="side-wrap">
+          <div class="placeholder"><div class="figure">🚶</div>体の真横をカメラに向けた<br>全身写真（左右どちらでも可）</div>
+          <canvas id="side-canvas"></canvas>
+        </div>
+        <div class="warn hidden" id="side-warn"></div>
+        <div class="btn-row">
+          <button type="button" data-action="pick" data-view="side">写真を選ぶ</button>
+          <button type="button" class="secondary" data-action="camera" data-view="side">カメラで撮る</button>
+          <button type="button" class="secondary hidden" data-action="clear" data-view="side">削除</button>
+        </div>
+        <input type="file" accept="image/*" id="side-file" class="hidden">
+      </div>
+    </div>
+  </section>
+
+  <section class="panel hidden" id="result-panel">
+    <h2>2. 分析結果</h2>
+    <div class="score-head">
+      <div class="score-ring">
+        <svg width="120" height="120" viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="52" fill="none" stroke="#e2e8f0" stroke-width="12"/>
+          <circle id="score-arc" cx="60" cy="60" r="52" fill="none" stroke="#16a34a" stroke-width="12"
+                  stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="326.7"/>
+        </svg>
+        <div class="num"><strong id="score-num">--</strong><span>/ 100点</span></div>
+      </div>
+      <div class="score-summary" id="score-summary"></div>
+    </div>
+    <div class="metrics" id="metrics"></div>
+    <div class="save-row">
+      <input type="text" id="memo" maxlength="60" placeholder="メモ（名前・体調など 任意）">
+      <button type="button" id="save-btn">この結果を記録する</button>
+    </div>
+    <p class="muted" id="save-msg"></p>
+  </section>
+
+  <section class="panel" id="history-panel">
+    <h2>3. 記録の推移</h2>
+    <div id="history-empty" class="muted">まだ記録がありません。分析結果を記録すると、ここにスコアの推移が表示されます。</div>
+    <svg class="trend hidden" id="trend" viewBox="0 0 600 180" role="img" aria-label="姿勢スコアの推移"></svg>
+    <div class="history-list" id="history-list"></div>
+    <div class="btn-row hidden" id="history-actions" style="margin-top:12px;">
+      <button type="button" class="danger" id="clear-history">すべての記録を削除</button>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>※ このアプリの結果は1枚の写真から推定した目安です。服装・撮影角度・カメラとの距離で数値は変わります。医療的な診断ではありません。痛みやしびれがある場合は医療機関にご相談ください。</p>
+  <p>※ 記録はこのブラウザ内（localStorage）にのみ保存されます。</p>
+</footer>
+
+<div id="camera-modal" class="hidden">
+  <div class="cam-stage">
+    <video id="cam-video" playsinline muted></video>
+    <div class="cam-guide">
+      <div class="hline top"></div>
+      <div class="vline"></div>
+      <div class="hline bottom"></div>
+    </div>
+    <div id="countdown"></div>
+  </div>
+  <div class="cam-hint" id="cam-hint">頭が上の線、足先が下の線の内側に入るように立ってください</div>
+  <div class="cam-controls">
+    <label>タイマー
+      <select id="cam-timer">
+        <option value="0">なし</option>
+        <option value="5">5秒</option>
+        <option value="10" selected>10秒</option>
+      </select>
+    </label>
+    <button type="button" class="secondary" id="cam-switch">カメラ切替</button>
+    <button type="button" id="cam-shoot">撮影</button>
+    <button type="button" class="danger" id="cam-close">閉じる</button>
+  </div>
+</div>
+
+<script type="module">
+const VISION_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
+const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task';
+const HISTORY_KEY = 'postureHistory';
+const HISTORY_MAX = 30;
+const MAX_IMAGE_SIDE = 1280;
+
+// MediaPipe Pose のランドマーク番号（左右は写っている本人から見た左右）
+const LM = {
+  NOSE: 0, L_EAR: 7, R_EAR: 8,
+  L_SHOULDER: 11, R_SHOULDER: 12,
+  L_HIP: 23, R_HIP: 24,
+  L_KNEE: 25, R_KNEE: 26,
+  L_ANKLE: 27, R_ANKLE: 28,
+  L_HEEL: 29, R_HEEL: 30,
+  L_FOOT: 31, R_FOOT: 32,
+};
+const SKELETON = [
+  [11,12],[11,13],[13,15],[12,14],[14,16],
+  [11,23],[12,24],[23,24],
+  [23,25],[25,27],[24,26],[26,28],
+  [27,29],[29,31],[27,31],[28,30],[30,32],[28,32],
+  [7,11],[8,12],
+];
+
+const STATUS_LABEL = { good: '良好', caution: '注意', bad: '要改善' };
+const STATUS_COLOR = { good: '#16a34a', caution: '#ca8a04', bad: '#dc2626' };
+
+// 判定基準：value（絶対値）が good 以下なら良好、bad 以上なら要改善
+const METRIC_DEFS = {
+  headTilt: {
+    name: '頭の傾き', view: 'front', unit: '°', good: 2, bad: 5,
+    advice: '<b>首の横ストレッチ</b>：高い側と反対の手で頭を持ち、ゆっくり横に倒して20秒キープ。スマホや頬杖の癖も見直しましょう。',
+  },
+  shoulderTilt: {
+    name: '肩の高さの差', view: 'front', unit: '°', good: 2, bad: 4,
+    advice: '<b>肩すくめ運動</b>：両肩を耳に近づけて5秒、ストンと脱力×10回。カバンをいつも同じ側で持っていないか確認しましょう。',
+  },
+  pelvisTilt: {
+    name: '骨盤の高さの差', view: 'front', unit: '°', good: 2, bad: 4,
+    advice: '<b>お尻・腰の横ストレッチ</b>：仰向けで片膝を反対側に倒して腰をひねり20秒×左右。脚を組む・片足重心の癖に注意しましょう。',
+  },
+  kneeAlign: {
+    name: '膝のライン（O脚・X脚）', view: 'front', unit: '°', good: 4, bad: 8,
+    advice: '<b>内もも・お尻の筋トレ</b>：O脚傾向はクッションを膝で挟むスクワット、X脚傾向は横向きで脚を開くクラムシェル運動を10回×2セット。',
+  },
+  forwardHead: {
+    name: '頭の前方突出（ストレートネック）', view: 'side', unit: '°', good: 10, bad: 20,
+    advice: '<b>あご引き運動</b>：壁に背中をつけ、あごを水平に引いて後頭部を壁に近づけ5秒×10回。画面を目の高さに上げましょう。',
+  },
+  trunkLean: {
+    name: '上半身の傾き（猫背・反り腰）', view: 'side', unit: '°', good: 5, bad: 12,
+    advice: '<b>胸を開くストレッチ</b>：ドア枠に両腕をかけて胸を前に出し20秒。反り腰傾向の場合は、膝立ちで股関節前側を伸ばすストレッチも効果的です。',
+  },
+  kneeSide: {
+    name: '膝の伸び具合', view: 'side', unit: '°', good: 5, bad: 10,
+    advice: '<b>膝の軽いゆるめ</b>：反張膝（膝が後ろに反る）傾向は、立つときに膝を少しだけゆるめる意識を。膝が曲がる傾向は、太もも裏のストレッチを行いましょう。',
+  },
+};
+
+// ---------- 状態 ----------
+const state = {
+  front: null, // { canvas(元画像), landmarks(px), metrics, warnings }
+  side: null,
+};
+let poseLandmarker = null;
+let modelPromise = null;
+
+const $ = (id) => document.getElementById(id);
+const statusBar = $('status-bar');
+
+function setStatus(msg, isError = false) {
+  statusBar.textContent = msg;
+  statusBar.classList.toggle('error', isError);
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// ---------- モデル読み込み ----------
+async function ensureModel() {
+  if (poseLandmarker) return poseLandmarker;
+  if (!modelPromise) {
+    modelPromise = (async () => {
+      setStatus('AIモデルを読み込んでいます…（初回は少し時間がかかります）');
+      const { PoseLandmarker, FilesetResolver } = await import(`${VISION_URL}/vision_bundle.mjs`);
+      const fileset = await FilesetResolver.forVisionTasks(`${VISION_URL}/wasm`);
+      const create = (delegate) => PoseLandmarker.createFromOptions(fileset, {
+        baseOptions: { modelAssetPath: MODEL_URL, delegate },
+        runningMode: 'IMAGE',
+        numPoses: 1,
+        minPoseDetectionConfidence: 0.5,
+        minPosePresenceConfidence: 0.5,
+      });
+      try {
+        poseLandmarker = await create('GPU');
+      } catch (e) {
+        console.warn('GPU delegate failed, falling back to CPU', e);
+        poseLandmarker = await create('CPU');
+      }
+      return poseLandmarker;
+    })().catch((e) => {
+      modelPromise = null;
+      throw e;
+    });
+  }
+  return modelPromise;
+}
+
+// ---------- 画像読み込み ----------
+function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('画像を読み込めませんでした')); };
+    img.src = url;
+  });
+}
+
+// 解析・表示用に長辺を MAX_IMAGE_SIDE 以下へ縮小したキャンバスを作る
+function toScaledCanvas(source, srcW, srcH) {
+  const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(srcW, srcH));
+  const c = document.createElement('canvas');
+  c.width = Math.round(srcW * scale);
+  c.height = Math.round(srcH * scale);
+  c.getContext('2d').drawImage(source, 0, 0, c.width, c.height);
+  return c;
+}
+
+async function analyzeView(view, source, srcW, srcH) {
+  const canvas = toScaledCanvas(source, srcW, srcH);
+  $(`${view}-status`).textContent = '解析中…';
+  showWarn(view, '');
+  drawView(view, canvas, null, null);
+  try {
+    const landmarker = await ensureModel();
+    setStatus('姿勢を解析しています…');
+    const result = landmarker.detect(canvas);
+    const raw = result.landmarks && result.landmarks[0];
+    if (!raw) {
+      state[view] = { canvas, landmarks: null, metrics: {}, warnings: ['人物を検出できませんでした。全身がはっきり写った写真を使ってください。'] };
+    } else {
+      const lm = raw.map((p) => ({ x: p.x * canvas.width, y: p.y * canvas.height, v: p.visibility ?? 1 }));
+      const { metrics, warnings, overlay } = view === 'front' ? analyzeFront(lm) : analyzeSide(lm);
+      state[view] = { canvas, landmarks: lm, metrics, warnings, overlay };
+    }
+    setStatus('解析が完了しました。');
+  } catch (e) {
+    console.error(e);
+    state[view] = null;
+    setStatus('AIモデルを読み込めませんでした。インターネット接続を確認して、もう一度写真を選んでください。', true);
+    $(`${view}-status`).textContent = 'エラー';
+    return;
+  }
+  const s = state[view];
+  drawView(view, s.canvas, s.landmarks, s.overlay);
+  showWarn(view, s.warnings.join('\n'));
+  $(`${view}-status`).textContent = s.landmarks ? '解析済み' : '検出できず';
+  renderResults();
+}
+
+function showWarn(view, text) {
+  const el = $(`${view}-warn`);
+  el.textContent = text;
+  el.style.whiteSpace = 'pre-line';
+  el.classList.toggle('hidden', !text);
+}
+
+// ---------- 計算ユーティリティ ----------
+const deg = (rad) => rad * 180 / Math.PI;
+const round1 = (v) => Math.round(v * 10) / 10;
+
+// 2点を結ぶ線の水平からの傾き（0〜90°）
+function tiltFromHorizontal(a, b) {
+  return deg(Math.atan2(Math.abs(b.y - a.y), Math.abs(b.x - a.x)));
+}
+
+// 点 K が 線分 H-A からどれだけ横にずれているかを角度で返す（膝の屈曲角 180-∠HKA）
+function kneeDeviation(H, K, A) {
+  const v1 = { x: H.x - K.x, y: H.y - K.y };
+  const v2 = { x: A.x - K.x, y: A.y - K.y };
+  const cos = (v1.x * v2.x + v1.y * v2.y) / (Math.hypot(v1.x, v1.y) * Math.hypot(v2.x, v2.y));
+  const angle = deg(Math.acos(Math.max(-1, Math.min(1, cos))));
+  // 膝の高さでの H-A 線上の x 座標との差（符号付き）
+  const t = (K.y - H.y) / ((A.y - H.y) || 1e-6);
+  const lineX = H.x + (A.x - H.x) * t;
+  return { dev: 180 - angle, offsetX: K.x - lineX };
+}
+
+function makeMetric(key, value, detail) {
+  const def = METRIC_DEFS[key];
+  const abs = Math.abs(value);
+  let status = 'good';
+  if (abs >= def.bad) status = 'bad';
+  else if (abs > def.good) status = 'caution';
+  return { key, value: round1(abs), status, detail, score: metricScore(abs, def) };
+}
+
+// 良好域は100点、注意域で100→60点、要改善域で60→0点
+function metricScore(v, def) {
+  if (v <= def.good) return 100;
+  if (v <= def.bad) return 100 - 40 * (v - def.good) / (def.bad - def.good);
+  return Math.max(0, 60 - 60 * (v - def.bad) / def.bad);
+}
+
+const avgVis = (lm, ids) => ids.reduce((s, i) => s + lm[i].v, 0) / ids.length;
+const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+
+// ---------- 正面の分析 ----------
+function analyzeFront(lm) {
+  const warnings = [];
+  const metrics = {};
+  const overlay = { lines: [] };
+  const sL = lm[LM.L_SHOULDER], sR = lm[LM.R_SHOULDER];
+  const hL = lm[LM.L_HIP], hR = lm[LM.R_HIP];
+  const torso = Math.hypot(mid(sL, sR).x - mid(hL, hR).x, mid(sL, sR).y - mid(hL, hR).y);
+
+  if (Math.abs(sL.x - sR.x) / torso < 0.35) {
+    warnings.push('肩幅が狭く写っています。正面を向いた写真か確認してください。');
+  }
+  if (avgVis(lm, [LM.L_ANKLE, LM.R_ANKLE]) < 0.5) {
+    warnings.push('足首がはっきり写っていません。足先まで全身が入るように撮影してください。');
+  }
+
+  // 本人の右側（R）が下がっているか。画像の y は下向きが正。
+  const lowerSide = (r, l) => (r.y > l.y ? '右' : '左');
+
+  const eL = lm[LM.L_EAR], eR = lm[LM.R_EAR];
+  if (avgVis(lm, [LM.L_EAR, LM.R_EAR]) > 0.4) {
+    const v = tiltFromHorizontal(eL, eR);
+    const m = makeMetric('headTilt', v);
+    m.detail = m.status === 'good' ? '頭はほぼまっすぐです。' : `頭が${lowerSide(eR, eL)}に傾いています。`;
+    metrics.headTilt = m;
+    overlay.lines.push({ a: eR, b: eL, status: m.status, horizontal: true });
+  }
+
+  {
+    const m = makeMetric('shoulderTilt', tiltFromHorizontal(sL, sR));
+    m.detail = m.status === 'good' ? '左右の肩の高さはそろっています。' : `${lowerSide(sR, sL)}肩が下がっています。`;
+    metrics.shoulderTilt = m;
+    overlay.lines.push({ a: sR, b: sL, status: m.status, horizontal: true });
+  }
+
+  {
+    const m = makeMetric('pelvisTilt', tiltFromHorizontal(hL, hR));
+    m.detail = m.status === 'good' ? '骨盤の高さはそろっています。' : `${lowerSide(hR, hL)}側の骨盤が下がっています。`;
+    metrics.pelvisTilt = m;
+    overlay.lines.push({ a: hR, b: hL, status: m.status, horizontal: true });
+  }
+
+  if (avgVis(lm, [LM.L_KNEE, LM.R_KNEE, LM.L_ANKLE, LM.R_ANKLE]) > 0.5) {
+    const midX = (hL.x + hR.x) / 2;
+    const legs = [
+      { side: '右', H: hR, K: lm[LM.R_KNEE], A: lm[LM.R_ANKLE] },
+      { side: '左', H: hL, K: lm[LM.L_KNEE], A: lm[LM.L_ANKLE] },
+    ].map((leg) => {
+      const { dev, offsetX } = kneeDeviation(leg.H, leg.K, leg.A);
+      // 膝が体の外側へずれていれば O脚傾向、内側なら X脚傾向
+      const outward = Math.sign(offsetX) === Math.sign(leg.H.x - midX);
+      return { ...leg, dev, signed: outward ? dev : -dev };
+    });
+    const avgSigned = (legs[0].signed + legs[1].signed) / 2;
+    const worst = legs.reduce((a, b) => (b.dev > a.dev ? b : a));
+    const m = makeMetric('kneeAlign', worst.dev);
+    if (m.status === 'good') m.detail = '膝はまっすぐのラインです。';
+    else m.detail = `${avgSigned >= 0 ? 'O脚' : 'X脚'}傾向があります（右 ${round1(legs[0].dev)}° / 左 ${round1(legs[1].dev)}°）。`;
+    metrics.kneeAlign = m;
+    legs.forEach((leg) => overlay.lines.push({ a: leg.H, b: leg.A, status: m.status, dashed: true }));
+  }
+
+  return { metrics, warnings, overlay };
+}
+
+// ---------- 横の分析 ----------
+function analyzeSide(lm) {
+  const warnings = [];
+  const metrics = {};
+  const overlay = { lines: [] };
+
+  // カメラに近い（よく見えている）側のランドマークを使う
+  const leftIds = [LM.L_EAR, LM.L_SHOULDER, LM.L_HIP, LM.L_KNEE, LM.L_ANKLE];
+  const rightIds = [LM.R_EAR, LM.R_SHOULDER, LM.R_HIP, LM.R_KNEE, LM.R_ANKLE];
+  const useLeft = avgVis(lm, leftIds) >= avgVis(lm, rightIds);
+  const [ear, sh, hip, knee, ankle] = (useLeft ? leftIds : rightIds).map((i) => lm[i]);
+  const foot = lm[useLeft ? LM.L_FOOT : LM.R_FOOT];
+  const heel = lm[useLeft ? LM.L_HEEL : LM.R_HEEL];
+
+  const torso = Math.hypot(sh.x - hip.x, sh.y - hip.y);
+  if (Math.abs(lm[LM.L_SHOULDER].x - lm[LM.R_SHOULDER].x) / torso > 0.45) {
+    warnings.push('肩幅が広く写っています。体の真横をカメラに向けた写真か確認してください。');
+  }
+  if (Math.min(ankle.v, knee.v) < 0.5) {
+    warnings.push('足首や膝がはっきり写っていません。全身が入るように撮影してください。');
+  }
+
+  // 顔の向き（+1: 画像の右向き、-1: 左向き）。つま先の向きを優先し、なければ鼻で判定。
+  let facing = Math.sign(foot.x - heel.x);
+  if (!facing || Math.abs(foot.x - heel.x) < torso * 0.05) facing = Math.sign(lm[LM.NOSE].x - ear.x) || 1;
+
+  // 前方を正とした、下の点から上の点へのベクトルの鉛直からの角度
+  const leanAngle = (lower, upper) => deg(Math.atan2(facing * (upper.x - lower.x), lower.y - upper.y));
+
+  {
+    const v = leanAngle(sh, ear);
+    const m = makeMetric('forwardHead', v);
+    if (m.status === 'good') m.detail = '耳が肩のほぼ真上にあります。';
+    else m.detail = v > 0 ? '頭が肩より前に出ています（ストレートネック傾向）。' : '頭が後ろに引けています。';
+    metrics.forwardHead = m;
+    overlay.lines.push({ a: sh, b: ear, status: m.status });
+  }
+
+  {
+    const v = leanAngle(hip, sh);
+    const m = makeMetric('trunkLean', v);
+    if (m.status === 'good') m.detail = '肩が骨盤のほぼ真上にあります。';
+    else m.detail = v > 0 ? '上半身が前に倒れています（猫背・前かがみ傾向）。' : '上半身が後ろに反っています（反り腰・スウェイバック傾向）。';
+    metrics.trunkLean = m;
+    overlay.lines.push({ a: hip, b: sh, status: m.status });
+  }
+
+  if (Math.min(knee.v, ankle.v, hip.v) > 0.5) {
+    const { dev, offsetX } = kneeDeviation(hip, knee, ankle);
+    // 膝が前に出ていれば曲がっている、後ろなら反張膝
+    const bent = Math.sign(offsetX) === facing;
+    const m = makeMetric('kneeSide', dev);
+    if (m.status === 'good') m.detail = '膝は自然に伸びています。';
+    else m.detail = bent ? '膝が曲がった状態で立っています。' : '膝が後ろに反っています（反張膝傾向）。';
+    metrics.kneeSide = m;
+    overlay.lines.push({ a: hip, b: knee, status: m.status }, { a: knee, b: ankle, status: m.status });
+  }
+
+  // 重心線（くるぶしからの垂直線）
+  overlay.plumbX = ankle.x;
+  overlay.points = [ear, sh, hip, knee, ankle];
+  return { metrics, warnings, overlay };
+}
+
+// ---------- 描画 ----------
+function drawView(view, src, lm, overlay) {
+  const canvas = $(`${view}-canvas`);
+  canvas.width = src.width;
+  canvas.height = src.height;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(src, 0, 0);
+  $(`${view}-wrap`).classList.add('has-image');
+  document.querySelector(`[data-action="clear"][data-view="${view}"]`).classList.remove('hidden');
+  if (!lm) return;
+
+  const lw = Math.max(2, src.width / 300);
+  ctx.lineCap = 'round';
+
+  // 骨格
+  ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+  ctx.lineWidth = lw;
+  for (const [a, b] of SKELETON) {
+    if (lm[a].v < 0.3 || lm[b].v < 0.3) continue;
+    ctx.beginPath();
+    ctx.moveTo(lm[a].x, lm[a].y);
+    ctx.lineTo(lm[b].x, lm[b].y);
+    ctx.stroke();
+  }
+
+  if (overlay?.plumbX != null) {
+    ctx.save();
+    ctx.setLineDash([lw * 4, lw * 3]);
+    ctx.strokeStyle = 'rgba(94,234,212,0.9)';
+    ctx.lineWidth = lw;
+    ctx.beginPath();
+    ctx.moveTo(overlay.plumbX, 0);
+    ctx.lineTo(overlay.plumbX, src.height);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  for (const line of overlay?.lines || []) {
+    ctx.save();
+    ctx.strokeStyle = STATUS_COLOR[line.status];
+    ctx.lineWidth = lw * 1.8;
+    if (line.dashed) ctx.setLineDash([lw * 3, lw * 3]);
+    let { a, b } = line;
+    if (line.horizontal) {
+      // 傾きがわかるよう少し延長し、水平の基準線も添える
+      const ext = 0.25;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      a = { x: a.x - dx * ext, y: a.y - dy * ext };
+      b = { x: b.x + dx * ext, y: b.y + dy * ext };
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+      ctx.setLineDash([lw * 2, lw * 2]);
+      ctx.lineWidth = lw;
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+      const cy = (a.y + b.y) / 2;
+      ctx.beginPath();
+      ctx.moveTo(a.x, cy);
+      ctx.lineTo(b.x, cy);
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  ctx.fillStyle = '#5eead4';
+  const pts = overlay?.points || lm.filter((p, i) => i >= 7 && p.v >= 0.3 && ![17,18,19,20,21,22].includes(i));
+  for (const p of pts) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, lw * 1.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// ---------- 結果表示 ----------
+function currentMetrics() {
+  return { ...(state.front?.metrics || {}), ...(state.side?.metrics || {}) };
+}
+
+function totalScore(metrics) {
+  const list = Object.values(metrics);
+  if (!list.length) return null;
+  return Math.round(list.reduce((s, m) => s + m.score, 0) / list.length);
+}
+
+function renderResults() {
+  const metrics = currentMetrics();
+  const keys = Object.keys(METRIC_DEFS).filter((k) => metrics[k]);
+  const panel = $('result-panel');
+  if (!keys.length) { panel.classList.add('hidden'); return; }
+  panel.classList.remove('hidden');
+
+  const score = totalScore(metrics);
+  const color = score >= 80 ? STATUS_COLOR.good : score >= 60 ? STATUS_COLOR.caution : STATUS_COLOR.bad;
+  const arc = $('score-arc');
+  arc.style.stroke = color;
+  arc.style.strokeDashoffset = String(326.7 * (1 - score / 100));
+  $('score-num').textContent = score;
+  $('score-num').style.color = color;
+
+  const counts = { good: 0, caution: 0, bad: 0 };
+  keys.forEach((k) => counts[metrics[k].status]++);
+  const prev = loadHistory()[0];
+  let summary = `<p><b>${score >= 80 ? 'バランスの良い姿勢です。' : score >= 60 ? 'いくつか気になるポイントがあります。' : '姿勢のゆがみが目立ちます。'}</b></p>`;
+  summary += `<p class="muted">良好 ${counts.good}項目 ／ 注意 ${counts.caution}項目 ／ 要改善 ${counts.bad}項目</p>`;
+  if (!state.front?.landmarks) summary += '<p class="muted">正面の写真を追加すると、左右のバランスもチェックできます。</p>';
+  if (!state.side?.landmarks) summary += '<p class="muted">横の写真を追加すると、猫背やストレートネックもチェックできます。</p>';
+  if (prev) {
+    const d = score - prev.score;
+    summary += `<p class="muted">前回（${formatDate(prev.date)}）：${prev.score}点 → 今回 ${score}点 <b style="color:${d >= 0 ? STATUS_COLOR.good : STATUS_COLOR.bad}">${d >= 0 ? '+' : ''}${d}</b></p>`;
+  }
+  $('score-summary').innerHTML = summary;
+
+  $('metrics').innerHTML = keys.map((k) => {
+    const m = metrics[k];
+    const def = METRIC_DEFS[k];
+    const pm = prev?.metrics?.[k];
+    let diff = '';
+    if (pm) {
+      const d = round1(m.value - pm.value);
+      const cls = d < 0 ? 'better' : d > 0 ? 'worse' : '';
+      diff = `<div class="diff">前回 ${pm.value}${def.unit} → 今回 ${m.value}${def.unit} <span class="${cls}">${d > 0 ? '+' : ''}${d}${def.unit}</span></div>`;
+    }
+    return `<div class="metric ${m.status}">
+      <div class="top">
+        <span class="name">${def.name}<span class="view-tag">${def.view === 'front' ? '正面' : '横'}</span></span>
+        <span class="value" style="color:${STATUS_COLOR[m.status]}">${m.value}${def.unit}</span>
+      </div>
+      <span class="badge ${m.status}">${STATUS_LABEL[m.status]}</span>
+      <span class="muted">（目安：${def.good}${def.unit}以下で良好）</span>
+      <p class="desc">${escapeHtml(m.detail || '')}</p>
+      ${diff}
+      ${m.status !== 'good' ? `<div class="advice">${def.advice}</div>` : ''}
+    </div>`;
+  }).join('');
+  $('save-msg').textContent = '';
+}
+
+// ---------- 記録 ----------
+function loadHistory() {
+  try {
+    const data = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(list) {
+  // 容量オーバー時は古い記録のサムネイルから削っていく
+  for (let attempt = 0; attempt < list.length + 1; attempt++) {
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
+      return true;
+    } catch (e) {
+      const target = [...list].reverse().find((h) => h.thumb);
+      if (target) delete target.thumb;
+      else if (list.length > 1) list.pop();
+      else return false;
+    }
+  }
+  return false;
+}
+
+function makeThumb(view) {
+  const src = $(`${view}-canvas`);
+  const h = 200;
+  const c = document.createElement('canvas');
+  c.height = h;
+  c.width = Math.round(src.width * h / src.height);
+  c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.7);
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function renderHistory() {
+  const list = loadHistory();
+  $('history-empty').classList.toggle('hidden', list.length > 0);
+  $('history-actions').classList.toggle('hidden', list.length === 0);
+  renderTrend(list);
+  $('history-list').innerHTML = list.map((h) => {
+    const chips = Object.keys(METRIC_DEFS).filter((k) => h.metrics[k]).map((k) => {
+      const m = h.metrics[k];
+      return `<span class="badge ${m.status}" title="${METRIC_DEFS[k].name}">${METRIC_DEFS[k].name.replace(/（.*）/, '')} ${m.value}°</span>`;
+    }).join('');
+    const sc = h.score >= 80 ? STATUS_COLOR.good : h.score >= 60 ? STATUS_COLOR.caution : STATUS_COLOR.bad;
+    return `<div class="history-item">
+      ${h.thumb ? `<img src="${h.thumb}" alt="">` : ''}
+      <div class="info">
+        <div class="date">${formatDate(h.date)}</div>
+        ${h.memo ? `<div class="memo">${escapeHtml(h.memo)}</div>` : ''}
+        <div class="chips">${chips}</div>
+      </div>
+      <div class="hscore" style="color:${sc}">${h.score}</div>
+      <button type="button" class="danger" data-delete="${h.id}">削除</button>
+    </div>`;
+  }).join('');
+}
+
+function renderTrend(list) {
+  const svg = $('trend');
+  const pts = list.slice(0, 20).reverse();
+  if (pts.length < 2) { svg.classList.add('hidden'); return; }
+  svg.classList.remove('hidden');
+  const W = 600, H = 180, L = 36, R = 16, T = 14, B = 28;
+  const x = (i) => L + (W - L - R) * i / (pts.length - 1);
+  const y = (v) => T + (H - T - B) * (1 - v / 100);
+  let html = '';
+  for (const v of [0, 50, 100]) {
+    html += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="#e2e8f0"/>`;
+    html += `<text x="${L - 6}" y="${y(v) + 4}" font-size="11" text-anchor="end" fill="#6b7280">${v}</text>`;
+  }
+  html += `<polyline fill="none" stroke="#0f766e" stroke-width="2.5" points="${pts.map((p, i) => `${x(i)},${y(p.score)}`).join(' ')}"/>`;
+  pts.forEach((p, i) => {
+    html += `<circle cx="${x(i)}" cy="${y(p.score)}" r="4" fill="#0f766e"><title>${formatDate(p.date)}：${p.score}点</title></circle>`;
+  });
+  const first = new Date(pts[0].date), last = new Date(pts[pts.length - 1].date);
+  html += `<text x="${L}" y="${H - 8}" font-size="11" fill="#6b7280">${first.getMonth() + 1}/${first.getDate()}</text>`;
+  html += `<text x="${W - R}" y="${H - 8}" font-size="11" text-anchor="end" fill="#6b7280">${last.getMonth() + 1}/${last.getDate()}</text>`;
+  svg.innerHTML = html;
+}
+
+$('save-btn').addEventListener('click', () => {
+  const metrics = currentMetrics();
+  const score = totalScore(metrics);
+  if (score == null) return;
+  const stored = {};
+  for (const [k, m] of Object.entries(metrics)) stored[k] = { value: m.value, status: m.status, detail: m.detail };
+  const thumbView = state.side?.landmarks ? 'side' : 'front';
+  const entry = {
+    id: Date.now().toString(36),
+    date: new Date().toISOString(),
+    score,
+    memo: $('memo').value.trim(),
+    metrics: stored,
+    thumb: makeThumb(thumbView),
+  };
+  const list = [entry, ...loadHistory()].slice(0, HISTORY_MAX);
+  if (saveHistory(list)) {
+    $('save-msg').textContent = '記録しました。';
+    $('memo').value = '';
+    renderHistory();
+  } else {
+    $('save-msg').textContent = '保存容量が不足しているため記録できませんでした。古い記録を削除してください。';
+  }
+});
+
+$('history-list').addEventListener('click', (e) => {
+  const id = e.target.dataset?.delete;
+  if (!id || !confirm('この記録を削除しますか？')) return;
+  saveHistory(loadHistory().filter((h) => h.id !== id));
+  renderHistory();
+});
+
+$('clear-history').addEventListener('click', () => {
+  if (!confirm('すべての記録を削除しますか？この操作は元に戻せません。')) return;
+  try { localStorage.removeItem(HISTORY_KEY); } catch {}
+  renderHistory();
+});
+
+// ---------- 写真の選択・削除 ----------
+document.querySelectorAll('[data-action]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const view = btn.dataset.view;
+    if (btn.dataset.action === 'pick') $(`${view}-file`).click();
+    else if (btn.dataset.action === 'camera') openCamera(view);
+    else if (btn.dataset.action === 'clear') clearView(view);
+  });
+});
+
+['front', 'side'].forEach((view) => {
+  $(`${view}-file`).addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const img = await loadImageFromFile(file);
+      await analyzeView(view, img, img.naturalWidth, img.naturalHeight);
+    } catch (err) {
+      setStatus(err.message, true);
+    }
+  });
+});
+
+function clearView(view) {
+  state[view] = null;
+  $(`${view}-wrap`).classList.remove('has-image');
+  $(`${view}-status`).textContent = '未選択';
+  showWarn(view, '');
+  document.querySelector(`[data-action="clear"][data-view="${view}"]`).classList.add('hidden');
+  renderResults();
+}
+
+// ---------- カメラ撮影 ----------
+const cam = { view: null, stream: null, facing: 'environment', timer: null };
+
+async function startStream() {
+  stopStream();
+  const video = $('cam-video');
+  cam.stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: cam.facing, width: { ideal: 1920 }, height: { ideal: 1080 } },
+    audio: false,
+  });
+  video.srcObject = cam.stream;
+  // 画面表示のみ鏡像にする（撮影画像は左右反転しない）
+  video.classList.toggle('mirror', cam.facing === 'user');
+  await video.play();
+}
+
+function stopStream() {
+  if (cam.stream) cam.stream.getTracks().forEach((t) => t.stop());
+  cam.stream = null;
+}
+
+async function openCamera(view) {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    setStatus('このブラウザではカメラを直接使えません。「写真を選ぶ」から撮影してください。', true);
+    return;
+  }
+  cam.view = view;
+  $('cam-hint').textContent = view === 'front'
+    ? '正面を向き、頭が上の線、足先が下の線の内側に入るように立ってください'
+    : '体の真横をカメラに向け、頭が上の線、足先が下の線の内側に入るように立ってください';
+  $('camera-modal').classList.remove('hidden');
+  try {
+    await startStream();
+  } catch (e) {
+    console.error(e);
+    closeCamera();
+    setStatus('カメラを起動できませんでした。カメラの使用を許可するか、「写真を選ぶ」から撮影してください。', true);
+  }
+}
+
+function closeCamera() {
+  clearInterval(cam.timer);
+  cam.timer = null;
+  $('countdown').textContent = '';
+  $('cam-shoot').disabled = false;
+  stopStream();
+  $('camera-modal').classList.add('hidden');
+}
+
+function capture() {
+  const video = $('cam-video');
+  const c = document.createElement('canvas');
+  c.width = video.videoWidth;
+  c.height = video.videoHeight;
+  c.getContext('2d').drawImage(video, 0, 0);
+  const view = cam.view;
+  closeCamera();
+  analyzeView(view, c, c.width, c.height);
+}
+
+$('cam-shoot').addEventListener('click', () => {
+  if (cam.timer) return;
+  let remain = Number($('cam-timer').value);
+  if (!remain) { capture(); return; }
+  $('cam-shoot').disabled = true;
+  $('countdown').textContent = remain;
+  cam.timer = setInterval(() => {
+    remain--;
+    if (remain <= 0) {
+      clearInterval(cam.timer);
+      cam.timer = null;
+      capture();
+    } else {
+      $('countdown').textContent = remain;
+    }
+  }, 1000);
+});
+
+$('cam-switch').addEventListener('click', async () => {
+  cam.facing = cam.facing === 'user' ? 'environment' : 'user';
+  try { await startStream(); } catch (e) { console.error(e); }
+});
+$('cam-close').addEventListener('click', closeCamera);
+
+renderHistory();
+
+</script>
+</body>
+</html>
