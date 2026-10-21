@@ -1,0 +1,27 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/.next-e2e-*/
+/out/
+
+# misc
+.DS_Store
+*.pem
+npm-debug.log*
+
+# env files（見本はコミットする）
+.env*
+!.env.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# Playwright
+/test-results/
+/playwright-report/

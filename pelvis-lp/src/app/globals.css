@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+/* 基調色：ネイビー・白・ベージュ。予約ボタンは背景と区別できるテラコッタ */
+@theme {
+  --color-navy-900: #15253f;
+  --color-navy-800: #1f3354;
+  --color-navy-700: #2c4570;
+  --color-navy-100: #e3e8f1;
+  --color-beige-50: #faf7f2;
+  --color-beige-100: #f3ece1;
+  --color-beige-200: #e7dccb;
+  --color-beige-400: #c9b596;
+  --color-cta-600: #b4532a;
+  --color-cta-700: #96431f;
+  --font-sans: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", Meiryo, sans-serif;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-beige-50);
+  color: var(--color-navy-900);
+  font-family: var(--font-sans);
+  line-height: 1.8;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-cta-600);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
