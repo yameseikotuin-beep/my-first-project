@@ -1,6 +1,6 @@
 # my-first-project
 
-このリポジトリには、4つのアプリが入っています。それぞれ独立していて、お互いに影響しません。
+このリポジトリには、5つのアプリが入っています。それぞれ独立していて、お互いに影響しません。
 
 | アプリ | 開くファイル / 場所 | ビルド |
 | --- | --- | --- |
@@ -8,6 +8,7 @@
 | [InBody × 痛み因果診断アプリ](#inbody--痛み因果診断アプリ) | `index.html` | 不要 |
 | [React アプリ（開発中）](#react-アプリ開発中) | `react-app/` フォルダ | 必要（Vite） |
 | [AI肌分析・美容管理アプリ（開発中）](#ai肌分析美容管理アプリ開発中) | `skin-app/` フォルダ | 必要（Next.js） |
+| [整骨院・整体院向け WEB 予約システム](#整骨院整体院向け-web-予約システム) | `booking-app/` フォルダ | 必要（Next.js） |
 
 ## ダイエット食事管理アプリ
 
@@ -106,3 +107,10 @@ npm run dev
 ## AI肌分析・美容管理アプリ（開発中）
 
 `skin-app/` フォルダの Next.js ＋ Supabase のアプリです。現在は第2段階（認証・権限・顧客台帳・撮影）まで実装済みです。詳しくは [skin-app/README.md](skin-app/README.md) を参照してください。
+
+## 整骨院・整体院向け WEB 予約システム
+
+`booking-app/` フォルダにある、整骨院・整体院が自院で管理できる WEB 予約システムです（Next.js + Supabase + Vercel）。
+お客様は公開 URL からメニュー・日付・空き時間を選んで予約でき、店舗は管理画面で予約・営業時間・休業日・メニュー・施術スペース・施術者を管理できます。
+詳しくは [booking-app/README.md](booking-app/README.md)、公開手順は [booking-app/docs/setup.md](booking-app/docs/setup.md) を参照してください。
+
