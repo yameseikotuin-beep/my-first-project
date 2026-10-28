@@ -29,6 +29,11 @@ export default async function CompletePage() {
       <div className="space-y-4">
         <Notice tone="success" title="ご予約が確定しました" live>
           ご来院をお待ちしております。
+          {booking.mailSent ? (
+            <span className="mt-1 block">
+              ご入力のメールアドレスに確認メールをお送りしました。届かない場合は、迷惑メールのフォルダもご確認ください。
+            </span>
+          ) : null}
         </Notice>
         <div className="rounded-xl border-2 border-primary bg-surface p-4 text-center">
           <p className="text-sm text-ink-muted">予約番号</p>

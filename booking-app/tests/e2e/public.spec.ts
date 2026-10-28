@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { addDaysStr, dayLabel, expectNoHorizontalOverflow, fault, resetData, serviceId, sql, sqlAsAnon, testMonday } from './helpers';
+import { addDaysStr, capturedMails, clearMails, dayLabel, expectNoHorizontalOverflow, fault, resetData, serviceId, sql, sqlAsAnon, testMonday } from './helpers';
 
 // お客様向け予約画面（スマートフォンの画面サイズで操作する）
 
@@ -199,4 +199,62 @@ test('過去・受付締切後の時間を URL で直接指定しても予約へ
   const svc = await serviceId('肩こり整体');
   await page.goto(`/book/${svc}/confirm?start=${encodeURIComponent('2020-01-06T10:00:00+09:00')}`);
   await expect(page.getByText('この時間は予約できなくなりました')).toBeVisible();
+});
+
+test('予約完了メール（お客様あて）と新しい予約の通知（院あて）を送る', async ({ page }) => {
+  await sql(`update public.app_settings set notify_emails = array['clinic@example.test', 'staff@example.test']`);
+  const monday = await testMonday();
+  await openSlots(page, '肩こり整体', monday);
+  await page.getByRole('link', { name: '10:30', exact: true }).click();
+  await fillCustomer(page, 'メール 太郎', '090-2222-3333', 'Mail.Taro@Example.com');
+  await page.getByLabel('備考').fill('腰も少し痛い');
+  await page.getByRole('button', { name: '入力内容を確認する' }).click();
+  await page.getByRole('button', { name: 'この内容で予約を確定する' }).click();
+  await expect(page.getByText('ご予約が確定しました')).toBeVisible();
+  await expect(page.getByText('確認メールをお送りしました')).toBeVisible();
+  const number = (await page.getByTestId('booking-number').textContent())!.trim();
+
+  await expect.poll(() => capturedMails().length).toBe(2);
+  const mails = capturedMails();
+  const customer = mails.find((m) => m.to.includes('mail.taro@example.com'))!;
+  expect(customer.subject).toBe(`【テスト整骨院】ご予約を承りました（予約番号 ${number}）`);
+  expect(customer.text).toContain('メール 太郎 様');
+  expect(customer.text).toContain('10:30〜11:10');
+  expect(customer.text).toContain('03-0000-0000');
+  expect(customer.text).not.toContain('腰も少し痛い');
+  expect(customer.headers).toMatch(/^From: .*sender@example\.test/m);
+
+  const clinic = mails.find((m) => m.to.includes('clinic@example.test'))!;
+  expect(clinic.to).toEqual(['clinic@example.test', 'staff@example.test']);
+  expect(clinic.subject).toContain('【WEB予約】');
+  expect(clinic.subject).toContain('メール 太郎様');
+  expect(clinic.text).toContain('090-2222-3333');
+  expect(clinic.text).toContain('腰も少し痛い');
+  expect(clinic.text).toContain(`/admin/bookings?from=${monday}`);
+  expect(clinic.headers).toMatch(/^Reply-To: mail\.taro@example\.com/m);
+});
+
+test('通知の送り先が未設定なら院あてのメールは送らず、お客様にだけ送る', async ({ page }) => {
+  const monday = await testMonday();
+  await openSlots(page, '肩こり整体', monday);
+  await page.getByRole('link', { name: '11:00', exact: true }).click();
+  await fillCustomer(page, '一通 だけ', '090-4444-5555', 'only@example.com');
+  await page.getByRole('button', { name: '入力内容を確認する' }).click();
+  await page.getByRole('button', { name: 'この内容で予約を確定する' }).click();
+  await expect(page.getByText('ご予約が確定しました')).toBeVisible();
+  await expect.poll(() => capturedMails().length).toBe(1);
+  expect(capturedMails()[0].to).toEqual(['only@example.com']);
+});
+
+test('メールを送れなくても予約は確定し、完了画面を表示する', async ({ page }) => {
+  clearMails(true); // テスト用 SMTP サーバーがすべての送信を拒否する
+  const monday = await testMonday();
+  await openSlots(page, '肩こり整体', monday);
+  await page.getByRole('link', { name: '13:00', exact: true }).click();
+  await fillCustomer(page, '送信 失敗', '090-6666-7777', 'fail@example.com');
+  await page.getByRole('button', { name: '入力内容を確認する' }).click();
+  await page.getByRole('button', { name: 'この内容で予約を確定する' }).click();
+  await expect(page.getByText('ご予約が確定しました')).toBeVisible();
+  await expect(page.getByText('確認メールをお送りしました')).toHaveCount(0);
+  expect(await sql(`select 1 from public.bookings where customer_name = '送信 失敗' and status = 'confirmed'`)).toHaveLength(1);
 });

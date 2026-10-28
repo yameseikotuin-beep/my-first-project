@@ -142,4 +142,17 @@ select tests.throws(
          (select id from ids where k = 'mail')),
   'INVALID_EMAIL', '手動登録でも形式の正しくないメールアドレスは拒否する');
 
+-- 予約のお知らせメールの送り先（管理者が設定する）
+update public.app_settings set notify_emails = array['clinic@example.com', 'staff@example.com'];
+select tests.ok((select cardinality(notify_emails) = 2 from public.app_settings), '管理者は通知メールの送り先を設定できる');
+select tests.throws($$update public.app_settings set notify_emails = array['not-an-email']$$, 'check', '形式の正しくない送り先は保存できない');
+select tests.throws($$update public.app_settings set notify_emails = array['a@x.jp','b@x.jp','c@x.jp','d@x.jp','e@x.jp','f@x.jp']$$, 'check', '送り先は5件まで');
+reset role;
+update public.app_settings set use_practitioners = false, max_active_bookings_per_phone = 20;
+set local role anon;
+select tests.ok(
+  (select notify_emails = array['clinic@example.com', 'staff@example.com'] and shop_name is not null
+   from public.create_booking(tests.svc('肩甲骨はがし'), tests.at(tests.monday(), '09:00'), '通知 確認', '09077770000', '', 'kakunin@example.com')),
+  '予約登録の応答に、メール作成用の店舗名と通知の送り先が含まれる');
+
 rollback;

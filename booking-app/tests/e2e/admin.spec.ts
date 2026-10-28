@@ -301,3 +301,20 @@ test('予約受付の設定：予約枠の間隔を変更できる', async ({ pa
   await expect(page.getByRole('link', { name: '09:30', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: '09:15', exact: true })).toHaveCount(0);
 });
+
+test('予約受付の設定：通知メールの送り先を追加・確認できる', async ({ page }) => {
+  await login(page);
+  await page.goto('/admin/settings');
+  await expect(page.getByText('メールの送信は設定済みです')).toBeVisible();
+  const field = page.getByLabel('新しい予約の通知メールの送り先');
+  await field.fill('not-an-email');
+  await page.getByRole('button', { name: '保存する' }).click();
+  await expect(page.getByText('通知メールの送り先に、形式の正しくないメールアドレスがあります')).toBeVisible();
+  await field.fill('Clinic@Example.test\nstaff@example.test');
+  await page.getByRole('button', { name: '保存する' }).click();
+  await expect(page.getByText('保存しました。')).toBeVisible();
+  const [row] = await sql<{ notify_emails: string[] }>('select notify_emails from public.app_settings');
+  expect(row.notify_emails).toEqual(['clinic@example.test', 'staff@example.test']);
+  await page.reload();
+  await expect(page.getByLabel('新しい予約の通知メールの送り先')).toHaveValue('clinic@example.test\nstaff@example.test');
+});

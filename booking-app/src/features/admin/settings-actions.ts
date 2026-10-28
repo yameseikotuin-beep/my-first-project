@@ -317,6 +317,7 @@ export async function saveSettings(_prev: FormState, formData: FormData): Promis
       booking_window_days: v.bookingWindowDays,
       min_lead_minutes: v.minLeadMinutes,
       max_active_bookings_per_phone: v.maxActiveBookingsPerPhone,
+      notify_emails: v.notifyEmails,
     })
     .eq('id', 1);
   if (error) return dbErrorState(error);

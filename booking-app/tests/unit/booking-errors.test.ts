@@ -41,7 +41,7 @@ describe('予約確定処理の結果の判定（データベース障害時に�
 
 describe('予約完了画面に渡す内容', () => {
   it('予約番号・メニュー・日時・料金だけを保存し、復元できる', () => {
-    const b = { bookingNumber: '261103-ABCD', serviceName: '肩こり整体', price: 4400, startAt: okRow.start_at, endAt: okRow.end_at };
+    const b = { bookingNumber: '261103-ABCD', serviceName: '肩こり整体', price: 4400, startAt: okRow.start_at, endAt: okRow.end_at, mailSent: true };
     const encoded = encodeCompleted(b);
     expect(decodeCompleted(encoded)).toEqual(b);
     expect(Buffer.from(encoded, 'base64url').toString()).not.toMatch(/customer|phone/);
