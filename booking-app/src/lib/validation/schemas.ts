@@ -31,9 +31,19 @@ export const notesSchema = z
   .max(500, '備考は500文字以内で入力してください')
   .default('');
 
+/** メールアドレス（任意）。空欄なら空文字、入力があれば小文字にそろえる */
+export const optionalEmailSchema = z
+  .string()
+  .trim()
+  .max(254, 'メールアドレスが長すぎます')
+  .transform((v) => v.toLowerCase())
+  .refine((v) => v === '' || z.email().safeParse(v).success, 'メールアドレスの形式が正しくありません')
+  .default('');
+
 export const customerSchema = z.object({
   customerName: customerNameSchema,
   customerPhone: phoneSchema,
+  customerEmail: optionalEmailSchema,
   notes: notesSchema,
 });
 export type CustomerInput = z.infer<typeof customerSchema>;

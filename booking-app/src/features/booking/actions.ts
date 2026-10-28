@@ -40,6 +40,7 @@ export async function submitBooking(_prev: BookingFormState, formData: FormData)
         p_customer_name: v.customerName,
         p_customer_phone: v.customerPhone,
         p_notes: v.notes,
+        p_customer_email: v.customerEmail,
       }),
     );
   } catch {
@@ -48,7 +49,7 @@ export async function submitBooking(_prev: BookingFormState, formData: FormData)
   }
   if (!result.ok) return { kind: result.kind, message: result.message };
 
-  // 完了画面に表示する内容（予約番号・メニュー・日時・料金だけ。氏名・電話番号は含めない）
+  // 完了画面に表示する内容（予約番号・メニュー・日時・料金だけ。氏名・電話番号・メールアドレスは含めない）
   const cookieStore = await cookies();
   cookieStore.set(COMPLETE_COOKIE, encodeCompleted(result.booking), {
     httpOnly: true,

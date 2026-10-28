@@ -96,6 +96,11 @@ test('予約の流れ：入力の検証 → 確認 → 確定 → 予約番号�
   await expect(page.getByText('電話番号は0から始まる10桁または11桁で入力してください')).toBeVisible();
 
   await fillCustomer(page);
+  await page.getByLabel('メールアドレス').fill('yamada@example');
+  await page.getByRole('button', { name: '入力内容を確認する' }).click();
+  await expect(page.getByText('メールアドレスの形式が正しくありません')).toBeVisible();
+
+  await page.getByLabel('メールアドレス').fill(' Yamada@Example.com ');
   await page.getByLabel('備考').fill('右肩が痛みます');
   await page.getByRole('button', { name: '入力内容を確認する' }).click();
 
@@ -106,6 +111,7 @@ test('予約の流れ：入力の検証 → 確認 → 確定 → 予約番号�
   await expect(page.getByText('4,400円')).toBeVisible();
   await expect(page.getByText('山田 太郎')).toBeVisible();
   await expect(page.getByText('右肩が痛みます')).toBeVisible();
+  await expect(page.getByText('Yamada@Example.com')).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   // 修正して戻っても入力内容が残る
@@ -120,9 +126,11 @@ test('予約の流れ：入力の検証 → 確認 → 確定 → 予約番号�
   expect(number).toMatch(/^\d{6}-[A-Z2-9]{4}$/);
   await expectNoHorizontalOverflow(page);
 
-  const rows = await sql<{ customer_phone: string; status: string; source: string; notes: string }>(
-    'select customer_phone, status, source, notes from public.bookings where booking_number = $1', [number]);
-  expect(rows).toEqual([{ customer_phone: '09012345678', status: 'confirmed', source: 'web', notes: '右肩が痛みます' }]);
+  const rows = await sql<{ customer_phone: string; customer_email: string; status: string; source: string; notes: string }>(
+    'select customer_phone, customer_email, status, source, notes from public.bookings where booking_number = $1', [number]);
+  expect(rows).toEqual([
+    { customer_phone: '09012345678', customer_email: 'yamada@example.com', status: 'confirmed', source: 'web', notes: '右肩が痛みます' },
+  ]);
 
   // 予約した時間は、スペースが残っていれば引き続き表示される（3つのスペース）
   await openSlots(page, '肩こり整体', monday);

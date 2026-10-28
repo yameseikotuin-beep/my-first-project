@@ -8,7 +8,17 @@ describe('お客様情報の検証', () => {
   });
   it('正しい入力を受け付ける', () => {
     const r = customerSchema.safeParse({ customerName: ' 山田 太郎 ', customerPhone: '090-1234-5678', notes: '' });
-    expect(r.success && r.data).toEqual({ customerName: '山田 太郎', customerPhone: '09012345678', notes: '' });
+    expect(r.success && r.data).toEqual({ customerName: '山田 太郎', customerPhone: '09012345678', customerEmail: '', notes: '' });
+  });
+  it('メールアドレスは任意。入力があれば形式を確認し、小文字にそろえる', () => {
+    const base = { customerName: '山田', customerPhone: '09012345678' };
+    expect(customerSchema.parse({ ...base, customerEmail: ' Yamada@Example.COM ' }).customerEmail).toBe('yamada@example.com');
+    expect(customerSchema.parse({ ...base, customerEmail: '' }).customerEmail).toBe('');
+    for (const bad of ['yamada', 'yamada@', '@example.com', 'a b@example.com', `${'a'.repeat(250)}@example.com`]) {
+      const r = customerSchema.safeParse({ ...base, customerEmail: bad });
+      expect(r.success, bad).toBe(false);
+      expect(r.error?.issues[0].path[0]).toBe('customerEmail');
+    }
   });
   it.each([
     [{ customerName: '', customerPhone: '09012345678' }, 'customerName'],

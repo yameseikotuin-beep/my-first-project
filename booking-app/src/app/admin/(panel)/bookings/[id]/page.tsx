@@ -41,6 +41,16 @@ export default async function BookingDetailPage({ params, searchParams }: PagePr
         {formatPhone(booking.customer_phone)}
       </a>,
     ],
+    [
+      'メールアドレス',
+      booking.customer_email ? (
+        <a key="e" href={`mailto:${booking.customer_email}`} className="break-all text-primary underline">
+          {booking.customer_email}
+        </a>
+      ) : (
+        'なし'
+      ),
+    ],
     ['備考', <span key="m" className="whitespace-pre-wrap">{booking.notes || 'なし'}</span>],
     ['受付方法', booking.source === 'web' ? 'WEB予約' : '管理画面（電話・来店）'],
     ['登録日時', formatDateTime(booking.created_at, true)],
@@ -82,6 +92,7 @@ export default async function BookingDetailPage({ params, searchParams }: PagePr
             time: jstTime(booking.start_at),
             customerName: booking.customer_name,
             customerPhone: booking.customer_phone,
+            customerEmail: booking.customer_email,
             notes: booking.notes,
             roomId: booking.room_id,
             practitionerId: booking.practitioner_id ?? '',

@@ -89,6 +89,7 @@ export type BookingRow = {
   booking_number: string;
   customer_name: string;
   customer_phone: string;
+  customer_email: string;
   notes: string;
   service_id: string;
   service_name: string;
@@ -158,6 +159,7 @@ export type Database = {
           p_customer_name: string;
           p_customer_phone: string;
           p_notes?: string;
+          p_customer_email?: string;
         };
         Returns: CreatedBookingRow[];
       };
@@ -176,6 +178,7 @@ export type Database = {
           p_room_id?: string | null;
           p_practitioner_id?: string | null;
           p_status?: BookingStatus;
+          p_customer_email?: string;
         };
         Returns: string;
       };

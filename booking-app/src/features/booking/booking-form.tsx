@@ -12,12 +12,12 @@ import { formatDate, formatPrice, formatTimeRange, jstDate } from '@/lib/time';
 import type { PublicServiceRow, SlotRow } from '@/lib/supabase/database.types';
 import { StepBar } from './steps';
 
-type Values = { customerName: string; customerPhone: string; notes: string };
+type Values = { customerName: string; customerPhone: string; customerEmail: string; notes: string };
 
 // 手順4（お客様情報の入力）と手順5（予約内容の確認）。確定（手順6）はサーバーで行う。
 export function BookingForm({ service, slot }: { service: PublicServiceRow; slot: SlotRow }) {
   const [step, setStep] = useState<'input' | 'review'>('input');
-  const [values, setValues] = useState<Values>({ customerName: '', customerPhone: '', notes: '' });
+  const [values, setValues] = useState<Values>({ customerName: '', customerPhone: '', customerEmail: '', notes: '' });
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [state, action] = useActionState<BookingFormState, FormData>(submitBooking, {});
   const fieldErrors = { ...errors, ...state.fieldErrors };
@@ -75,6 +75,18 @@ export function BookingForm({ service, slot }: { service: PublicServiceRow; slot
             onChange={set('customerPhone')}
             error={fieldErrors.customerPhone}
           />
+          <TextField
+            label="メールアドレス"
+            name="customerEmail"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            maxLength={254}
+            placeholder="例：yamada@example.com"
+            value={values.customerEmail}
+            onChange={set('customerEmail')}
+            error={fieldErrors.customerEmail}
+          />
           <TextAreaField
             label="備考"
             name="notes"
@@ -120,6 +132,7 @@ export function BookingForm({ service, slot }: { service: PublicServiceRow; slot
         <Row label="料金" value={formatPrice(service.price)} note="お支払いは当日店頭でお願いします" />
         <Row label="お名前" value={values.customerName} />
         <Row label="電話番号" value={values.customerPhone} />
+        <Row label="メールアドレス" value={values.customerEmail || 'なし'} />
         <Row label="備考" value={values.notes || 'なし'} />
       </dl>
       <form action={action} className="mt-5 space-y-3">
@@ -127,6 +140,7 @@ export function BookingForm({ service, slot }: { service: PublicServiceRow; slot
         <input type="hidden" name="startAt" value={slot.start_at} />
         <input type="hidden" name="customerName" value={values.customerName} />
         <input type="hidden" name="customerPhone" value={values.customerPhone} />
+        <input type="hidden" name="customerEmail" value={values.customerEmail} />
         <input type="hidden" name="notes" value={values.notes} />
         {/* いたずら対策：人には見えない入力欄 */}
         <div aria-hidden className="absolute -left-[9999px] h-px w-px overflow-hidden">

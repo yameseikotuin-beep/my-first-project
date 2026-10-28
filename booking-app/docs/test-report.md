@@ -1,6 +1,6 @@
 # テスト結果
 
-実施日：2026-10-27　／　対象：`booking-app`（Next.js 16.4.3、PostgreSQL 16）
+実施日：2026-10-27（メールアドレス欄の追加後、2026-10-28 に再実施）　／　対象：`booking-app`（Next.js 16.4.3、PostgreSQL 16）
 
 ## まとめ
 
@@ -8,8 +8,8 @@
 | --- | --- | --- | --- |
 | Lint（ESLint） | `npm run lint` | — | 問題なし |
 | 型チェック（TypeScript） | `npm run typecheck` | — | 問題なし |
-| 単体テスト（Vitest） | `npm test` | 36 | すべて成功 |
-| データベースのテスト（予約ルール・権限・RLS・同時予約） | `npm run test:db` | 126 | すべて成功 |
+| 単体テスト（Vitest） | `npm test` | 37 | すべて成功 |
+| データベースのテスト（予約ルール・権限・RLS・同時予約） | `npm run test:db` | 136 | すべて成功 |
 | 画面の自動テスト（Playwright、E2E） | `npm run build && npm run test:e2e` | 23 | すべて成功 |
 | 依存パッケージの脆弱性（`npm audit --omit=dev`） | — | — | 0 件 |
 
