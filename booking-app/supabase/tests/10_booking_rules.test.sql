@@ -218,4 +218,36 @@ reset role;
 select tests.ok((select bool_and(customer_phone = '09012345678') from public.bookings), '電話番号は数字だけで保存される');
 select tests.ok((select bool_and(booking_number ~ '^[0-9]{6}-[A-Z2-9]{4}$') from public.bookings), '予約番号が付く');
 
+-- メールアドレス（任意）
+reset role;
+delete from public.bookings;
+update public.app_settings set max_active_bookings_per_phone = 20;
+set local role anon;
+select tests.ok(
+  (select count(*) = 1 from public.create_booking(tests.svc('肩こり整体'), tests.at(tests.monday(), '10:00'), 'メール 有り', '09030000001', '', '  Taro.Yamada@Example.JP ')),
+  'メールアドレス付きで予約できる');
+select tests.ok(
+  (select count(*) = 1 from public.create_booking(tests.svc('肩こり整体'), tests.at(tests.monday(), '11:00'), 'メール 無し', '09030000002', '')),
+  'メールアドレスの引数を省略した呼び出し（更新前のアプリ）は受け付ける');
+select tests.throws(
+  $$select * from public.create_booking(tests.svc('肩こり整体'), tests.at(tests.monday(), '13:00'), '山田', '09030000003', '', '')$$,
+  'EMAIL_REQUIRED', 'WEB 予約ではメールアドレスが空欄なら拒否する');
+select tests.throws(
+  $$select * from public.create_booking(tests.svc('肩こり整体'), tests.at(tests.monday(), '13:00'), '山田', '09030000003', '', '   ')$$,
+  'EMAIL_REQUIRED', 'WEB 予約では空白だけのメールアドレスも拒否する');
+select tests.throws(
+  $$select * from public.create_booking(tests.svc('肩こり整体'), tests.at(tests.monday(), '13:00'), '山田', '09030000003', '', 'not-an-email')$$,
+  'INVALID_EMAIL', '形式の正しくないメールアドレスは拒否する');
+select tests.throws(
+  $$select * from public.create_booking(tests.svc('肩こり整体'), tests.at(tests.monday(), '13:00'), '山田', '09030000003', '', 'a b@example.com')$$,
+  'INVALID_EMAIL', '空白を含むメールアドレスは拒否する');
+select tests.throws(
+  $$select * from public.create_booking(tests.svc('肩こり整体'), tests.at(tests.monday(), '13:00'), '山田', '09030000003', '', repeat('a', 250) || '@example.com')$$,
+  'INVALID_EMAIL', '長すぎるメールアドレスは拒否する');
+reset role;
+select tests.ok((select customer_email = 'taro.yamada@example.jp' from public.bookings where customer_name = 'メール 有り'),
+  'メールアドレスは小文字・前後の空白なしで保存される');
+select tests.ok((select customer_email = '' from public.bookings where customer_name = 'メール 無し'),
+  'メールアドレスなしの予約は空欄で保存される');
+
 rollback;

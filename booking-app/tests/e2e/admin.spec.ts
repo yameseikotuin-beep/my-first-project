@@ -78,9 +78,11 @@ test('電話予約の手動登録：WEB 予約と同じ重複防止ルールで�
   // 空き時間の一覧から選んで登録する
   await page.getByRole('button', { name: '11:00', exact: true }).click();
   await expect(page.getByLabel('開始時刻')).toHaveValue('11:00');
+  await page.getByLabel('メールアドレス').fill('denwa@example.com');
   await page.getByRole('button', { name: 'この内容で予約を登録する' }).click();
   await expect(page.getByText('保存しました。')).toBeVisible();
   await expect(page.getByText('管理画面（電話・来店）')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'denwa@example.com' })).toHaveAttribute('href', 'mailto:denwa@example.com');
 
   // WEB の空き時間から消えている
   await page.goto(`/book/${await serviceId('肩こり整体')}?date=${monday}`);
@@ -175,7 +177,9 @@ test('メニュー管理：追加したメニューが予約画面に表示さ�
 
   await page.goto('/admin/services');
   await page.getByRole('link', { name: /E2E 首こり整体/ }).click();
+  await page.waitForLoadState('networkidle');
   await page.getByLabel('WEB予約を受け付ける').uncheck();
+  await expect(page.getByLabel('WEB予約を受け付ける')).not.toBeChecked();
   await page.getByRole('button', { name: '保存する' }).click();
   await expect(page.getByText('保存しました。')).toBeVisible();
   await page.goto('/');
@@ -195,7 +199,10 @@ test('施術スペース：利用停止にするとそのスペースを使う�
   await page.goto('/admin/rooms');
   for (const name of ['施術ベッド1', '施術ベッド2']) {
     await page.getByRole('link', { name: new RegExp(name) }).click();
+    // 画面の準備（ハイドレーション）が終わる前にチェックを外すと元に戻ることがあるため、読み込み完了を待つ
+    await page.waitForLoadState('networkidle');
     await page.getByLabel('利用可能').uncheck();
+    await expect(page.getByLabel('利用可能')).not.toBeChecked();
     await page.getByRole('button', { name: '保存する' }).click();
     await expect(page.getByText('保存しました。')).toBeVisible();
     await page.goto('/admin/rooms');

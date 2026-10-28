@@ -7,8 +7,22 @@ describe('お客様情報の検証', () => {
     expect(normalizePhone('03 (1234) 5678')).toBe('0312345678');
   });
   it('正しい入力を受け付ける', () => {
-    const r = customerSchema.safeParse({ customerName: ' 山田 太郎 ', customerPhone: '090-1234-5678', notes: '' });
-    expect(r.success && r.data).toEqual({ customerName: '山田 太郎', customerPhone: '09012345678', notes: '' });
+    const r = customerSchema.safeParse({ customerName: ' 山田 太郎 ', customerPhone: '090-1234-5678', customerEmail: 'a@example.com', notes: '' });
+    expect(r.success && r.data).toEqual({ customerName: '山田 太郎', customerPhone: '09012345678', customerEmail: 'a@example.com', notes: '' });
+  });
+  it('WEB 予約ではメールアドレスが必須。形式を確認し、小文字にそろえる', () => {
+    const base = { customerName: '山田', customerPhone: '09012345678' };
+    expect(customerSchema.parse({ ...base, customerEmail: ' Yamada@Example.COM ' }).customerEmail).toBe('yamada@example.com');
+    for (const empty of [undefined, '', '   ']) {
+      const r = customerSchema.safeParse({ ...base, customerEmail: empty });
+      expect(r.success, String(empty)).toBe(false);
+      expect(r.error?.issues[0].message).toBe('メールアドレスを入力してください');
+    }
+    for (const bad of ['yamada', 'yamada@', '@example.com', 'a b@example.com', `${'a'.repeat(250)}@example.com`]) {
+      const r = customerSchema.safeParse({ ...base, customerEmail: bad });
+      expect(r.success, bad).toBe(false);
+      expect(r.error?.issues[0].path[0]).toBe('customerEmail');
+    }
   });
   it.each([
     [{ customerName: '', customerPhone: '09012345678' }, 'customerName'],
@@ -21,7 +35,7 @@ describe('お客様情報の検証', () => {
     [{ customerName: '山田', customerPhone: '090123456789' }, 'customerPhone'],
     [{ customerName: '山田', customerPhone: '09012345678', notes: 'あ'.repeat(501) }, 'notes'],
   ])('不正な入力を拒否する %#', (input, field) => {
-    const r = customerSchema.safeParse(input);
+    const r = customerSchema.safeParse({ customerEmail: 'a@example.com', ...input });
     expect(r.success).toBe(false);
     expect(r.error?.issues[0].path[0]).toBe(field);
   });
@@ -31,8 +45,10 @@ describe('お客様情報の検証', () => {
       startAt: '2026-11-03T01:00:00+00:00',
       customerName: '山田',
       customerPhone: '09012345678',
+      customerEmail: 'yamada@example.com',
     };
     expect(publicBookingSchema.safeParse(base).success).toBe(true);
+    expect(publicBookingSchema.safeParse({ ...base, customerEmail: '' }).success).toBe(false);
     expect(publicBookingSchema.safeParse({ ...base, website: 'http://spam' }).success).toBe(false);
     expect(publicBookingSchema.safeParse({ ...base, startAt: 'tomorrow' }).success).toBe(false);
     expect(publicBookingSchema.safeParse({ ...base, serviceId: '1 or 1=1' }).success).toBe(false);
@@ -46,6 +62,7 @@ describe('管理画面の入力の検証', () => {
       customerName: '山田', customerPhone: '0312345678', roomId: '', practitionerId: '',
     });
     expect(r.roomId).toBeNull();
+    expect(r.customerEmail).toBe(''); // 電話予約ではメールアドレスは任意
     expect(r.practitionerId).toBeNull();
     expect(r.status).toBe('confirmed');
   });

@@ -31,9 +31,29 @@ export const notesSchema = z
   .max(500, '備考は500文字以内で入力してください')
   .default('');
 
+/** メールアドレスの形式の確認（空欄は通す）。入力があれば小文字にそろえる */
+const emailFormat = z
+  .string()
+  .trim()
+  .max(254, 'メールアドレスが長すぎます')
+  .transform((v) => v.toLowerCase())
+  .refine((v) => v === '' || z.email().safeParse(v).success, 'メールアドレスの形式が正しくありません');
+
+/** メールアドレス（任意）。管理画面からの登録で使う */
+export const optionalEmailSchema = emailFormat.default('');
+
+/** メールアドレス（必須）。WEB 予約で使う */
+export const requiredEmailSchema = z
+  .string({ error: 'メールアドレスを入力してください' })
+  .trim()
+  .min(1, 'メールアドレスを入力してください')
+  .pipe(emailFormat);
+
+/** WEB 予約のお客様情報（メールアドレス必須） */
 export const customerSchema = z.object({
   customerName: customerNameSchema,
   customerPhone: phoneSchema,
+  customerEmail: requiredEmailSchema,
   notes: notesSchema,
 });
 export type CustomerInput = z.infer<typeof customerSchema>;
@@ -81,8 +101,9 @@ export const publicBookingSchema = customerSchema.extend({
   website: z.string().max(0).optional().default(''),
 });
 
-// ---- 管理画面：予約 ----
+// ---- 管理画面：予約（電話予約などのため、メールアドレスは任意） ----
 export const adminBookingSchema = customerSchema.extend({
+  customerEmail: optionalEmailSchema,
   bookingId: optionalUuid,
   serviceId: uuidSchema,
   date: dateSchema,

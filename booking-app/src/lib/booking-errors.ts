@@ -28,6 +28,10 @@ export function classifyBookingError(error: DbError): { kind: BookingErrorKind; 
       return { kind: 'input', message: 'お名前を確認してください。' };
     case 'INVALID_PHONE':
       return { kind: 'input', message: '電話番号を確認してください。' };
+    case 'EMAIL_REQUIRED':
+      return { kind: 'input', message: 'メールアドレスを入力してください。' };
+    case 'INVALID_EMAIL':
+      return { kind: 'input', message: 'メールアドレスを確認してください。' };
     case 'INVALID_NOTES':
       return { kind: 'input', message: '備考は500文字以内で入力してください。' };
     case 'INVALID_INPUT':

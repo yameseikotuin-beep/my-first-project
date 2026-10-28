@@ -24,6 +24,7 @@ export default async function NewBookingPage({ searchParams }: PageProps<'/admin
           time,
           customerName: '',
           customerPhone: '',
+          customerEmail: '',
           notes: '',
           roomId: '',
           practitionerId: '',

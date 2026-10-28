@@ -46,6 +46,7 @@ Supabase の左メニュー **SQL Editor** を開き、次のファイルの中�
 
 1. `supabase/migrations/20261027000000_booking_core.sql`（テーブル・制約・RLS・予約処理の関数）
 2. `supabase/migrations/20261027000100_initial_data.sql`（メニュー6件・施術スペース3件の初期データ）
+3. `supabase/migrations/20261028000000_customer_email.sql`（予約時のメールアドレス入力欄）
 
 「Success. No rows returned」と表示されれば成功です。
 Supabase CLI を使っている場合は、`booking-app` フォルダで `npx supabase link` の後に `npx supabase db push` でも適用できます。
@@ -147,9 +148,9 @@ npm run dev                  # http://localhost:3000
 - 簡単な方法：Supabase の **Table Editor** で `bookings` などを開き、「Export → CSV」
 - まとめて保存する方法（Supabase CLI）：`npx supabase db dump --data-only -f backup.sql`
 
-書き出したファイルにはお客様の氏名・電話番号が含まれます。パスワード付きの場所に保管してください。
+書き出したファイルにはお客様の氏名・電話番号・メールアドレスが含まれます。パスワード付きの場所に保管してください。
 
 ## 9. 更新（アプリを新しくする）
 
 1. GitHub の `main` ブランチに変更が入ると、Vercel が自動で公開し直す
-2. `supabase/migrations/` に新しいファイルが追加された場合は、**先に** Supabase の SQL Editor で実行してから公開する
+2. `supabase/migrations/` に新しいファイルが追加された場合は、**先に** Supabase の SQL Editor で実行してから公開する（まだ実行していないファイルだけを、ファイル名の順に実行する）

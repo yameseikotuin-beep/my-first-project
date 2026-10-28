@@ -27,6 +27,7 @@ export async function saveBooking(_prev: FormState, formData: FormData): Promise
     p_room_id: v.roomId,
     p_practitioner_id: v.practitionerId,
     p_status: v.status,
+    p_customer_email: v.customerEmail,
   });
   if (error || typeof data !== 'string') {
     const e = classifyBookingError(error);

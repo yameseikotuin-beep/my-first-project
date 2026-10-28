@@ -124,4 +124,22 @@ set local role authenticated;
 select tests.ok(public.admin_save_booking(null, tests.svc('肩こり整体'), tests.at(tests.monday(), '18:00'), '先の予約', '0312340004', '') is not null,
   '手動登録は受付可能期間より先の日にも登録できる');
 
+-- メールアドレスの登録・変更
+reset role;
+update public.app_settings set booking_window_days = 60, min_lead_minutes = 0;
+select tests.login('00000000-0000-0000-0000-00000000000a');
+set local role authenticated;
+insert into ids select 'mail', public.admin_save_booking(null, tests.svc('肩こり整体'), tests.at(tests.monday(), '19:00'), 'メール 太郎', '0312340005', '',
+  null, null, 'confirmed', 'Mail@Example.com');
+select tests.ok((select customer_email = 'mail@example.com' from public.admin_booking_list where id = (select id from ids where k = 'mail')),
+  '手動登録でメールアドレスを保存でき、管理用の一覧で読める');
+select public.admin_save_booking((select id from ids where k = 'mail'), tests.svc('肩こり整体'), tests.at(tests.monday(), '19:00'), 'メール 太郎', '0312340005', '',
+  null, null, 'confirmed', 'new@example.com');
+select tests.ok((select customer_email = 'new@example.com' from public.bookings where id = (select id from ids where k = 'mail')),
+  'メールアドレスを変更できる');
+select tests.throws(
+  format($$select public.admin_save_booking(%L, tests.svc('肩こり整体'), tests.at(tests.monday(), '19:00'), 'メール 太郎', '0312340005', '', null, null, 'confirmed', 'bad@')$$,
+         (select id from ids where k = 'mail')),
+  'INVALID_EMAIL', '手動登録でも形式の正しくないメールアドレスは拒否する');
+
 rollback;

@@ -15,6 +15,7 @@ export type BookingEditorValues = {
   time: string;
   customerName: string;
   customerPhone: string;
+  customerEmail: string;
   notes: string;
   roomId: string;
   practitionerId: string;
@@ -158,6 +159,15 @@ export function BookingEditor({
             onChange={set('customerPhone')}
           />
         </div>
+        <TextField
+          label="メールアドレス"
+          name="customerEmail"
+          type="email"
+          inputMode="email"
+          maxLength={254}
+          value={v.customerEmail}
+          onChange={set('customerEmail')}
+        />
         <TextAreaField label="備考" name="notes" maxLength={500} value={v.notes} onChange={set('notes')} />
         {v.bookingId ? (
           <SelectField label="予約ステータス" name="status" required value={v.status} onChange={set('status')}>
