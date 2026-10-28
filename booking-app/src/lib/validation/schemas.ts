@@ -209,6 +209,13 @@ export const settingsSchema = z.object({
   bookingWindowDays: intField('受付可能な期間', 0, 365),
   minLeadMinutes: intField('受付締切', 0, 10080),
   maxActiveBookingsPerPhone: intField('1つの電話番号の予約数の上限', 1, 20),
+  // 新しい予約の通知メールの送り先（1行に1件、最大5件）
+  notifyEmails: z
+    .string()
+    .optional()
+    .transform((v) => [...new Set((v ?? '').split(/[\s,、]+/).map((e) => e.trim().toLowerCase()).filter(Boolean))])
+    .refine((list) => list.length <= 5, '通知メールの送り先は5件までです')
+    .refine((list) => list.every((e) => e.length <= 254 && z.email().safeParse(e).success), '通知メールの送り先に、形式の正しくないメールアドレスがあります'),
 });
 
 // ---- ログイン ----

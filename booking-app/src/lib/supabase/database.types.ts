@@ -20,6 +20,7 @@ export type AppSettingsRow = {
   min_lead_minutes: number;
   max_active_bookings_per_phone: number;
   use_practitioners: boolean;
+  notify_emails: string[];
   updated_at: string;
 };
 
@@ -122,6 +123,9 @@ export type CreatedBookingRow = {
   price: number;
   start_at: string;
   end_at: string;
+  shop_name: string;
+  shop_phone: string;
+  notify_emails: string[];
 };
 
 type Opt<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;

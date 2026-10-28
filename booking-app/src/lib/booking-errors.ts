@@ -61,6 +61,8 @@ export type CreatedBooking = {
   price: number;
   startAt: string;
   endAt: string;
+  /** お客様に予約完了メールを送れたか */
+  mailSent?: boolean;
 };
 
 /**

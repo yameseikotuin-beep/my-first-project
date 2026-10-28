@@ -18,7 +18,7 @@ export function decodeCompleted(value: string | undefined): CreatedBooking | nul
       typeof b.startAt === 'string' &&
       typeof b.endAt === 'string'
     ) {
-      return b;
+      return { ...b, mailSent: b.mailSent === true };
     }
   } catch {
     // 壊れた値は無視する

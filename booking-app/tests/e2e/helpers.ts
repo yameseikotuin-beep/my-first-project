@@ -1,4 +1,6 @@
 import { expect, type Page } from '@playwright/test';
+import fs from 'node:fs';
+import path from 'node:path';
 import pg from 'pg';
 
 // テスト用データベースへの直接接続（scripts/test-e2e.sh が起動した一時的な PostgreSQL）
@@ -37,8 +39,9 @@ export async function resetData() {
              delete from public.services where name like 'E2E%';
              delete from public.practitioners;
              update public.app_settings set use_practitioners = false, slot_interval_minutes = 15, min_lead_minutes = 0,
-                    booking_window_days = 60, max_active_bookings_per_phone = 3;`);
+                    booking_window_days = 60, max_active_bookings_per_phone = 3, notify_emails = '{}';`);
   await fault('none');
+  clearMails();
 }
 
 export const ADMIN = { email: 'admin@example.test', password: 'admin-password-123' };
@@ -81,4 +84,51 @@ export function addDaysStr(date: string, days: number): string {
 export function dayLabel(date: string): string {
   const d = new Date(`${date}T00:00:00Z`);
   return `${d.getUTCMonth() + 1}月${d.getUTCDate()}日(${'日月火水木金土'[d.getUTCDay()]})`;
+}
+
+// ---- テスト用 SMTP サーバーが受け取ったメール ----
+
+export type CapturedMail = { to: string[]; subject: string; text: string; headers: string };
+
+function decodeWords(s: string): string {
+  return s.replace(/=\?UTF-8\?([BQ])\?([^?]*)\?=/gi, (_m, enc: string, data: string) =>
+    enc.toUpperCase() === 'B'
+      ? Buffer.from(data, 'base64').toString('utf8')
+      : Buffer.from(data.replace(/_/g, ' ').replace(/=([0-9A-F]{2})/gi, (_x, h) => String.fromCharCode(parseInt(h, 16))), 'latin1').toString('utf8'),
+  );
+}
+
+function parseMail(raw: string): { headers: string; subject: string; text: string } {
+  const sep = raw.indexOf('\r\n\r\n');
+  const headers = raw.slice(0, sep).replace(/\r\n[ \t]+/g, ' ');
+  const body = raw.slice(sep + 4);
+  // 長い件名は複数のエンコード語に分かれ、間の空白は無視する決まり（RFC 2047）
+  const subject = decodeWords((/^Subject: (.*)$/im.exec(headers)?.[1] ?? '').replace(/\?=\s+=\?/g, '?==?'));
+  const enc = /^Content-Transfer-Encoding: (.*)$/im.exec(headers)?.[1]?.trim().toLowerCase();
+  let text = body;
+  if (enc === 'base64') text = Buffer.from(body.replace(/\s/g, ''), 'base64').toString('utf8');
+  else if (enc === 'quoted-printable') {
+    text = Buffer.from(body.replace(/=\r\n/g, '').replace(/=([0-9A-F]{2})/gi, (_x, h) => String.fromCharCode(parseInt(h, 16))), 'latin1').toString('utf8');
+  }
+  return { headers, subject, text: text.replace(/\r\n/g, '\n') };
+}
+
+export function capturedMails(): CapturedMail[] {
+  const dir = process.env.E2E_MAIL_DIR!;
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith('.json'))
+    .sort()
+    .map((f) => {
+      const { to, raw } = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+      return { to, ...parseMail(raw) };
+    });
+}
+
+export function clearMails(reject = false) {
+  const dir = process.env.E2E_MAIL_DIR!;
+  fs.mkdirSync(dir, { recursive: true });
+  for (const f of fs.readdirSync(dir)) fs.rmSync(path.join(dir, f));
+  if (reject) fs.writeFileSync(path.join(dir, 'reject'), '');
 }

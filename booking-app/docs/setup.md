@@ -47,6 +47,7 @@ Supabase の左メニュー **SQL Editor** を開き、次のファイルの中�
 1. `supabase/migrations/20261027000000_booking_core.sql`（テーブル・制約・RLS・予約処理の関数）
 2. `supabase/migrations/20261027000100_initial_data.sql`（メニュー6件・施術スペース3件の初期データ）
 3. `supabase/migrations/20261028000000_customer_email.sql`（予約時のメールアドレス入力欄）
+4. `supabase/migrations/20261028000100_booking_notifications.sql`（予約のお知らせメールの送り先の設定）
 
 「Success. No rows returned」と表示されれば成功です。
 Supabase CLI を使っている場合は、`booking-app` フォルダで `npx supabase link` の後に `npx supabase db push` でも適用できます。
@@ -140,6 +141,44 @@ npm run dev                  # http://localhost:3000
 - [ ] 管理画面「施術スペース」：実際のベッド・個室の数に合わせる
 - [ ] 施術者で予約を管理する場合は「施術者」で有効にし、施術者・出勤時間を登録する
 - [ ] Supabase の「Allow new users to sign up」がオフになっている
+
+## 7.5 予約のお知らせメールを送れるようにする（任意）✋
+
+WEB予約が入ったときに、お客様へ「予約完了メール」を、院へ「新しい予約の通知」を自動で送ります。
+送信には Gmail を使います（無料。1日あたり約500通まで）。設定しなくても予約システムは動きます（メールが送られないだけです）。
+
+### 7.5.1 Gmail の「アプリパスワード」を作る
+
+アプリパスワードは、予約システムが Gmail からメールを送るための専用のパスワード（16文字）です。普段のログイン用パスワードとは別のものです。
+
+1. 送信元にする Google アカウント（例：yameseikotuin@gmail.com）で <https://myaccount.google.com/security> を開く
+2. 「**2段階認証プロセス**」がオフならオンにする（アプリパスワードを作るのに必要です）
+3. <https://myaccount.google.com/apppasswords> を開く
+4. 「アプリ名」に `予約システム` などと入力して「**作成**」を押す
+5. 表示された16文字（`abcd efgh ijkl mnop` のような形）を控える。**この画面を閉じると二度と表示されません**
+
+> アプリパスワードは、Gmail を自由に送信できる秘密の鍵です。他人に見せたり、チャットに貼ったりしないでください。
+> 漏れた可能性があるときは、同じ画面で削除して作り直してください。
+
+### 7.5.2 Vercel に設定する
+
+1. Vercel の予約システムのプロジェクトで **Settings → Environment Variables** を開く
+2. 次の2つを追加する（Environments は「Production and Preview」のままでよい）
+
+| Key | Value |
+| --- | --- |
+| `GMAIL_ADDRESS` | 送信元の Gmail アドレス（例：`yameseikotuin@gmail.com`） |
+| `GMAIL_APP_PASSWORD` | 7.5.1 で控えた16文字（空白はあってもなくてもよい） |
+
+3. **Deployments** を開き、一番上の公開の「︙」→「**Redeploy**」を押す（環境変数は公開し直すと反映されます）
+
+### 7.5.3 院あての通知の送り先を設定する
+
+管理画面の「**予約受付の設定**」で、「新しい予約の通知メールの送り先」に受け取るアドレスを1行に1件（最大5件）入力して保存します。
+同じ画面に「メールの送信は設定済みです」と表示されていれば、7.5.2 の設定も反映されています。
+
+> テスト予約を1件入れて、お客様あて（入力したメールアドレス）と院あての両方にメールが届くことを確認してください。
+> Gmail から送るメールは、相手の環境によっては迷惑メールに分類されることがあります。
 
 ## 8. バックアップ
 

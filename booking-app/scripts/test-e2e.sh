@@ -27,9 +27,12 @@ export FAKE_SUPABASE_PORT=54400
 export FAKE_USERS="[{\"id\":\"$ADMIN_ID\",\"email\":\"admin@example.test\",\"password\":\"admin-password-123\"},{\"id\":\"$STAFF_ID\",\"email\":\"not-admin@example.test\",\"password\":\"staff-password-123\"}]"
 node scripts/e2e/fake-supabase.mjs > "$PG_WORK/fake.log" 2>&1 &
 FAKE_PID=$!
-trap 'kill $FAKE_PID 2>/dev/null || true; pg_temp_cleanup' EXIT
+export FAKE_SMTP_PORT=2525 FAKE_SMTP_DIR="$PG_WORK/mail"
+node scripts/e2e/fake-smtp.mjs > "$PG_WORK/smtp.log" 2>&1 &
+SMTP_PID=$!
+trap 'kill $FAKE_PID $SMTP_PID 2>/dev/null || true; pg_temp_cleanup' EXIT
 for _ in $(seq 1 50); do
-  grep -q listening "$PG_WORK/fake.log" && break
+  grep -q listening "$PG_WORK/fake.log" && grep -q listening "$PG_WORK/smtp.log" && break
   sleep 0.1
 done
 
@@ -40,6 +43,6 @@ const b = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
 const h = b({ alg: "HS256", typ: "JWT" }), p = b({ role: "anon", iss: "supabase", iat: 1700000000 });
 process.stdout.write(`${h}.${p}.${c.createHmac("sha256", process.env.FAKE_JWT_SECRET).update(`${h}.${p}`).digest("base64url")}`);
 ')"
-export E2E_PGHOST="$PGHOST" E2E_PGPORT="$PGPORT"
+export E2E_PGHOST="$PGHOST" E2E_PGPORT="$PGPORT" E2E_MAIL_DIR="$FAKE_SMTP_DIR"
 
 npx playwright test "$@"

@@ -2,6 +2,8 @@ import Link from 'next/link';
 import type { AdminBookingListRow, BookingStatus } from '@/lib/supabase/database.types';
 import { formatPrice, formatTimeRange } from '@/lib/time';
 
+export { formatPhone } from '@/lib/phone';
+
 export const STATUS_LABEL: Record<BookingStatus, string> = { confirmed: '予約確定', cancelled: 'キャンセル' };
 
 export function StatusBadge({ status }: { status: BookingStatus }) {
@@ -14,14 +16,6 @@ export function StatusBadge({ status }: { status: BookingStatus }) {
       {STATUS_LABEL[status]}
     </span>
   );
-}
-
-export function formatPhone(digits: string): string {
-  if (/^0[5789]0\d{8}$/.test(digits)) return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
-  if (/^0\d{9}$/.test(digits)) return digits.startsWith('03') || digits.startsWith('06')
-    ? `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6)}`
-    : `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
-  return digits;
 }
 
 /** 予約の一覧（スマートフォンではカード、パソコンでは表） */

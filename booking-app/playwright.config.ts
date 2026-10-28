@@ -31,6 +31,11 @@ export default defineConfig({
     env: {
       SUPABASE_URL: process.env.E2E_SUPABASE_URL ?? '',
       SUPABASE_ANON_KEY: process.env.E2E_SUPABASE_ANON_KEY ?? '',
+      // メールはテスト用の SMTP サーバー（scripts/e2e/fake-smtp.mjs）に送る
+      GMAIL_ADDRESS: 'sender@example.test',
+      GMAIL_APP_PASSWORD: 'test-app-password',
+      SMTP_HOST: '127.0.0.1',
+      SMTP_PORT: process.env.FAKE_SMTP_PORT ?? '2525',
     },
   },
 });

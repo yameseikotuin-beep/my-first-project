@@ -8,6 +8,7 @@ source scripts/pg-temp.sh
 pg_temp_migrate
 # メールアドレス追加の SQL は、すでに実行済みの環境でもう一度実行できること
 "${PSQL[@]}" -f supabase/migrations/20261028000000_customer_email.sql
+"${PSQL[@]}" -f supabase/migrations/20261028000100_booking_notifications.sql
 "${PSQL[@]}" -f supabase/tests/05_helpers.sql
 for f in supabase/tests/[1-9]*.test.sql; do
   echo "== $f"
