@@ -123,6 +123,7 @@ npm run dev                  # http://localhost:3000
      - `SUPABASE_URL` = 5. の Project URL
      - `SUPABASE_ANON_KEY` = 5. の公開用キー
 3. 「Deploy」を押す。数分で `https://〇〇.vercel.app` が発行される
+   - プログラムは東京（`hnd1`）で動くよう `booking-app/vercel.json` で指定しています。データベース（東京）との通信が近くなり、画面の表示が速くなります。設定の変更は不要です
 4. Supabase の **Authentication → URL Configuration → Site URL** を、発行された URL に変更する
 5. 公開 URL で次を確認する
    - `/` で予約画面が開き、メニューが表示される
