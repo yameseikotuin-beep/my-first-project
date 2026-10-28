@@ -1,11 +1,12 @@
--- お客様のメールアドレス（任意）を予約に追加する
+-- お客様のメールアドレスを予約に追加する（WEB 予約では必須、管理画面からの登録では任意）
 --
 -- 既存の環境では、この SQL をアプリの更新（Vercel への公開）より先に実行すること。
--- 予約関数のメールアドレスの引数には既定値があるため、この SQL を実行した後も
--- 更新前のアプリはそのまま動く（メールアドレスは空欄として保存される）。
+-- 更新前のアプリはメールアドレスを送らない（引数を省略する）ため、省略された場合だけは
+-- 受け付ける。更新後のアプリは必ず送るので、空欄は拒否される。
+-- 何度実行しても同じ結果になるように書いてある。
 
 alter table public.bookings
-  add column customer_email text not null default ''
+  add column if not exists customer_email text not null default ''
   check (customer_email = '' or (char_length(customer_email) <= 254 and customer_email ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$'));
 
 -- 管理画面用の一覧にメールアドレスを加える（列は末尾に追加する）
@@ -22,13 +23,13 @@ join public.rooms r on r.id = b.room_id
 left join public.practitioners p on p.id = b.practitioner_id;
 
 -- メールアドレスを小文字・前後の空白なしにそろえる
-create function public._normalize_email(p_email text) returns text
+create or replace function public._normalize_email(p_email text) returns text
 language sql immutable set search_path = '' as $$
   select lower(btrim(coalesce(p_email, '')))
 $$;
 
 -- 空欄、または形式の正しいメールアドレスだけを受け付ける
-create function public._validate_email(p_email text) returns void
+create or replace function public._validate_email(p_email text) returns void
 language plpgsql immutable set search_path = '' as $$
 declare
   v text := public._normalize_email(p_email);
@@ -39,14 +40,16 @@ begin
 end $$;
 
 -- 予約関数にメールアドレスの引数を追加する（引数が変わるため、作り直す）
-drop function public.create_booking(uuid, timestamptz, text, text, text);
-drop function public.admin_save_booking(uuid, uuid, timestamptz, text, text, text, uuid, uuid, text);
+drop function if exists public.create_booking(uuid, timestamptz, text, text, text);
+drop function if exists public.create_booking(uuid, timestamptz, text, text, text, text);
+drop function if exists public.admin_save_booking(uuid, uuid, timestamptz, text, text, text, uuid, uuid, text);
+drop function if exists public.admin_save_booking(uuid, uuid, timestamptz, text, text, text, uuid, uuid, text, text);
 
 -- WEB 予約の登録。空きを再確認し、スペース・施術者を割り当ててから保存する
 create function public.create_booking(
   p_service_id uuid, p_start_at timestamptz,
   p_customer_name text, p_customer_phone text, p_notes text default '',
-  p_customer_email text default ''
+  p_customer_email text default null
 )
 returns table (booking_number text, service_name text, price integer, start_at timestamptz, end_at timestamptz)
 language plpgsql volatile security definer set search_path = '' as $$
@@ -60,6 +63,10 @@ declare
   v_row public.bookings;
 begin
   perform public._validate_customer(p_customer_name, p_customer_phone, p_notes);
+  -- WEB 予約ではメールアドレスを必須とする（省略＝更新前のアプリからの呼び出しだけは受け付ける）
+  if p_customer_email is not null and public._normalize_email(p_customer_email) = '' then
+    raise exception using errcode = 'P0001', message = 'EMAIL_REQUIRED';
+  end if;
   perform public._validate_email(p_customer_email);
   select * into svc from public.services where id = p_service_id and is_active;
   if not found or p_start_at is null then

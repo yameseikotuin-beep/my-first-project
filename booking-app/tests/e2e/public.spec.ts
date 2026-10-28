@@ -16,9 +16,10 @@ async function openSlots(page: Page, service: string, date: string) {
   await expect(page.getByRole('heading', { name: /の空き時間/ })).toBeVisible();
 }
 
-async function fillCustomer(page: Page, name = '山田 太郎', phone = '090-1234-5678') {
+async function fillCustomer(page: Page, name = '山田 太郎', phone = '090-1234-5678', email = 'customer@example.com') {
   await page.getByLabel('お名前').fill(name);
   await page.getByLabel('電話番号').fill(phone);
+  await page.getByLabel('メールアドレス').fill(email);
 }
 
 test('メニュー一覧が表示され、メニューを選んで日付選択へ進める', async ({ page }) => {
@@ -91,6 +92,7 @@ test('予約の流れ：入力の検証 → 確認 → 確定 → 予約番号�
   await page.getByRole('button', { name: '入力内容を確認する' }).click();
   await expect(page.getByText('お名前を入力してください')).toBeVisible();
   await expect(page.getByText('電話番号を入力してください')).toBeVisible();
+  await expect(page.getByText('メールアドレスを入力してください')).toBeVisible();
   await fillCustomer(page, '山田 太郎', '1234');
   await page.getByRole('button', { name: '入力内容を確認する' }).click();
   await expect(page.getByText('電話番号は0から始まる10桁または11桁で入力してください')).toBeVisible();

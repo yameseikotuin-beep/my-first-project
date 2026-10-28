@@ -81,8 +81,10 @@ export function BookingForm({ service, slot }: { service: PublicServiceRow; slot
             type="email"
             inputMode="email"
             autoComplete="email"
+            required
             maxLength={254}
             placeholder="例：yamada@example.com"
+            hint="ご予約内容の確認などに使います。"
             value={values.customerEmail}
             onChange={set('customerEmail')}
             error={fieldErrors.customerEmail}
@@ -132,7 +134,7 @@ export function BookingForm({ service, slot }: { service: PublicServiceRow; slot
         <Row label="料金" value={formatPrice(service.price)} note="お支払いは当日店頭でお願いします" />
         <Row label="お名前" value={values.customerName} />
         <Row label="電話番号" value={values.customerPhone} />
-        <Row label="メールアドレス" value={values.customerEmail || 'なし'} />
+        <Row label="メールアドレス" value={values.customerEmail} />
         <Row label="備考" value={values.notes || 'なし'} />
       </dl>
       <form action={action} className="mt-5 space-y-3">
